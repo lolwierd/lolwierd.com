@@ -58,6 +58,8 @@
   var stars = [];
   var wanderers = [];
   var starSeats = [];
+  var activeWork = null;
+
   var comet = {
     active: false,
     start: 0,
@@ -78,7 +80,6 @@
   var lastDraw = 0;
   var reducedMotion = motionMedia.matches;
   var visible = !document.hidden;
-  var activeWork = null;
 
   function clamp(value, min, max) {
     return value < min ? min : value > max ? max : value;
@@ -123,11 +124,8 @@
     return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
   }
 
-  /*
-   * Same first-principles idea as React Bits Dither: a slow FBM field moves
-   * underneath a fixed ordered-dither grid. We keep it local to weather and
-   * the few pixels outside the ridge so the photograph itself never swims.
-   */
+  // The useful idea from React Bits Dither: move a low-frequency FBM field
+  // underneath a fixed ordered-dither grid. The mountain plate itself never moves.
   function fbm(x, y, seed) {
     var value = 0;
     var amplitude = 0.56;
@@ -166,6 +164,109 @@
   function listenMedia(media, callback) {
     if (media.addEventListener) media.addEventListener("change", callback);
     else media.addListener(callback);
+  }
+
+  function medianFilterSkyline(source, scale) {
+    var radius = Math.max(2, Math.round(2.25 * scale));
+    var clean = new Int32Array(source.length);
+
+    for (var x = 0; x < source.length; x++) {
+      var values = [];
+      for (
+        var neighbor = Math.max(0, x - radius);
+        neighbor <= Math.min(source.length - 1, x + radius);
+        neighbor++
+      ) {
+        values.push(source[neighbor]);
+      }
+      values.sort(function (a, b) { return a - b; });
+      clean[x] = values[Math.floor(values.length / 2)];
+    }
+
+    return clean;
+  }
+
+  /*
+   * Per-column sky classification can occasionally "fall through" a run of
+   * columns when snow/sky colours are close. That produced the fake rectangular
+   * bite in the middle of the range. A real ridge can be sharp, but it should not
+   * jump down tens of pixels, remain missing for a short span, then jump back up.
+   *
+   * Repair only those paired discontinuities. We never smooth the whole ridge:
+   * detected terrain above the reconstructed chord is preserved, so actual peaks,
+   * teeth and rock detail stay crisp.
+   */
+  function repairSkylineCuts(source, scale) {
+    var out = new Int32Array(source);
+    var jump = Math.max(16, Math.round(18 * scale));
+    var recovery = Math.max(11, Math.round(12 * scale));
+    var maxSpan = Math.max(28, Math.round(48 * scale));
+    var tolerance = Math.max(5, Math.round(6 * scale));
+
+    for (var x = 1; x < out.length - 2; x++) {
+      var downJump = out[x] - out[x - 1];
+      if (downJump < jump) continue;
+
+      var end = -1;
+      var limit = Math.min(out.length - 1, x + maxSpan);
+
+      for (var j = x + 1; j <= limit; j++) {
+        var upJump = out[j - 1] - out[j];
+        if (upJump >= recovery) {
+          end = j;
+          break;
+        }
+      }
+
+      if (end < 0) continue;
+
+      var leftX = x - 1;
+      var rightX = end;
+      var leftY = out[leftX];
+      var rightY = out[rightX];
+      var suspicious = 0;
+      var samples = 0;
+
+      for (var k = x; k < end; k++) {
+        var t = (k - leftX) / (rightX - leftX);
+        var chord = lerp(leftY, rightY, t);
+        if (out[k] > chord + tolerance) suspicious++;
+        samples++;
+      }
+
+      if (!samples || suspicious / samples < 0.60) continue;
+
+      for (k = x; k < end; k++) {
+        t = (k - leftX) / (rightX - leftX);
+        chord = Math.round(lerp(leftY, rightY, t));
+
+        // Smaller y means "terrain starts higher". Only fill missing terrain;
+        // never erase a real peak that the detector already found.
+        out[k] = Math.min(out[k], chord);
+      }
+
+      x = end - 1;
+    }
+
+    // Second safety net: a one-column detector failure should never create a
+    // vertical wall. This only clamps truly implausible instantaneous drops.
+    var maxStep = Math.max(5, Math.round(5 * scale));
+    var forward = new Int32Array(out);
+    var backward = new Int32Array(out);
+
+    for (x = 1; x < out.length; x++) {
+      forward[x] = Math.min(forward[x], forward[x - 1] + maxStep);
+    }
+
+    for (x = out.length - 2; x >= 0; x--) {
+      backward[x] = Math.min(backward[x], backward[x + 1] + maxStep);
+    }
+
+    for (x = 0; x < out.length; x++) {
+      out[x] = Math.min(out[x], forward[x], backward[x]);
+    }
+
+    return out;
   }
 
   function buildSkyline(pixels, w, h, bandTop, scale) {
@@ -231,23 +332,7 @@
       }
     }
 
-    var radius = Math.max(2, Math.round(2.25 * scale));
-    var clean = new Int32Array(w);
-
-    for (x = 0; x < w; x++) {
-      var values = [];
-      for (
-        var neighbor = Math.max(0, x - radius);
-        neighbor <= Math.min(w - 1, x + radius);
-        neighbor++
-      ) {
-        values.push(skyline[neighbor]);
-      }
-      values.sort(function (a, b) { return a - b; });
-      clean[x] = values[Math.floor(values.length / 2)];
-    }
-
-    return clean;
+    return repairSkylineCuts(medianFilterSkyline(skyline, scale), scale);
   }
 
   function layoutPlate() {
@@ -352,6 +437,7 @@
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         var i = y * width + x;
+
         if (y < skyline[x]) {
           paper[i] = 1;
           continue;
@@ -359,6 +445,7 @@
 
         var value = luminance[i] / 255;
         var density;
+
         if (dark) {
           var lit = Math.pow(smoothstep(0.07, 0.94, value), 1.34);
           density = 0.07 + 0.93 * lit;
@@ -366,6 +453,7 @@
           var shadow = Math.pow(smoothstep(0.04, 0.82, 1 - value), 1.15);
           density = 0.025 + 0.975 * shadow;
         }
+
         paper[i] = 1 - clamp(density, 0, 1);
       }
     }
@@ -402,6 +490,7 @@
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         var i = y * width + x;
+
         if (y < skyline[x]) {
           activeWork[i] = 1;
           continue;
@@ -413,6 +502,7 @@
 
         var error = (old - quantized) * 0.125;
         if (!error) continue;
+
         diffuse(x + 1, y, error, skyline);
         diffuse(x + 2, y, error, skyline);
         diffuse(x - 1, y + 1, error, skyline);
@@ -441,6 +531,7 @@
       for (var distance = 1; distance <= reach; distance++) {
         var y = edge - distance;
         if (y < 0) break;
+
         var envelope = 1 - distance / (reach + 1);
         var keep = 0.08 + envelope * envelope * 0.25;
         if (hash2(x, y, seed) > keep) continue;
@@ -459,6 +550,7 @@
 
   function drawEdge(now) {
     if (!edgeDots.length) return;
+
     var activeTheme = theme();
     var t = now * 0.000020;
     ctx.fillStyle = activeTheme.ink;
@@ -473,11 +565,16 @@
       );
       var pulse = 0.5 + 0.5 * Math.sin(dot.phase + t * 0.72 + dot.x * 0.0034);
       var density = dot.envelope * (0.16 + field * 0.64 + pulse * 0.20);
+
       if (density < dot.threshold * 0.70) continue;
 
       var lift = Math.round((field - 0.48) * dpr * 1.8);
       var alpha =
-        activeTheme.edgeAlpha * dot.envelope * dot.strength * smoothstep(0.22, 0.80, density);
+        activeTheme.edgeAlpha *
+        dot.envelope *
+        dot.strength *
+        smoothstep(0.22, 0.80, density);
+
       if (alpha < 0.008) continue;
 
       ctx.globalAlpha = clamp(alpha, 0, 0.45);
@@ -499,7 +596,11 @@
       }
     }
 
-    return { x: valleyX, y: valleyY, depth: valleyY - state.ridgeTop };
+    return {
+      x: valleyX,
+      y: valleyY,
+      depth: valleyY - state.ridgeTop
+    };
   }
 
   function makeClouds() {
@@ -519,28 +620,49 @@
 
     var top = valley.y - cloudHeight;
     if (!state.dark) top -= 0.24 * cloudHeight;
+
     var bottom = valley.y + (state.dark ? 85 : 150) * dpr;
     var centerY = (top + bottom) * 0.5;
     var dotStep = Math.max(2, Math.round((state.dark ? 2.6 : 2.2) * dpr));
     var seed = state.dark ? 1701 : 1801;
 
     for (var y = top; y <= bottom; y += dotStep) {
-      for (var x = valley.x - span * 0.5; x <= valley.x + span * 0.5; x += dotStep) {
+      for (
+        var x = valley.x - span * 0.5;
+        x <= valley.x + span * 0.5;
+        x += dotStep
+      ) {
         if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
         var u = (x - valley.x) / (span * 0.5);
         var v = (y - centerY) / (cloudHeight * 0.5);
 
         var basin = Math.exp(-(u * u * 2.4 + v * v * 4.0));
-        var left = Math.exp(-((u + 0.48) * (u + 0.48) * 4.2 + (v + 0.02) * (v + 0.02) * 5.0));
-        var right = Math.exp(-((u - 0.47) * (u - 0.47) * 4.4 + (v + 0.05) * (v + 0.05) * 5.2));
-        var upper = Math.exp(-((u - 0.06) * (u - 0.06) * 3.1 + (v + 0.52) * (v + 0.52) * 10.0));
-        var shape = clamp(basin + left * 0.78 + right * 0.72 + upper * (state.dark ? 0.18 : 0.62), 0, 1);
+        var left = Math.exp(
+          -((u + 0.48) * (u + 0.48) * 4.2 + (v + 0.02) * (v + 0.02) * 5.0)
+        );
+        var right = Math.exp(
+          -((u - 0.47) * (u - 0.47) * 4.4 + (v + 0.05) * (v + 0.05) * 5.2)
+        );
+        var upper = Math.exp(
+          -((u - 0.06) * (u - 0.06) * 3.1 + (v + 0.52) * (v + 0.52) * 10.0)
+        );
+
+        var shape = clamp(
+          basin +
+            left * 0.78 +
+            right * 0.72 +
+            upper * (state.dark ? 0.18 : 0.62),
+          0,
+          1
+        );
+
         if (shape < 0.055) continue;
 
         var cellX = Math.floor(x / dotStep);
         var cellY = Math.floor(y / dotStep);
         var keep = 0.12 + shape * activeTheme.cloudDensity;
+
         if (hash2(cellX, cellY, seed) > keep) continue;
 
         cloudDots.push({
@@ -556,6 +678,7 @@
 
   function drawClouds(now) {
     if (!cloudDots.length) return;
+
     var activeTheme = theme();
     var t = now * 0.000024;
     var swell = state.dark
@@ -579,10 +702,14 @@
       var localSwell = 0.88 + 0.12 * Math.sin(dot.phase + t * 0.52);
       var density = dot.shape * (0.18 + field * 0.82) * swell * localSwell;
       var thresholdScale = state.dark ? 0.64 : 0.49;
+
       if (density < dot.threshold * thresholdScale) continue;
 
       var alpha =
-        activeTheme.cloudAlpha * ridgeFade * (0.34 + density * 0.76);
+        activeTheme.cloudAlpha *
+        ridgeFade *
+        (0.34 + density * 0.76);
+
       if (alpha < 0.008) continue;
 
       ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.28 : 0.46);
@@ -594,6 +721,7 @@
     stars = [];
     starSeats = [];
     wanderers = [];
+
     if (!state.dark) return;
 
     var portrait = state.cssWidth < state.cssHeight;
@@ -617,26 +745,30 @@
       for (var i = 0; i < starSeats.length; i++) {
         var dx = starSeats[i].x - candidateX;
         var dy = starSeats[i].y - candidateY;
+
         if (dx * dx + dy * dy < minDistance * minDistance) {
           clear = false;
           break;
         }
       }
+
       if (!clear) continue;
 
       var classRoll = hash(seed++);
       var kind = classRoll > 0.94 ? 2 : classRoll > 0.76 ? 1 : 0;
+
       starSeats.push({
         x: candidateX,
         y: candidateY,
         size: kind === 2 ? Math.max(1, Math.round(dpr * 0.65)) : 1,
         phase: hash(seed++) * Math.PI * 2,
         period: 6200 + hash(seed++) * 27000,
-        magnitude: kind === 2
-          ? 0.92 + hash(seed++) * 0.08
-          : kind === 1
-            ? 0.62 + hash(seed++) * 0.27
-            : 0.24 + hash(seed++) * 0.45,
+        magnitude:
+          kind === 2
+            ? 0.92 + hash(seed++) * 0.08
+            : kind === 1
+              ? 0.62 + hash(seed++) * 0.27
+              : 0.24 + hash(seed++) * 0.45,
         breathePeriod: 16000 + hash(seed++) * 62000,
         breatheOffset: hash(seed++) * 95000,
         shimmerPeriod: 2100 + hash(seed++) * 7800,
@@ -647,9 +779,15 @@
       });
     }
 
-    for (i = 0; i < Math.min(count, starSeats.length); i++) stars.push(starSeats[i]);
+    for (i = 0; i < Math.min(count, starSeats.length); i++) {
+      stars.push(starSeats[i]);
+    }
 
-    for (i = 0; i < Math.min(5, Math.max(0, starSeats.length - count - 6)); i++) {
+    for (
+      i = 0;
+      i < Math.min(5, Math.max(0, starSeats.length - count - 6));
+      i++
+    ) {
       wanderers.push({
         first: count + i,
         second: count + i + 6,
@@ -666,33 +804,62 @@
   }
 
   function drawStar(star, now, multiplier) {
-    var activeTheme = theme();
     if (!state.dark) return;
 
+    var activeTheme = theme();
     var primary = Math.sin((now / star.period) * Math.PI * 2 + star.phase);
-    var secondary = Math.sin((now / (star.period * 1.73)) * Math.PI * 2 + star.phase * 1.7);
-    var shimmer = Math.sin(
-      ((now + star.shimmerOffset) / star.shimmerPeriod) * Math.PI * 2 + star.phase * 2.2
+    var secondary = Math.sin(
+      (now / (star.period * 1.73)) * Math.PI * 2 + star.phase * 1.7
     );
-    var twinkle = 0.57 + primary * 0.18 + secondary * 0.10 + shimmer * 0.06 * star.sparkle;
+    var shimmer = Math.sin(
+      ((now + star.shimmerOffset) / star.shimmerPeriod) * Math.PI * 2 +
+        star.phase * 2.2
+    );
+
+    var twinkle =
+      0.57 +
+      primary * 0.18 +
+      secondary * 0.10 +
+      shimmer * 0.06 * star.sparkle;
 
     var breathe =
-      0.72 + 0.28 * Math.sin(((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2);
+      0.72 +
+      0.28 *
+        Math.sin(
+          ((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2
+        );
 
-    var flarePhase = (((now + star.flareOffset) % star.flarePeriod) + star.flarePeriod) % star.flarePeriod;
+    var flarePhase =
+      (((now + star.flareOffset) % star.flarePeriod) + star.flarePeriod) %
+      star.flarePeriod;
     var flarePos = flarePhase / star.flarePeriod;
     var flare = 0;
+
     if (star.sparkle > 0.25 && flarePos < 0.06) {
-      flare = Math.sin((flarePos / 0.06) * Math.PI) * star.sparkle * 0.52;
+      flare =
+        Math.sin((flarePos / 0.06) * Math.PI) *
+        star.sparkle *
+        0.52;
     }
 
     var alpha =
-      activeTheme.starAlpha * star.magnitude * clamp(twinkle + flare, 0.10, 1.22) * breathe * multiplier * skylineAlpha(star.x, star.y);
+      activeTheme.starAlpha *
+      star.magnitude *
+      clamp(twinkle + flare, 0.10, 1.22) *
+      breathe *
+      multiplier *
+      skylineAlpha(star.x, star.y);
+
     if (alpha < 0.01) return;
 
     ctx.fillStyle = activeTheme.star;
     ctx.globalAlpha = clamp(alpha, 0, 1);
-    ctx.fillRect(Math.round(star.x), Math.round(star.y), star.size, star.size);
+    ctx.fillRect(
+      Math.round(star.x),
+      Math.round(star.y),
+      star.size,
+      star.size
+    );
 
     if (flare > 0.26 && star.sparkle > 0.65) {
       ctx.globalAlpha = clamp(alpha * flare * 0.30, 0, 0.42);
@@ -706,7 +873,11 @@
   function drawWanderer(wanderer, now) {
     if (!starSeats[wanderer.first] || !starSeats[wanderer.second]) return;
 
-    var phase = ((((now - wanderer.offset) % wanderer.period) + wanderer.period) % wanderer.period) / wanderer.period;
+    var phase =
+      ((((now - wanderer.offset) % wanderer.period) + wanderer.period) %
+        wanderer.period) /
+      wanderer.period;
+
     var source = starSeats[wanderer.first];
     var target = starSeats[wanderer.second];
     var chosen = source;
@@ -735,30 +906,38 @@
       fade = 0;
     }
 
-    drawStar({
-      x: chosen.x,
-      y: chosen.y,
-      size: chosen.size,
-      phase: chosen.phase,
-      period: chosen.period * 1.2,
-      magnitude: wanderer.magnitude,
-      breathePeriod: chosen.breathePeriod,
-      breatheOffset: chosen.breatheOffset,
-      shimmerPeriod: chosen.shimmerPeriod,
-      shimmerOffset: chosen.shimmerOffset,
-      flarePeriod: chosen.flarePeriod,
-      flareOffset: chosen.flareOffset,
-      sparkle: chosen.sparkle * 0.72
-    }, now, fade);
+    drawStar(
+      {
+        x: chosen.x,
+        y: chosen.y,
+        size: chosen.size,
+        phase: chosen.phase,
+        period: chosen.period * 1.2,
+        magnitude: wanderer.magnitude,
+        breathePeriod: chosen.breathePeriod,
+        breatheOffset: chosen.breatheOffset,
+        shimmerPeriod: chosen.shimmerPeriod,
+        shimmerOffset: chosen.shimmerOffset,
+        flarePeriod: chosen.flarePeriod,
+        flareOffset: chosen.flareOffset,
+        sparkle: chosen.sparkle * 0.72
+      },
+      now,
+      fade
+    );
   }
 
   function scheduleComet(now) {
     if (!state.dark) return;
+
     var seed = Math.floor(now / 1000) + width * 3 + height * 5;
     var leftToRight = hash(seed) > 0.5;
     var startX = (0.12 + hash(seed + 1) * 0.74) * width;
     var startY = (0.07 + hash(seed + 2) * 0.28) * state.ridgeTop;
-    var deltaX = (0.10 + hash(seed + 3) * 0.18) * width * (leftToRight ? 1 : -1);
+    var deltaX =
+      (0.10 + hash(seed + 3) * 0.18) *
+      width *
+      (leftToRight ? 1 : -1);
 
     comet.active = true;
     comet.start = now;
@@ -766,49 +945,83 @@
     comet.x0 = startX;
     comet.y0 = startY;
     comet.x1 = startX + deltaX;
-    comet.y1 = startY + (0.08 + hash(seed + 5) * 0.13) * state.ridgeTop;
+    comet.y1 =
+      startY +
+      (0.08 + hash(seed + 5) * 0.13) *
+        state.ridgeTop;
     comet.tail = (0.020 + hash(seed + 6) * 0.026) * width;
-    comet.next = now + comet.duration + 100000 + hash(seed + 7) * 220000;
+    comet.next =
+      now +
+      comet.duration +
+      100000 +
+      hash(seed + 7) * 220000;
   }
 
   function drawComet(now) {
     if (!state.dark || !comet.active) return;
 
     var progress = (now - comet.start) / comet.duration;
+
     if (progress >= 1) {
       comet.active = false;
       return;
     }
+
     if (progress < 0) return;
 
-    var fade = smoothstep(0, 0.12, progress) * (1 - smoothstep(0.70, 1, progress));
+    var fade =
+      smoothstep(0, 0.12, progress) *
+      (1 - smoothstep(0.70, 1, progress));
+
     var x = lerp(comet.x0, comet.x1, progress);
     var y = lerp(comet.y0, comet.y1, progress);
     var dx = comet.x1 - comet.x0;
     var dy = comet.y1 - comet.y0;
     var len = Math.sqrt(dx * dx + dy * dy) || 1;
+
     dx /= len;
     dy /= len;
 
     var activeTheme = theme();
     ctx.fillStyle = activeTheme.star;
 
-    for (var step = comet.tail; step > 0; step -= Math.max(1, dpr * 0.75)) {
+    for (
+      var step = comet.tail;
+      step > 0;
+      step -= Math.max(1, dpr * 0.75)
+    ) {
       var tx = Math.round(x - dx * step);
       var ty = Math.round(y - dy * step);
+
       if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
       if (ty >= state.skyline[tx] - 10 * dpr) continue;
 
-      var alpha = fade * Math.pow(1 - step / comet.tail, 1.42) * activeTheme.starAlpha * 0.80;
+      var alpha =
+        fade *
+        Math.pow(1 - step / comet.tail, 1.42) *
+        activeTheme.starAlpha *
+        0.80;
+
       if (alpha < 0.01) continue;
+
       ctx.globalAlpha = alpha;
       ctx.fillRect(tx, ty, 1, 1);
     }
 
     var headX = clamp(Math.round(x), 0, width - 1);
+
     if (y < state.skyline[headX] - 14 * dpr) {
-      ctx.globalAlpha = clamp(fade * activeTheme.starAlpha * 1.18, 0, 1);
-      ctx.fillRect(headX, Math.round(y), Math.max(1, Math.round(dpr * 0.55)), Math.max(1, Math.round(dpr * 0.55)));
+      ctx.globalAlpha = clamp(
+        fade * activeTheme.starAlpha * 1.18,
+        0,
+        1
+      );
+      ctx.fillRect(
+        headX,
+        Math.round(y),
+        Math.max(1, Math.round(dpr * 0.55)),
+        Math.max(1, Math.round(dpr * 0.55))
+      );
     }
   }
 
@@ -822,8 +1035,13 @@
     drawEdge(now);
     drawClouds(now);
 
-    for (var i = 0; i < stars.length; i++) drawStar(stars[i], now, 1);
-    for (i = 0; i < wanderers.length; i++) drawWanderer(wanderers[i], now);
+    for (var i = 0; i < stars.length; i++) {
+      drawStar(stars[i], now, 1);
+    }
+
+    for (i = 0; i < wanderers.length; i++) {
+      drawWanderer(wanderers[i], now);
+    }
 
     drawComet(now);
     ctx.globalAlpha = 1;
@@ -831,20 +1049,30 @@
 
   function tick(now) {
     rafId = window.requestAnimationFrame(tick);
+
     if (!state || reducedMotion || !visible) return;
     if (now - lastDraw < 1000 / 30) return;
+
     lastDraw = now;
 
-    if (state.dark && !comet.active && now >= comet.next) scheduleComet(now);
+    if (state.dark && !comet.active && now >= comet.next) {
+      scheduleComet(now);
+    }
+
     drawFrame(now);
   }
 
   function build() {
     if (!plate.complete || !plate.naturalWidth) return;
+
     window.cancelAnimationFrame(rafId);
     rafId = 0;
+
     layoutPlate();
-    if (!reducedMotion) rafId = window.requestAnimationFrame(tick);
+
+    if (!reducedMotion) {
+      rafId = window.requestAnimationFrame(tick);
+    }
   }
 
   function onResize() {
@@ -865,7 +1093,10 @@
 
   document.addEventListener("visibilitychange", function () {
     visible = !document.hidden;
-    if (visible && !reducedMotion && !rafId) rafId = window.requestAnimationFrame(tick);
+
+    if (visible && !reducedMotion && !rafId) {
+      rafId = window.requestAnimationFrame(tick);
+    }
   });
 
   window.__portfolioSky = {
@@ -875,18 +1106,33 @@
       rafId = 0;
     },
     start: function () {
-      if (!reducedMotion && !rafId) rafId = window.requestAnimationFrame(tick);
+      if (!reducedMotion && !rafId) {
+        rafId = window.requestAnimationFrame(tick);
+      }
     },
     cometNow: function (now) {
-      var time = reducedMotion ? FIXED_TIME : (now == null ? performance.now() : now);
+      var time =
+        reducedMotion
+          ? FIXED_TIME
+          : now == null
+            ? performance.now()
+            : now;
+
       if (state && state.dark) scheduleComet(time);
       drawFrame(time);
     },
     step: function (now) {
-      drawFrame(reducedMotion ? FIXED_TIME : (now == null ? performance.now() : now));
+      drawFrame(
+        reducedMotion
+          ? FIXED_TIME
+          : now == null
+            ? performance.now()
+            : now
+      );
     },
     state: function () {
       if (!state) return null;
+
       return {
         width: state.width,
         height: state.height,
@@ -900,8 +1146,15 @@
         cloudDots: cloudDots.length,
         stars: stars.length,
         wanderers: wanderers.length,
-        comet: { active: comet.active, next: comet.next },
-        motion: { reduced: reducedMotion, visible: visible, rafActive: !!rafId }
+        comet: {
+          active: comet.active,
+          next: comet.next
+        },
+        motion: {
+          reduced: reducedMotion,
+          visible: visible,
+          rafActive: !!rafId
+        }
       };
     }
   };
