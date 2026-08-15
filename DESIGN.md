@@ -16,11 +16,11 @@ the distinctive detail is the boundary. the mountain is made from one continuous
 
 ## motion
 
-the mountain never moves. stars use fixed positions and slow opacity changes, and the few that relocate do so through a long fade. a small dithered veil sits in the deepest basin and lets a slow density field move through fixed dot seats; it fades into the ridge instead of forming a second horizon. comets are scheduled on a multi-minute interval and disappear before the skyline. reduced motion keeps the same composition at a fixed phase.
+the mountain never moves. stars (64 in dark mode, 44 in light) use fixed positions with a layered twinkle: a slow primary oscillation, a faster secondary shimmer, and occasional flare spikes that briefly brighten individual stars. each star also has a slow visibility cycle — it dims slightly for ~20% of a 10-30 second period and returns — so the visible count is always changing. a few stars relocate through long fades. a dithered veil sits in the deepest basin and lets a slow density field move through fixed dot seats; it breathes, drifts, and fades into the ridge instead of forming a second horizon. comets streak across the sky every 25-90 seconds with a bright head and trailing tail, disappearing before the skyline. a supernova occasionally flares — a star flashes bright, then an expanding ring of dithered dots spreads outward and fades over 4-7 seconds. a satellite drifts slowly across the sky every 40-160 seconds, a single dim dot that's easy to miss. reduced motion keeps the same composition at a fixed phase.
 
 ## rejected
 
-- the prototype’s broad procedural cloud bank was cut. at one-bit density it read as a detached strip of digital noise instead of weather. the retained cloud is narrower, basin-bound, and kept below the empty sky.
-- dense star fields and a milky way were cut because they turned the empty sky into decoration.
+- the prototype's broad procedural cloud bank was cut. at one-bit density it read as a detached strip of digital noise instead of weather. the retained cloud is narrower, basin-bound, and kept below the empty sky.
+- a milky way band was cut because it turned the empty sky into decoration. the retained star field is sparse enough that the sky still reads as sky, with twinkling and occasional flares providing life without filling the void.
 - glass panels were cut because the page needs a calm reading ground, not a stack of translucent UI objects.
 - the first unsplash photograph was replaced because its cloud bank made the rock/sky boundary ambiguous after reduction. the chosen image has a readable skyline, several distinct peaks, and a central valley, so the range survives the dither at a glance.
