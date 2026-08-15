@@ -6,35 +6,40 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <a class="skip-link" href="#work">skip to work</a>
 
   <header class="hero" id="top">
-    <div class="hero-inner">
-      <p class="eyebrow">ayaan retiwala <span aria-hidden="true">·</span> platform engineer</p>
-      <h1>i build the parts of the cloud that have to keep working.</h1>
-      <p class="hero-lede">
-        i built the core of a public cloud from scratch: compute and virtualization,
-        block storage, managed kubernetes, networking, and identity. the hard part
-        is almost never the happy path, and that is the half i am good at.
-      </p>
-      <p class="hero-fact">excloud / 2023–2026 <span aria-hidden="true">·</span> 4,000+ accounts <span aria-hidden="true">·</span> 380 active vms</p>
+    <div class="hero-frame">
+      <div class="topbar">
+        <p class="site-name">ayaan retiwala <span>· platform engineer</span></p>
+        <nav class="hero-nav" aria-label="Page">
+          <a href="#work">work</a>
+          <a href="#made">made</a>
+          <a href="#contact">contact</a>
+        </nav>
+      </div>
 
-      <nav class="hero-nav" aria-label="Page">
-        <a href="#work">work</a>
-        <a href="#projects">projects</a>
-        <a href="#contact">contact</a>
-      </nav>
+      <div class="hero-copy">
+        <h1>i build cloud infrastructure.</h1>
+        <p>
+          compute, storage, kubernetes, networking, identity. mostly in go.
+          i like systems that stay understandable after something goes wrong.
+        </p>
+      </div>
+
+      <p class="hero-place">vadodara, india <span>·</span> remote</p>
     </div>
-    <p class="scroll-note" aria-hidden="true">↓</p>
   </header>
 
   <main class="reading-ground">
     <div class="reading-inner">
       <section class="content-section" id="work">
-        <div class="section-label">
+        <div class="section-label" aria-hidden="true">
           <span>01</span>
           <span>work</span>
         </div>
+
         <div class="section-body">
           <p class="section-lede">
-            systems that stay legible when they are failing, recovering, or under load.
+            for three years i helped build a public cloud from the control plane
+            down to the edges where machines, disks, packets, and failure meet.
           </p>
 
           <article class="experience-entry">
@@ -43,112 +48,133 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <h2>excloud</h2>
                 <p class="entry-role">platform engineer</p>
               </div>
-              <p class="entry-date">jun 2023 – aug 2026<br />remote</p>
+              <p class="entry-date">jun 2023 — aug 2026<br />remote</p>
             </header>
 
-            <p class="entry-scope">
-              built and operated the platform alongside the engineering lead, with
-              production responsibility across compute, storage, kubernetes, network,
-              identity, data, and the developer surface around them.
-            </p>
+            <div class="prose">
+              <p>
+                excloud was small enough that abstractions did not protect you for long.
+                if a volume attached twice, a host disappeared halfway through provisioning,
+                or a cluster stalled during bootstrap, the people who designed the path also
+                had to make it recover.
+              </p>
+              <p>
+                i worked across most of that path. the interesting part was rarely creating
+                the resource. it was deciding what should happen when reality and the database
+                disagreed, then making retries safe enough that an operator could stop being afraid of them.
+              </p>
+            </div>
 
-            <ul class="work-list">
-              <li>
-                <span class="work-label">compute / storage</span>
-                <p>built the qemu/kvm control plane and an spdk + nvme-of storage engine with reconciliation, retryable provisioning, resize, cleanup, and recovery after a crash mid-transition.</p>
-              </li>
-              <li>
-                <span class="work-label">kubernetes</span>
-                <p>shipped managed clusters end to end: bootstrap, oidc and jwks, short-lived join credentials, cilium, coredns, a csi driver, and the karpenter provider that scales nodes.</p>
-              </li>
-              <li>
-                <span class="work-label">shared platform</span>
-                <p>wrote the shared go layer used across 20+ services, including an http framework that derives openapi 3.1 from types, domain primitives, typed errors, and opentelemetry middleware.</p>
-              </li>
-              <li>
-                <span class="work-label">network / identity</span>
-                <p>built imds identity and token delivery, iam authorization, audit events, authoritative dns, and an af_packet arp/ndp proxy with bpf filtering, vlan handling, rate limits, and ipv6 dad.</p>
-              </li>
-              <li>
-                <span class="work-label">developer surface</span>
-                <p>built the openapi-to-client pipeline feeding the sdk, a 20-group cli, and a terraform provider with 30 resources and 13 data sources, plus the console people use to drive it all.</p>
-              </li>
-            </ul>
-
-            <dl class="measurements" aria-label="Excloud at handover">
-              <div><dt>accounts</dt><dd>4,000+</dd></div>
-              <div><dt>active vms</dt><dd>380</dd></div>
-              <div><dt>managed postgres</dt><dd>140</dd></div>
-              <div><dt>internal services</dt><dd>20+</dd></div>
+            <dl class="work-notes">
+              <div>
+                <dt>compute / storage</dt>
+                <dd>
+                  qemu/kvm control planes and spdk + nvme-of block storage, with reconciliation
+                  around provisioning, attach/detach, resize, cleanup, and recovery after interrupted transitions.
+                </dd>
+              </div>
+              <div>
+                <dt>clusters / network</dt>
+                <dd>
+                  managed kubernetes from bootstrap through cilium, csi, and karpenter;
+                  identity, authoritative dns, and the arp/ndp machinery underneath the network.
+                </dd>
+              </div>
+              <div>
+                <dt>developer surface</dt>
+                <dd>
+                  a shared go http layer that derives openapi 3.1 from types, then the sdk,
+                  cli, terraform provider, console, and telemetry around the services that use it.
+                </dd>
+              </div>
             </dl>
+
+            <aside class="remembered-bug">
+              <p class="aside-label">one bug i remember</p>
+              <p>
+                a borrowed header survived longer than its buffer in the kubernetes api transport.
+                tracing it meant following the failure through http/2 and hpack without breaking
+                opentelemetry propagation on the way out.
+              </p>
+            </aside>
+
+            <p class="measurements" aria-label="Excloud at handover">
+              <span>4,000+ accounts</span>
+              <span>380 active vms</span>
+              <span>140 managed postgres clusters</span>
+              <span>20+ internal services</span>
+            </p>
           </article>
         </div>
       </section>
 
-      <section class="content-section" id="projects">
-        <div class="section-label">
+      <section class="content-section" id="made">
+        <div class="section-label" aria-hidden="true">
           <span>02</span>
-          <span>projects</span>
+          <span>made</span>
         </div>
+
         <div class="section-body">
-          <p class="section-lede">small tools, long edges, and a bias toward making the operator’s day quieter.</p>
+          <p class="section-lede">some things i made because i wanted them to exist.</p>
 
           <div class="project-list">
             <article class="project-row">
-              <div>
+              <header>
                 <h2>dbconsole</h2>
-                <p class="project-stack">electron · vite · next.js · postgres</p>
-              </div>
-              <p>postgres workbench for web and macos with query tabs, safety checks before destructive statements, server-side result streaming, schema graphs, and encrypted named-query sync with conflict resolution. <span class="project-count">19 releases.</span></p>
+                <p>electron · postgres</p>
+              </header>
+              <p>
+                a postgres workbench for web and macos: query tabs, destructive-statement checks,
+                streamed results, schema graphs, history, and encrypted named-query sync with conflict resolution.
+              </p>
             </article>
+
             <article class="project-row">
-              <div>
+              <header>
                 <h2>cbmanager</h2>
-                <p class="project-stack">swift · appkit · sqlite · vision</p>
-              </div>
-              <p>native macos clipboard manager with global shortcut and paste-back, ocr over copied images, fuzzy and semantic search, bounded caching, async persistence, and <span class="project-count">162 test methods.</span></p>
+                <p>swift · appkit · sqlite</p>
+              </header>
+              <p>
+                a native clipboard manager with paste-back, ocr over copied images, fuzzy and semantic search,
+                bounded caching, async persistence, and a test suite large enough to make refactors boring.
+              </p>
             </article>
+
             <article class="project-row">
-              <div>
+              <header>
                 <h2>rig</h2>
-                <p class="project-stack">react · vite · fastify · websockets</p>
-              </div>
-              <p>mobile-first dispatch console for the <code>pi</code> coding agent with live tool-call streaming, model and thinking-level selection, resume and stop controls, and telegram or rest operator access.</p>
+                <p>react · fastify · websockets</p>
+              </header>
+              <p>
+                a small dispatch console for the <code>pi</code> coding agent. start work from a phone,
+                watch tool calls arrive live, stop or resume sessions, and leave the machine itself alone.
+              </p>
             </article>
+
             <article class="project-row">
-              <div>
+              <header>
                 <h2>tachyon</h2>
-                <p class="project-stack">pwa · offline-first</p>
-              </div>
-              <p>manga-reader pwa with offline reading, source integration, auto-scroll, anilist sync, and a test suite built around async state and race conditions.</p>
+                <p>pwa · offline-first</p>
+              </header>
+              <p>
+                a manga reader built around offline reading, source integration, auto-scroll,
+                anilist sync, and the awkward async races that show up when the network disappears.
+              </p>
             </article>
           </div>
-        </div>
-      </section>
 
-      <section class="content-section" id="toolbox">
-        <div class="section-label">
-          <span>03</span>
-          <span>toolbox</span>
-        </div>
-        <div class="section-body">
-          <p class="section-lede">the vocabulary changes by layer. the instincts stay the same.</p>
-          <dl class="toolbox-list">
-            <div><dt>languages</dt><dd>go · c · typescript · swift · python</dd></div>
-            <div><dt>infrastructure</dt><dd>kubernetes · qemu/kvm · firecracker · spdk · nvme-of · vfio-user · csi · karpenter · linux · systemd</dd></div>
-            <div><dt>data / telemetry</dt><dd>postgresql · pgx · sqlite · valkey · clickhouse · kafka/kraft · opentelemetry</dd></div>
-            <div><dt>developer platform</dt><dd>openapi 3.1 · code generation · terraform plugin framework · cobra · github actions</dd></div>
-            <div><dt>product surface</dt><dd>react · next.js · electron · vite · fastify · websockets · xterm · astro</dd></div>
-            <div><dt>networking</dt><dd>dns · axfr · ixfr · tsig · arp/ndp · ipv4/ipv6 · http/2 · tls</dd></div>
-          </dl>
+          <p class="project-note">
+            the rest is less curated. <a href="https://github.com/lolwierd" rel="noreferrer">github has it.</a>
+          </p>
         </div>
       </section>
 
       <footer class="site-footer" id="contact">
         <div>
-          <p class="footer-kicker">ayaan retiwala</p>
-          <p>india · remote</p>
+          <p class="footer-name">ayaan retiwala</p>
+          <p>vadodara, india</p>
         </div>
+
         <nav class="footer-links" aria-label="Contact">
           <a href="mailto:me@lolwierd.com">email</a>
           <a href="https://github.com/lolwierd" rel="noreferrer">github</a>
