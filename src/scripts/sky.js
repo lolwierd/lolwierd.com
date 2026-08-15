@@ -18,6 +18,7 @@
 
   var state = null;
   var terrainImage = null;
+  var edgeMotes = [];
   var stars = [];
   var wanderers = [];
   var seats = [];
@@ -26,7 +27,7 @@
     active: false,
     start: 0,
     duration: 0,
-    next: 0,
+    next: Infinity,
     x0: 0,
     y0: 0,
     x1: 0,
@@ -44,9 +45,21 @@
   var reducedMotion = motionMedia.matches;
   var activeWork = null;
 
+  var BAYER_8 = [
+    0, 48, 12, 60, 3, 51, 15, 63,
+    32, 16, 44, 28, 35, 19, 47, 31,
+    8, 56, 4, 52, 11, 59, 7, 55,
+    40, 24, 36, 20, 43, 27, 39, 23,
+    2, 50, 14, 62, 1, 49, 13, 61,
+    34, 18, 46, 30, 33, 17, 45, 29,
+    10, 58, 6, 54, 9, 57, 5, 53,
+    42, 26, 38, 22, 41, 25, 37, 21
+  ];
+
   var DARK = {
     ink: "#e4dac8",
     inkAlpha: 0.90,
+    edgeAlpha: 0.19,
     star: "#e8dfd0",
     starAlpha: 0.72,
     cloudAlpha: 0.24
@@ -55,9 +68,10 @@
   var LIGHT = {
     ink: "#293039",
     inkAlpha: 0.87,
+    edgeAlpha: 0.11,
     star: "#293039",
-    starAlpha: 0.34,
-    cloudAlpha: 0.16
+    starAlpha: 0,
+    cloudAlpha: 0.15
   };
 
   function clamp(value, min, max) {
@@ -85,6 +99,42 @@
       Math.imul(y | 0, 668265263) ^
       Math.imul(seed | 0, 2246822519)
     );
+  }
+
+  function valueNoise(x, y, seed) {
+    var ix = Math.floor(x);
+    var iy = Math.floor(y);
+    var fx = x - ix;
+    var fy = y - iy;
+    var ux = fx * fx * (3 - 2 * fx);
+    var uy = fy * fy * (3 - 2 * fy);
+
+    var a = hash2(ix, iy, seed);
+    var b = hash2(ix + 1, iy, seed);
+    var c = hash2(ix, iy + 1, seed);
+    var d = hash2(ix + 1, iy + 1, seed);
+
+    return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
+  }
+
+  function fbm(x, y, seed) {
+    var value = 0;
+    var amplitude = 0.58;
+    var frequency = 1;
+
+    for (var octave = 0; octave < 3; octave++) {
+      value += valueNoise(x * frequency, y * frequency, seed + octave * 97) * amplitude;
+      frequency *= 2.03;
+      amplitude *= 0.48;
+    }
+
+    return value / 0.998;
+  }
+
+  function bayerThreshold(x, y) {
+    var px = ((Math.floor(x) % 8) + 8) % 8;
+    var py = ((Math.floor(y) % 8) + 8) % 8;
+    return BAYER_8[py * 8 + px] / 64;
   }
 
   function theme() {
@@ -277,12 +327,15 @@
     };
 
     makeTerrain(luminance, skyline);
+    makeEdgeMotes();
     makeStars();
     makeCloud();
 
     var now = performance.now();
     comet.active = false;
-    comet.next = now + 90000 + hash2(width, height, 901) * 150000;
+    comet.next = state.dark
+      ? now + 105000 + hash2(width, height, 901) * 190000
+      : Infinity;
 
     drawFrame(reducedMotion ? FIXED_TIME : now);
   }
@@ -326,15 +379,22 @@
     var red = (rgb >> 16) & 255;
     var green = (rgb >> 8) & 255;
     var blue = rgb & 255;
-    var alpha = Math.round(activeTheme.inkAlpha * 255);
+    var edgeFadeDepth = Math.max(3, Math.round(5.5 * dpr));
 
-    for (var i = 0; i < dots.length; i++) {
-      if (!dots[i]) continue;
-      var p = i * 4;
+    for (var index = 0; index < dots.length; index++) {
+      if (!dots[index]) continue;
+
+      var py = Math.floor(index / width);
+      var px = index - py * width;
+      var depth = py - skyline[px];
+      var edgeFade = smoothstep(0, edgeFadeDepth, depth);
+      var alpha = activeTheme.inkAlpha * (0.26 + 0.74 * edgeFade);
+
+      var p = index * 4;
       output[p] = red;
       output[p + 1] = green;
       output[p + 2] = blue;
-      output[p + 3] = alpha;
+      output[p + 3] = Math.round(alpha * 255);
     }
   }
 
@@ -376,25 +436,105 @@
     return dots;
   }
 
+  function makeEdgeMotes() {
+    edgeMotes = [];
+    if (!state) return;
+
+    var reach = Math.max(6, Math.round(8 * dpr));
+    var seed = width * 17 + height * 31 + 811;
+    var xStep = Math.max(1, Math.round(dpr * 0.66));
+
+    for (var x = 0; x < width; x += xStep) {
+      var edge = state.skyline[x];
+      if (edge >= height) continue;
+
+      for (var distance = 1; distance <= reach; distance++) {
+        var y = edge - distance;
+        if (y < 0) break;
+
+        var envelope = 1 - distance / (reach + 1);
+        var keep = 0.055 + envelope * envelope * 0.16;
+        if (hash2(x, y, seed) > keep) continue;
+
+        edgeMotes.push({
+          x: x,
+          y: y,
+          envelope: envelope,
+          phase: hash2(x, y, seed + 3) * 11,
+          scale: 0.8 + hash2(x, y, seed + 7) * 0.7,
+          threshold: bayerThreshold(x, y)
+        });
+      }
+    }
+  }
+
+  function drawEdgeMotes(now) {
+    if (!edgeMotes.length) return;
+
+    var activeTheme = theme();
+    var time = now * 0.000014;
+    ctx.fillStyle = activeTheme.ink;
+
+    for (var i = 0; i < edgeMotes.length; i++) {
+      var dot = edgeMotes[i];
+
+      /*
+       * React Bits' Dither feels alive because a slow noise field moves under a
+       * fixed Bayer grid. Do the same thing only in the few pixels above the
+       * ridge: the photograph and terrain plate never move.
+       */
+      var field = fbm(
+        dot.x * 0.0024 + time * 0.72,
+        dot.y * 0.0028 - time * 0.43 + dot.phase,
+        991
+      );
+      var wave = 0.55 * field + 0.45 * (
+        0.5 + 0.5 * Math.sin(
+          dot.x * 0.0046 +
+          dot.y * 0.0032 +
+          dot.phase +
+          time * 1.18
+        )
+      );
+
+      var density = dot.envelope * (0.34 + wave * 0.50);
+      if (density < dot.threshold * 0.72) continue;
+
+      var drift = Math.round((wave - 0.5) * dpr * 1.35);
+      var alpha =
+        activeTheme.edgeAlpha *
+        dot.envelope *
+        dot.scale *
+        smoothstep(0.28, 0.78, density);
+
+      if (alpha < 0.008) continue;
+
+      ctx.globalAlpha = clamp(alpha, 0, 0.34);
+      ctx.fillRect(dot.x, dot.y - drift, 1, 1);
+    }
+  }
+
   function makeStars() {
     stars = [];
     seats = [];
     wanderers = [];
 
+    if (!state.dark) return;
+
     var portrait = state.cssWidth < state.cssHeight;
-    var count = state.dark ? (portrait ? 22 : 28) : (portrait ? 8 : 11);
+    var count = portrait ? 18 : 24;
     var seatCount = count + 6;
     var horizon = Math.max(1, state.ridgeTop);
-    var minDistance = Math.sqrt((width * horizon) / seatCount) * 0.46;
+    var minDistance = Math.sqrt((width * horizon) / seatCount) * 0.5;
     var seed = Math.floor(Math.random() * 2147483647) + width + height;
     var guard = 0;
 
     while (seats.length < seatCount && guard++ < seatCount * 900) {
       var candidateX = Math.floor(hash(seed++) * width);
-      var maxY = Math.max(8 * dpr, state.skyline[candidateX] - 30 * dpr);
+      var maxY = Math.max(8 * dpr, state.skyline[candidateX] - 34 * dpr);
       if (maxY <= 8 * dpr) continue;
 
-      var candidateY = Math.floor((0.04 + hash(seed++) * 0.92) * maxY);
+      var candidateY = Math.floor((0.04 + hash(seed++) * 0.90) * maxY);
       var clear = true;
 
       for (var i = 0; i < seats.length; i++) {
@@ -408,16 +548,16 @@
 
       if (!clear) continue;
 
-      var bright = hash(seed++) > 0.82;
+      var bright = hash(seed++) > 0.86;
       seats.push({
         x: candidateX,
         y: candidateY,
-        size: bright ? Math.max(1, Math.round(dpr * 0.65)) : 1,
+        size: 1,
         phase: hash(seed++) * Math.PI * 2,
-        period: 18000 + hash(seed++) * 28000,
-        magnitude: bright ? 0.78 + hash(seed++) * 0.18 : 0.36 + hash(seed++) * 0.34,
-        breathePeriod: 38000 + hash(seed++) * 52000,
-        breatheOffset: hash(seed++) * 90000
+        period: 22000 + hash(seed++) * 36000,
+        magnitude: bright ? 0.75 + hash(seed++) * 0.16 : 0.34 + hash(seed++) * 0.30,
+        breathePeriod: 44000 + hash(seed++) * 62000,
+        breatheOffset: hash(seed++) * 100000
       });
     }
 
@@ -429,9 +569,9 @@
       wanderers.push({
         first: count + i,
         second: count + i + 2,
-        period: 85000 + i * 41000,
-        offset: 19000 + i * 37000,
-        magnitude: 0.56 + i * 0.08
+        period: 98000 + i * 47000,
+        offset: 21000 + i * 41000,
+        magnitude: 0.50 + i * 0.07
       });
     }
   }
@@ -490,7 +630,8 @@
           x: x,
           y: y,
           alpha: 0.22 + shape * 0.58,
-          phase: hash2(cellX, cellY, 739) * Math.PI * 2
+          phase: hash2(cellX, cellY, 739) * Math.PI * 2,
+          threshold: bayerThreshold(cellX, cellY)
         });
       }
     }
@@ -505,8 +646,8 @@
     if (!cloud.dots.length) return;
 
     var activeTheme = theme();
-    var t = now * 0.000055;
-    var breath = 0.70 + 0.30 * Math.sin(t * 0.72 + 0.8);
+    var t = now * 0.000022;
+    var breath = 0.78 + 0.22 * Math.sin(t * 0.62 + 0.8);
 
     ctx.fillStyle = activeTheme.ink;
 
@@ -515,17 +656,21 @@
       var edge = state.skyline[clamp(Math.round(dot.x), 0, width - 1)];
 
       var ridgeFade = smoothstep(-110 * dpr, 28 * dpr, edge - dot.y);
-      var field =
-        0.50 +
-        0.28 * Math.sin(dot.x * 0.009 + dot.phase + t) +
-        0.22 * Math.sin(dot.y * 0.013 - dot.phase * 0.7 - t * 0.63);
+      var wave = fbm(
+        dot.x * 0.0022 + t * 0.25,
+        dot.y * 0.0028 - t * 0.17 + dot.phase,
+        1201
+      );
+      var density = clamp(0.22 + wave * 0.78, 0, 1);
+
+      if (density < dot.threshold * 0.62) continue;
 
       var alpha =
         activeTheme.cloudAlpha *
         dot.alpha *
         ridgeFade *
         breath *
-        clamp(field, 0.12, 1);
+        (0.42 + density * 0.58);
 
       if (alpha < 0.008) continue;
 
@@ -536,14 +681,15 @@
 
   function drawStar(star, now, multiplier) {
     var activeTheme = theme();
+    if (!state.dark || activeTheme.starAlpha <= 0) return;
 
     var primary = Math.sin((now / star.period) * Math.PI * 2 + star.phase);
     var secondary = Math.sin((now / (star.period * 1.83)) * Math.PI * 2 + star.phase * 1.7);
-    var twinkle = 0.62 + primary * 0.15 + secondary * 0.07;
+    var twinkle = 0.62 + primary * 0.13 + secondary * 0.05;
 
     var breathe =
-      0.78 +
-      0.22 *
+      0.82 +
+      0.18 *
         Math.sin(
           ((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2
         );
@@ -551,7 +697,7 @@
     var alpha =
       activeTheme.starAlpha *
       star.magnitude *
-      clamp(twinkle, 0.28, 0.92) *
+      clamp(twinkle, 0.34, 0.88) *
       breathe *
       multiplier *
       skylineAlpha(star.x, star.y);
@@ -619,6 +765,8 @@
   }
 
   function scheduleComet(now) {
+    if (!state.dark) return;
+
     var seed = Math.floor(now / 1000) + width * 3 + height * 5;
     var leftToRight = hash(seed) > 0.5;
 
@@ -634,11 +782,11 @@
     comet.x1 = startX + deltaX;
     comet.y1 = startY + (0.10 + hash(seed + 5) * 0.10) * state.ridgeTop;
     comet.tail = (0.018 + hash(seed + 6) * 0.018) * width;
-    comet.next = now + comet.duration + 120000 + hash(seed + 7) * 240000;
+    comet.next = now + comet.duration + 150000 + hash(seed + 7) * 270000;
   }
 
   function drawComet(now) {
-    if (!comet.active) return;
+    if (!state.dark || !comet.active) return;
 
     var progress = (now - comet.start) / comet.duration;
     if (progress >= 1) {
@@ -678,7 +826,7 @@
         fade *
         Math.pow(1 - step / comet.tail, 1.5) *
         activeTheme.starAlpha *
-        0.72;
+        0.68;
 
       if (tailAlpha < 0.01) continue;
 
@@ -688,8 +836,8 @@
 
     var headX = clamp(Math.round(x), 0, width - 1);
     if (y < state.skyline[headX] - 14 * dpr) {
-      ctx.globalAlpha = clamp(fade * activeTheme.starAlpha * 1.15, 0, 1);
-      ctx.fillRect(headX, Math.round(y), Math.max(1, Math.round(dpr * 0.65)), Math.max(1, Math.round(dpr * 0.65)));
+      ctx.globalAlpha = clamp(fade * activeTheme.starAlpha * 1.08, 0, 1);
+      ctx.fillRect(headX, Math.round(y), 1, 1);
     }
   }
 
@@ -697,8 +845,10 @@
     if (!state || !terrainImage) return;
 
     ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, width, height);
     ctx.putImageData(terrainImage, 0, 0);
 
+    drawEdgeMotes(now);
     drawCloud(now);
 
     for (var i = 0; i < stars.length; i++) {
@@ -721,7 +871,7 @@
 
     lastDraw = now;
 
-    if (!comet.active && now >= comet.next) {
+    if (state.dark && !comet.active && now >= comet.next) {
       scheduleComet(now);
     }
 
@@ -778,7 +928,7 @@
     },
     cometNow: function (now) {
       var time = reducedMotion ? FIXED_TIME : (now == null ? performance.now() : now);
-      scheduleComet(time);
+      if (state && state.dark) scheduleComet(time);
       drawFrame(time);
     },
     step: function (now) {
@@ -797,6 +947,7 @@
         dark: state.dark,
         ridgeTop: state.ridgeTop,
         ridgeLow: state.ridgeLow,
+        edgeMotes: edgeMotes.length,
         stars: stars.length,
         wanderers: wanderers.length,
         cloudDots: cloud.dots.length,
