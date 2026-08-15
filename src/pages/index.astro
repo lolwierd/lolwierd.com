@@ -1,0 +1,161 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout ambient>
+  <a class="skip-link" href="#work">skip to work</a>
+
+  <header class="hero" id="top">
+    <div class="hero-inner">
+      <p class="eyebrow">ayaan retiwala <span aria-hidden="true">·</span> platform engineer</p>
+      <h1>i build the parts of the cloud that have to keep working.</h1>
+      <p class="hero-lede">
+        i built the core of a public cloud from scratch: compute and virtualization,
+        block storage, managed kubernetes, networking, and identity. the hard part
+        is almost never the happy path, and that is the half i am good at.
+      </p>
+      <p class="hero-fact">excloud / 2023–2026 <span aria-hidden="true">·</span> 4,000+ accounts <span aria-hidden="true">·</span> 380 active vms</p>
+
+      <nav class="hero-nav" aria-label="Page">
+        <a href="#work">work</a>
+        <a href="#projects">projects</a>
+        <a href="#contact">contact</a>
+      </nav>
+    </div>
+    <p class="scroll-note" aria-hidden="true">↓</p>
+  </header>
+
+  <main class="reading-ground">
+    <div class="reading-inner">
+      <section class="content-section" id="work">
+        <div class="section-label">
+          <span>01</span>
+          <span>work</span>
+        </div>
+        <div class="section-body">
+          <p class="section-lede">
+            systems that stay legible when they are failing, recovering, or under load.
+          </p>
+
+          <article class="experience-entry">
+            <header class="entry-heading">
+              <div>
+                <h2>excloud</h2>
+                <p class="entry-role">platform engineer</p>
+              </div>
+              <p class="entry-date">jun 2023 – aug 2026<br />remote</p>
+            </header>
+
+            <p class="entry-scope">
+              built and operated the platform alongside the engineering lead, with
+              production responsibility across compute, storage, kubernetes, network,
+              identity, data, and the developer surface around them.
+            </p>
+
+            <ul class="work-list">
+              <li>
+                <span class="work-label">compute / storage</span>
+                <p>built the qemu/kvm control plane and an spdk + nvme-of storage engine with reconciliation, retryable provisioning, resize, cleanup, and recovery after a crash mid-transition.</p>
+              </li>
+              <li>
+                <span class="work-label">kubernetes</span>
+                <p>shipped managed clusters end to end: bootstrap, oidc and jwks, short-lived join credentials, cilium, coredns, a csi driver, and the karpenter provider that scales nodes.</p>
+              </li>
+              <li>
+                <span class="work-label">shared platform</span>
+                <p>wrote the shared go layer used across 20+ services, including an http framework that derives openapi 3.1 from types, domain primitives, typed errors, and opentelemetry middleware.</p>
+              </li>
+              <li>
+                <span class="work-label">network / identity</span>
+                <p>built imds identity and token delivery, iam authorization, audit events, authoritative dns, and an af_packet arp/ndp proxy with bpf filtering, vlan handling, rate limits, and ipv6 dad.</p>
+              </li>
+              <li>
+                <span class="work-label">developer surface</span>
+                <p>built the openapi-to-client pipeline feeding the sdk, a 20-group cli, and a terraform provider with 30 resources and 13 data sources, plus the console people use to drive it all.</p>
+              </li>
+            </ul>
+
+            <dl class="measurements" aria-label="Excloud at handover">
+              <div><dt>accounts</dt><dd>4,000+</dd></div>
+              <div><dt>active vms</dt><dd>380</dd></div>
+              <div><dt>managed postgres</dt><dd>140</dd></div>
+              <div><dt>internal services</dt><dd>20+</dd></div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section class="content-section" id="projects">
+        <div class="section-label">
+          <span>02</span>
+          <span>projects</span>
+        </div>
+        <div class="section-body">
+          <p class="section-lede">small tools, long edges, and a bias toward making the operator’s day quieter.</p>
+
+          <div class="project-list">
+            <article class="project-row">
+              <div>
+                <h2>dbconsole</h2>
+                <p class="project-stack">electron · vite · next.js · postgres</p>
+              </div>
+              <p>postgres workbench for web and macos with query tabs, safety checks before destructive statements, server-side result streaming, schema graphs, and encrypted named-query sync with conflict resolution. <span class="project-count">19 releases.</span></p>
+            </article>
+            <article class="project-row">
+              <div>
+                <h2>cbmanager</h2>
+                <p class="project-stack">swift · appkit · sqlite · vision</p>
+              </div>
+              <p>native macos clipboard manager with global shortcut and paste-back, ocr over copied images, fuzzy and semantic search, bounded caching, async persistence, and <span class="project-count">162 test methods.</span></p>
+            </article>
+            <article class="project-row">
+              <div>
+                <h2>rig</h2>
+                <p class="project-stack">react · vite · fastify · websockets</p>
+              </div>
+              <p>mobile-first dispatch console for the <code>pi</code> coding agent with live tool-call streaming, model and thinking-level selection, resume and stop controls, and telegram or rest operator access.</p>
+            </article>
+            <article class="project-row">
+              <div>
+                <h2>tachyon</h2>
+                <p class="project-stack">pwa · offline-first</p>
+              </div>
+              <p>manga-reader pwa with offline reading, source integration, auto-scroll, anilist sync, and a test suite built around async state and race conditions.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-section" id="toolbox">
+        <div class="section-label">
+          <span>03</span>
+          <span>toolbox</span>
+        </div>
+        <div class="section-body">
+          <p class="section-lede">the vocabulary changes by layer. the instincts stay the same.</p>
+          <dl class="toolbox-list">
+            <div><dt>languages</dt><dd>go · c · typescript · swift · python</dd></div>
+            <div><dt>infrastructure</dt><dd>kubernetes · qemu/kvm · firecracker · spdk · nvme-of · vfio-user · csi · karpenter · linux · systemd</dd></div>
+            <div><dt>data / telemetry</dt><dd>postgresql · pgx · sqlite · valkey · clickhouse · kafka/kraft · opentelemetry</dd></div>
+            <div><dt>developer platform</dt><dd>openapi 3.1 · code generation · terraform plugin framework · cobra · github actions</dd></div>
+            <div><dt>product surface</dt><dd>react · next.js · electron · vite · fastify · websockets · xterm · astro</dd></div>
+            <div><dt>networking</dt><dd>dns · axfr · ixfr · tsig · arp/ndp · ipv4/ipv6 · http/2 · tls</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <footer class="site-footer" id="contact">
+        <div>
+          <p class="footer-kicker">ayaan retiwala</p>
+          <p>india · remote</p>
+        </div>
+        <nav class="footer-links" aria-label="Contact">
+          <a href="mailto:me@lolwierd.com">email</a>
+          <a href="https://github.com/lolwierd" rel="noreferrer">github</a>
+          <a href="https://linkedin.com/in/lolwierd" rel="noreferrer">linkedin</a>
+          <a href="/colophon">colophon</a>
+        </nav>
+      </footer>
+    </div>
+  </main>
+</BaseLayout>

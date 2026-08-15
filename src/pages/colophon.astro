@@ -1,0 +1,40 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Colophon · Ayaan Retiwala">
+  <main class="colophon">
+    <a href="/">← back</a>
+    <h1>colophon</h1>
+    <p>
+      the mountain image was generated for this site and is used as a local,
+      unlinked asset. no external photograph is loaded at runtime.
+    </p>
+  </main>
+
+  <style>
+    .colophon {
+      max-width: 42rem;
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: 12vh 1.25rem 4rem;
+    }
+
+    .colophon h1 {
+      max-width: none;
+      margin: 1rem 0 2rem;
+      font: 400 clamp(2.7rem, 7vw, 5.5rem) / 0.95 var(--serif);
+      letter-spacing: -0.05em;
+    }
+
+    .colophon p {
+      max-width: 35rem;
+      color: var(--ink-dim);
+    }
+
+    .colophon a {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+  </style>
+</BaseLayout>
