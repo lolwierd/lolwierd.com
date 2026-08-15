@@ -576,18 +576,30 @@
     var chosen = source;
     var fade = 1;
 
-    if (phase < 0.72) {
+    if (phase < 0.06) {
+      chosen = source;
+      fade = smoothstep(0, 0.06, phase);
+    } else if (phase < 0.42) {
       chosen = source;
       fade = 1;
-    } else if (phase < 0.82) {
+    } else if (phase < 0.50) {
       chosen = source;
-      fade = 1 - smoothstep(0.72, 0.82, phase);
-    } else if (phase < 0.89) {
+      fade = 1 - smoothstep(0.42, 0.50, phase);
+    } else if (phase < 0.56) {
       chosen = target;
       fade = 0;
-    } else {
+    } else if (phase < 0.64) {
       chosen = target;
-      fade = smoothstep(0.89, 1, phase);
+      fade = smoothstep(0.56, 0.64, phase);
+    } else if (phase < 0.88) {
+      chosen = target;
+      fade = 1;
+    } else if (phase < 0.96) {
+      chosen = target;
+      fade = 1 - smoothstep(0.88, 0.96, phase);
+    } else {
+      chosen = source;
+      fade = 0;
     }
 
     drawStar(
