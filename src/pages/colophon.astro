@@ -4,9 +4,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
 <BaseLayout title="Colophon · Ayaan Retiwala">
   <main class="colophon">
-    <a href="/">← back</a>
-    <h1>colophon</h1>
-    <p>
+    <a class="back" href="/">← back</a>
+    <p class="label">colophon</p>
+    <p class="note">
       the mountain photograph is by Alexis Rodriguez, captured at Annapurna I
       in Nepal. it is used from
       <a href="https://unsplash.com/photos/a-mountain-range-with-snow-covered-mountains-in-the-background-8eo8PsNIrNs">Unsplash</a>
@@ -17,27 +17,35 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <style>
     .colophon {
-      max-width: 42rem;
+      width: min(100%, 44rem);
       min-height: 100svh;
       margin: 0 auto;
-      padding: 12vh 1.25rem 4rem;
+      padding: clamp(2rem, 6vw, 5rem) 1.25rem 4rem;
     }
 
-    .colophon h1 {
-      max-width: none;
-      margin: 1rem 0 2rem;
-      font: 400 clamp(2.7rem, 7vw, 5.5rem) / 0.95 var(--serif);
-      letter-spacing: -0.05em;
-    }
-
-    .colophon p {
-      max-width: 35rem;
-      color: var(--ink-dim);
-    }
-
-    .colophon a {
+    .back,
+    .label {
       font-family: var(--mono);
-      font-size: 0.78rem;
+      font-size: 0.64rem;
+    }
+
+    .back {
+      color: var(--ink-dim);
+      text-decoration: none;
+    }
+
+    .label {
+      margin: clamp(6rem, 18vh, 10rem) 0 1.5rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+    }
+
+    .note {
+      max-width: 34rem;
+      margin: 0;
+      color: var(--ink-dim);
+      font: 400 clamp(1.15rem, 2.2vw, 1.45rem) / 1.65 var(--serif);
+      letter-spacing: -0.012em;
     }
   </style>
 </BaseLayout>
