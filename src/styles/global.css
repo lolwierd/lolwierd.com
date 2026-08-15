@@ -65,7 +65,6 @@ a:hover {
 code,
 .site-name,
 .hero-nav,
-.hero-place,
 .section-label,
 .entry-role,
 .entry-date,
@@ -123,7 +122,7 @@ a { -webkit-tap-highlight-color: transparent; }
   margin: 0 auto;
   padding: clamp(1.35rem, 3.4vw, 3rem) clamp(1.25rem, 5.2vw, 5.5rem);
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
 }
 
 .topbar {
@@ -165,7 +164,7 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .hero-copy h1 {
-  max-width: 11ch;
+  max-width: 13ch;
   margin: 0;
   color: var(--ink-strong);
   font: 400 clamp(2.55rem, 4.15vw, 3.75rem) / 0.98 var(--serif);
@@ -181,17 +180,6 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.65;
   text-wrap: pretty;
 }
-
-.hero-place {
-  align-self: end;
-  margin: 0 0 0.15rem;
-  color: var(--ink-faint);
-  font-size: 0.61rem;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-}
-
-.hero-place span { padding: 0 0.38rem; }
 
 .reading-ground {
   position: relative;
@@ -414,14 +402,12 @@ a { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: no-preference) {
   .site-name,
   .hero-nav,
-  .hero-copy,
-  .hero-place {
+  .hero-copy {
     animation: settle 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .hero-nav { animation-delay: 80ms; }
   .hero-copy { animation-delay: 120ms; }
-  .hero-place { animation-delay: 220ms; }
 }
 
 @keyframes settle {
@@ -473,7 +459,7 @@ a { -webkit-tap-highlight-color: transparent; }
   }
 
   .hero-copy h1 {
-    max-width: 9ch;
+    max-width: 12ch;
     font-size: clamp(2.45rem, 11vw, 3.25rem);
     line-height: 0.98;
   }
@@ -483,11 +469,6 @@ a { -webkit-tap-highlight-color: transparent; }
     margin-top: 1.15rem;
     font-size: 0.92rem;
     line-height: 1.62;
-  }
-
-  .hero-place {
-    margin-bottom: 0;
-    font-size: 0.56rem;
   }
 
   .reading-inner { padding: 0 1.15rem; }
