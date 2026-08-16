@@ -1,56 +1,828 @@
-const canvas=document.getElementById('sky');
-if(canvas){
-const ctx=canvas.getContext('2d',{alpha:true});
-const plate=new Image(),buf=document.createElement('canvas'),bctx=buf.getContext('2d',{willReadFrequently:true});
-const darkMQ=matchMedia('(prefers-color-scheme: dark)'),motionMQ=matchMedia('(prefers-reduced-motion: reduce)');
-const SRC='/assets/annapurna-circuit.jpg',MAX_DPR=2,B=[0,48,12,60,3,51,15,63,32,16,44,28,35,19,47,31,8,56,4,52,11,59,7,55,40,24,36,20,43,27,39,23,2,50,14,62,1,49,13,61,34,18,46,30,33,17,45,29,10,58,6,54,9,57,5,53,42,26,38,22,41,25,37,21];
-const T={dark:{ink:'#e4dac8',a:.91,dust:.22,cloud:.17,star:'#eee6d8'},light:{ink:'#293039',a:.86,dust:.12,cloud:.24,star:'#293039'}};
-let S=null,terrain=null,dust=[],clouds=[],stars=[],raf=0,last=0,resizeTimer=0,reduced=motionMQ.matches,visible=!document.hidden;
-let comet={active:false,start:0,duration:0,next:Infinity,x0:0,y0:0,x1:0,y1:0,tail:0};
-const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t;
-function smooth(a,b,v){let t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t)}
-function hash(v){v=Math.imul(v^(v>>>16),2246822507);v=Math.imul(v^(v>>>13),3266489909);return((v^(v>>>16))>>>0)/4294967296}
-function h2(x,y,s){return hash(Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(s|0,2246822519))}
-function noise(x,y,s){let ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy,ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy),a=h2(ix,iy,s),b=h2(ix+1,iy,s),c=h2(ix,iy+1,s),d=h2(ix+1,iy+1,s);return lerp(lerp(a,b,ux),lerp(c,d,ux),uy)}
-function fbm(x,y,s){let v=0,a=.58,f=1,n=0;for(let i=0;i<4;i++){v+=noise(x*f,y*f,s+i*97)*a;n+=a;f*=2.03;a*=.47}return v/n}
-function field(x,y,t,s){let q=fbm(x-t*.18,y+t*.11,s);return fbm(x+q*.72+t*.16,y+q*.48-t*.1,s+211)}
-function median(a){a.sort((x,y)=>x-y);return a[Math.floor(a.length/2)]||0}
-function theme(){return darkMQ.matches?T.dark:T.light}
-function bayer(x,y){return B[((y%8+8)%8)*8+((x%8+8)%8)]/64}
-function skyMask(px,w,h,top,drawH,dpr){
- let rs=[],gs=[],bs=[],bottom=Math.min(h-1,top+Math.max(8,Math.round(drawH*.075))),xs=Math.max(1,Math.floor(w/180)),ys=Math.max(1,Math.floor((bottom-top+1)/10));
- for(let y=top;y<=bottom;y+=ys)for(let x=0;x<w;x+=xs){let p=(y*w+x)*4;rs.push(px[p]);gs.push(px[p+1]);bs.push(px[p+2])}
- let rr=median(rs),rg=median(gs),rb=median(bs),rl=rr*.2126+rg*.7152+rb*.0722,rbg=rb-rg,rgr=rg-rr;
- const score=i=>{let p=i*4,r=px[p],g=px[p+1],b=px[p+2],l=r*.2126+g*.7152+b*.0722;return Math.abs((b-g)-rbg)*1.55+Math.abs((g-r)-rgr)*1.05+Math.abs(l-rl)*.16+(Math.abs(r-rr)+Math.abs(g-rg)+Math.abs(b-rb))*.075};
- let m=new Uint8Array(w*h),q=new Int32Array(w*Math.max(2,h-top)),head=0,tail=0;
- function push(i,relaxed){if(m[i]||score(i)>(relaxed?47:38))return;m[i]=1;q[tail++]=i}
- for(let y=top;y<Math.min(h,top+Math.max(2,Math.round(3*dpr)));y++)for(let x=0;x<w;x++)push(y*w+x,false);
- while(head<tail){let i=q[head++],y=Math.floor(i/w),x=i-y*w;if(x)push(i-1,true);if(x+1<w)push(i+1,true);if(y>top)push(i-w,true);if(y+1<h)push(i+w,true)}
- return m;
-}
-function skyline(mask,w,h,top,dpr){
- let s=new Int32Array(w);for(let x=0;x<w;x++){let y=top;while(y<h&&mask[y*w+x])y++;s[x]=y}
- let r=Math.max(1,Math.round(1.25*dpr)),out=new Int32Array(w);for(let x=0;x<w;x++){let a=[];for(let n=Math.max(0,x-r);n<=Math.min(w-1,x+r);n++)a.push(s[n]);a.sort((p,q)=>p-q);out[x]=a[Math.floor(a.length/2)]}
- let jump=Math.max(14,Math.round(16*dpr)),span=Math.max(34,Math.round(56*dpr)),tol=Math.max(5,Math.round(5*dpr));
- for(let x=2;x<w-3;x++){if(out[x]-out[x-1]<jump)continue;let e=-1;for(let j=x+2;j<Math.min(w,x+span);j++)if(out[j-1]-out[j]>=jump*.72){e=j;break}if(e<0)continue;let bad=0,c=0;for(let k=x;k<e;k++){let t=(k-x+1)/(e-x+1),ch=lerp(out[x-1],out[e],t);if(out[k]>ch+tol)bad++;c++}if(bad/c<.5)continue;for(let k=x;k<e;k++){let t=(k-x+1)/(e-x+1);out[k]=Math.min(out[k],Math.round(lerp(out[x-1],out[e],t)))}x=e-1}
- return out;
-}
-function atkinson(paper,sky,w,h){let work=new Float32Array(paper),dots=new Uint8Array(w*h);const add=(x,y,e)=>{if(x>=0&&y>=0&&x<w&&y<h&&y>=sky[x])work[y*w+x]+=e};for(let y=0;y<h;y++)for(let x=0;x<w;x++){let i=y*w+x;if(y<sky[x]){work[i]=1;continue}let old=work[i],q=old>=.5?1:0;dots[i]=q?0:1;let e=(old-q)*.125;if(!e)continue;add(x+1,y,e);add(x+2,y,e);add(x-1,y+1,e);add(x,y+1,e);add(x+1,y+1,e);add(x,y+2,e)}return dots}
-function makeTerrain(lum,sky,w,h,dpr){let paper=new Float32Array(w*h),dark=darkMQ.matches,th=theme();for(let y=0;y<h;y++)for(let x=0;x<w;x++){let i=y*w+x;if(y<sky[x]){paper[i]=1;continue}let v=lum[i]/255,d=dark?.06+.94*Math.pow(smooth(.06,.94,v),1.3):.02+.98*Math.pow(smooth(.04,.84,1-v),1.12);paper[i]=1-clamp(d,0,1)}let dots=atkinson(paper,sky,w,h),im=ctx.createImageData(w,h),o=im.data,rgb=parseInt(th.ink.slice(1),16),R=(rgb>>16)&255,G=(rgb>>8)&255,Bb=rgb&255,edge=Math.max(5,Math.round(7*dpr)),seed=w*13+h*29+701;for(let i=0;i<dots.length;i++){if(!dots[i])continue;let y=Math.floor(i/w),x=i-y*w,dist=y-sky[x],mix=smooth(0,edge,dist);if(dist<edge&&h2(x,y,seed)<(1-mix)*.19)continue;let p=i*4;o[p]=R;o[p+1]=G;o[p+2]=Bb;o[p+3]=Math.round(th.a*255*(.58+.42*mix))}return im}
-function makeDust(){dust=[];let w=S.w,h=S.h,d=S.dpr,reach=Math.max(14,Math.round(22*d)),step=Math.max(1,Math.round(.85*d)),seed=w*17+h*31+811;for(let x=0;x<w;x+=step){let edge=S.sky[x];if(edge>=h)continue;for(let dist=1;dist<=reach;dist++){let y=edge-dist;if(y<0)break;let e=1-dist/(reach+1),keep=.018+e*e*.095;if(h2(x,y,seed)>keep)continue;dust.push({x,y,e,ph:h2(x,y,seed+3)*Math.PI*2,t:bayer(x,y),s:.55+h2(x,y,seed+7)*.65})}}}
-function drawDust(now){let th=theme(),t=now*.000012;ctx.fillStyle=th.ink;for(let p of dust){let f=field(p.x*.0022,p.y*.0025+p.ph,t,991),pulse=.5+.5*Math.sin(p.ph+t*.34),den=p.e*(.26+f*.56+pulse*.18);if(den<p.t*.56)continue;let a=th.dust*p.e*p.s*smooth(.16,.78,den);if(a<.008)continue;ctx.globalAlpha=clamp(a,0,.25);ctx.fillRect(p.x,p.y-Math.round((f-.5)*2.2*S.dpr),1,1)}}
-function valley(){let a=Math.floor(S.w*.16),b=Math.floor(S.w*.84),step=Math.max(2,Math.floor(S.w/220)),x=a,y=S.top;for(let i=a;i<=b;i+=step)if(S.sky[i]>y){x=i;y=S.sky[i]}return{x,y,depth:y-S.top}}
-function makeClouds(){clouds=[];let v=valley();if(v.depth<24*S.dpr)return;let dark=S.dark,span=clamp(S.w*(dark?.52:.72),260*S.dpr,1300*S.dpr),hh=clamp(v.depth*(dark?.72:1.05),70*S.dpr,280*S.dpr),cy=v.y-hh*(dark?.18:.28),step=Math.max(2,Math.round((dark?3.1:2.7)*S.dpr)),seed=dark?1701:1801,density=dark?.34:.47;for(let y=cy-hh*.72;y<=v.y+hh*.36;y+=step)for(let x=v.x-span*.5;x<=v.x+span*.5;x+=step){if(x<0||x>=S.w||y<0||y>=S.h)continue;let u=(x-v.x)/(span*.5),z=(y-cy)/(hh*.5),shape=Math.exp(-(u*u*2.45+z*z*4.2))+.48*Math.exp(-((u+.46)**2*5.2+(z+.06)**2*6.3))+.42*Math.exp(-((u-.43)**2*5.4+(z+.02)**2*6));shape=clamp(shape,0,1);if(shape<.06)continue;let cx=Math.floor(x/step),yy=Math.floor(y/step);if(h2(cx,yy,seed)>.07+shape*density)continue;clouds.push({x,y,shape,ph:h2(cx,yy,seed+11)*17,t:bayer(cx,yy)})}}
-function drawClouds(now){let th=theme(),t=now*.00001,swell=.84+.16*Math.sin(t*.33+.8);ctx.fillStyle=th.ink;for(let p of clouds){let ix=clamp(Math.round(p.x),0,S.w-1),mask=smooth(-110*S.dpr,30*S.dpr,S.sky[ix]-p.y),f=field(p.x*.0015+p.ph*.01,p.y*.0018,t,S.dark?1201:1401),den=p.shape*(.24+f*.76)*swell;if(den<p.t*(S.dark?.58:.49))continue;let a=th.cloud*mask*(.28+den*.72);if(a<.008)continue;ctx.globalAlpha=clamp(a,0,S.dark?.22:.34);ctx.fillRect(Math.round(p.x),Math.round(p.y),1,1)}}
-function makeStars(){stars=[];if(!S.dark)return;let n=S.cssW<S.cssH?22:30,seed=S.w*41+S.h*73+1901,min=Math.sqrt(S.w*Math.max(1,S.top)/n)*.38,guard=0;while(stars.length<n&&guard++<n*1400){let x=Math.floor(hash(seed++)*S.w),maxY=Math.max(8*S.dpr,S.sky[x]-34*S.dpr);if(maxY<=10*S.dpr)continue;let q=hash(seed++);if(hash(seed++)>.55)q*=q;let y=Math.floor((.04+q*.86)*maxY),ok=true;for(let s of stars){let dx=s.x-x,dy=s.y-y;if(dx*dx+dy*dy<min*min){ok=false;break}}if(!ok)continue;let bright=hash(seed++)>.84;stars.push({x,y,size:bright?Math.max(1,Math.round(S.dpr*.72)):1,mag:bright?.78+hash(seed++)*.2:.3+hash(seed++)*.42,period:17000+hash(seed++)*41000,ph:hash(seed++)*Math.PI*2,bp:36000+hash(seed++)*85000,bo:hash(seed++)*100000})}}
-function drawStars(now){if(!S.dark)return;let th=theme();ctx.fillStyle=th.star;for(let s of stars){let tw=.72+Math.sin(now/s.period*Math.PI*2+s.ph)*.17+Math.sin(now/(s.period*1.83)*Math.PI*2+s.ph*1.7)*.08,br=.76+.24*Math.sin((now+s.bo)/s.bp*Math.PI*2),edge=smooth(0,28*S.dpr,S.sky[clamp(Math.round(s.x),0,S.w-1)]-s.y),a=.86*s.mag*tw*br*edge;if(a<.012)continue;ctx.globalAlpha=clamp(a,0,1);ctx.fillRect(s.x,s.y,s.size,s.size)}}
-function scheduleComet(now){if(!S.dark)return;let seed=Math.floor(now/1000)+S.w*3+S.h*5,dir=hash(seed)>.5?1:-1;comet.active=true;comet.start=now;comet.duration=1600+hash(seed+1)*1300;comet.x0=(.14+hash(seed+2)*.72)*S.w;comet.y0=(.07+hash(seed+3)*.24)*Math.max(S.top,1);comet.x1=comet.x0+dir*(.11+hash(seed+4)*.15)*S.w;comet.y1=comet.y0+(.08+hash(seed+5)*.11)*Math.max(S.top,1);comet.tail=(.018+hash(seed+6)*.022)*S.w;comet.next=now+comet.duration+150000+hash(seed+7)*240000}
-function drawComet(now){if(!S.dark||!comet.active)return;let p=(now-comet.start)/comet.duration;if(p>=1){comet.active=false;return}let fade=smooth(0,.12,p)*(1-smooth(.72,1,p)),x=lerp(comet.x0,comet.x1,p),y=lerp(comet.y0,comet.y1,p),dx=comet.x1-comet.x0,dy=comet.y1-comet.y0,len=Math.hypot(dx,dy)||1;dx/=len;dy/=len;ctx.fillStyle=theme().star;for(let n=comet.tail;n>0;n-=Math.max(1,S.dpr)){let tx=Math.round(x-dx*n),ty=Math.round(y-dy*n);if(tx<0||tx>=S.w||ty<0||ty>=S.h||ty>=S.sky[tx]-12*S.dpr)continue;let a=fade*Math.pow(1-n/comet.tail,1.5)*.65;if(a<.01)continue;ctx.globalAlpha=a;ctx.fillRect(tx,ty,1,1)}}
-function build(){if(!plate.complete||!plate.naturalWidth)return;cancelAnimationFrame(raf);raf=0;let cssW=innerWidth,cssH=innerHeight,dpr=Math.min(devicePixelRatio||1,MAX_DPR),w=Math.max(1,Math.round(cssW*dpr)),h=Math.max(1,Math.round(cssH*dpr));canvas.width=w;canvas.height=h;canvas.style.width=cssW+'px';canvas.style.height=cssH+'px';buf.width=w;buf.height=h;bctx.clearRect(0,0,w,h);bctx.imageSmoothingEnabled=true;bctx.imageSmoothingQuality='high';let portrait=cssW<cssH,vis=Math.round(h*(portrait?.56:.52)),over=Math.round(h*(portrait?.18:.16)),drawH=vis+over,top=h-vis,ta=w/drawH,pw=plate.naturalWidth,ph=plate.naturalHeight,pa=pw/ph,sx=0,sy=0,sw=pw,sh=ph,focus=portrait?.55:.52;if(ta>pa){sh=pw/ta;sy=clamp(ph*.1,0,Math.max(0,ph-sh))}else{sw=ph*ta;sx=clamp(pw*focus-sw/2,0,Math.max(0,pw-sw))}bctx.drawImage(plate,sx,sy,sw,sh,0,top,w,drawH);let data=bctx.getImageData(0,0,w,h).data,lum=new Uint8Array(w*h);for(let i=top*w;i<lum.length;i++){let p=i*4;lum[i]=Math.round(data[p]*.2126+data[p+1]*.7152+data[p+2]*.0722)}let mask=skyMask(data,w,h,top,drawH,dpr),sky=skyline(mask,w,h,top,dpr),rt=h,rl=0;for(let y of sky){if(y<rt)rt=y;if(y<h&&y>rl)rl=y}S={w,h,cssW,cssH,dpr,dark:darkMQ.matches,sky,top:rt,low:rl};terrain=makeTerrain(lum,sky,w,h,dpr);makeDust();makeClouds();makeStars();let now=performance.now();comet.active=false;comet.next=S.dark?now+130000+h2(w,h,901)*160000:Infinity;draw(reduced?21437:now);if(!reduced)raf=requestAnimationFrame(tick)}
-function draw(now){if(!S||!terrain)return;ctx.globalAlpha=1;ctx.clearRect(0,0,S.w,S.h);ctx.putImageData(terrain,0,0);drawDust(now);drawClouds(now);drawStars(now);drawComet(now);ctx.globalAlpha=1}
-function tick(now){raf=requestAnimationFrame(tick);if(!S||reduced||!visible||now-last<1000/24)return;last=now;if(S.dark&&!comet.active&&now>=comet.next)scheduleComet(now);draw(now)}
-function listen(m,f){m.addEventListener?m.addEventListener('change',f):m.addListener(f)}
-listen(darkMQ,build);listen(motionMQ,e=>{reduced=e.matches;build()});addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(build,180)},{passive:true});document.addEventListener('visibilitychange',()=>{visible=!document.hidden;if(visible&&!reduced&&!raf)raf=requestAnimationFrame(tick)});
-window.__portfolioSky={build,step:(n=performance.now())=>draw(reduced?21437:n),cometNow:(n=performance.now())=>{if(S?.dark)scheduleComet(n);draw(n)},state:()=>S?{width:S.w,height:S.h,cssWidth:S.cssW,cssHeight:S.cssH,dpr:S.dpr,dark:S.dark,ridgeTop:S.top,ridgeLow:S.low,ridgeDust:dust.length,cloudDots:clouds.length,stars:stars.length,motion:{reduced,visible,rafActive:!!raf}}:null};
-plate.decoding='async';plate.onload=build;plate.onerror=()=>document.documentElement.setAttribute('data-plate-error','1');plate.src=SRC;
-}
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("sky");
+  if (!canvas) return;
+
+  var ctx = canvas.getContext("2d", { alpha: true });
+  var plate = new Image();
+  var buffer = document.createElement("canvas");
+  var bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
+
+  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+  var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  var SOURCE = "/assets/annapurna-circuit.jpg";
+  var SKYLINE_SOURCE = "/assets/annapurna-skyline.json";
+  var MAX_DPR = 2;
+  var FIXED_TIME = 21437;
+
+  var BAYER_8 = [
+    0, 48, 12, 60, 3, 51, 15, 63,
+    32, 16, 44, 28, 35, 19, 47, 31,
+    8, 56, 4, 52, 11, 59, 7, 55,
+    40, 24, 36, 20, 43, 27, 39, 23,
+    2, 50, 14, 62, 1, 49, 13, 61,
+    34, 18, 46, 30, 33, 17, 45, 29,
+    10, 58, 6, 54, 9, 57, 5, 53,
+    42, 26, 38, 22, 41, 25, 37, 21
+  ];
+
+  var THEMES = {
+    dark: {
+      ink: "#e4dac8",
+      terrainAlpha: 0.91,
+      dustAlpha: 0.18,
+      cloudAlpha: 0.14,
+      star: "#eee6d8",
+      starAlpha: 0.84
+    },
+    light: {
+      ink: "#293039",
+      terrainAlpha: 0.87,
+      dustAlpha: 0.10,
+      cloudAlpha: 0.20,
+      star: "#293039",
+      starAlpha: 0
+    }
+  };
+
+  var skylineData = null;
+  var state = null;
+  var terrainImage = null;
+  var edgeDots = [];
+  var cloudDots = [];
+  var stars = [];
+
+  var comet = {
+    active: false,
+    start: 0,
+    duration: 0,
+    next: Infinity,
+    x0: 0,
+    y0: 0,
+    x1: 0,
+    y1: 0,
+    tail: 0
+  };
+
+  var dpr = 1;
+  var width = 0;
+  var height = 0;
+  var resizeTimer = 0;
+  var rafId = 0;
+  var lastDraw = 0;
+  var reducedMotion = motionMedia.matches;
+  var visible = !document.hidden;
+  var activeWork = null;
+
+  function clamp(value, min, max) {
+    return value < min ? min : value > max ? max : value;
+  }
+
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function smoothstep(a, b, value) {
+    var t = clamp((value - a) / (b - a), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function hash(value) {
+    value = Math.imul(value ^ (value >>> 16), 2246822507);
+    value = Math.imul(value ^ (value >>> 13), 3266489909);
+    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+  }
+
+  function hash2(x, y, seed) {
+    return hash(
+      Math.imul(x | 0, 374761393) ^
+      Math.imul(y | 0, 668265263) ^
+      Math.imul(seed | 0, 2246822519)
+    );
+  }
+
+  function valueNoise(x, y, seed) {
+    var ix = Math.floor(x);
+    var iy = Math.floor(y);
+    var fx = x - ix;
+    var fy = y - iy;
+    var ux = fx * fx * (3 - 2 * fx);
+    var uy = fy * fy * (3 - 2 * fy);
+
+    var a = hash2(ix, iy, seed);
+    var b = hash2(ix + 1, iy, seed);
+    var c = hash2(ix, iy + 1, seed);
+    var d = hash2(ix + 1, iy + 1, seed);
+
+    return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
+  }
+
+  function fbm(x, y, seed) {
+    var value = 0;
+    var amplitude = 0.58;
+    var frequency = 1;
+    var normalizer = 0;
+
+    for (var octave = 0; octave < 4; octave++) {
+      value += valueNoise(x * frequency, y * frequency, seed + octave * 97) * amplitude;
+      normalizer += amplitude;
+      frequency *= 2.03;
+      amplitude *= 0.47;
+    }
+
+    return normalizer ? value / normalizer : 0;
+  }
+
+  function warpedField(x, y, time, seed) {
+    var inner = fbm(x - time * 0.18, y + time * 0.11, seed);
+    return fbm(
+      x + inner * 0.72 + time * 0.16,
+      y + inner * 0.48 - time * 0.10,
+      seed + 211
+    );
+  }
+
+  function bayerThreshold(x, y) {
+    var px = ((Math.floor(x) % 8) + 8) % 8;
+    var py = ((Math.floor(y) % 8) + 8) % 8;
+    return BAYER_8[py * 8 + px] / 64;
+  }
+
+  function theme() {
+    return themeMedia.matches ? THEMES.dark : THEMES.light;
+  }
+
+  function listenMedia(media, callback) {
+    if (media.addEventListener) media.addEventListener("change", callback);
+    else media.addListener(callback);
+  }
+
+  function sampleSourceSkyline(sourceX) {
+    if (!skylineData || !skylineData.y || !skylineData.y.length) return 0;
+
+    var step = skylineData.step;
+    var position = clamp(sourceX / step, 0, skylineData.y.length - 1);
+    var left = Math.floor(position);
+    var right = Math.min(skylineData.y.length - 1, left + 1);
+    var fraction = position - left;
+
+    return lerp(skylineData.y[left], skylineData.y[right], fraction);
+  }
+
+  function sourceCrop(targetW, targetH, portrait) {
+    var plateW = plate.naturalWidth;
+    var plateH = plate.naturalHeight;
+    var sourceAspect = plateW / plateH;
+    var targetAspect = targetW / targetH;
+    var sx = 0;
+    var sy = 0;
+    var sw = plateW;
+    var sh = plateH;
+    var focus = portrait ? 0.55 : 0.52;
+
+    if (targetAspect > sourceAspect) {
+      sh = sw / targetAspect;
+      sy = clamp(plateH * 0.10, 0, Math.max(0, plateH - sh));
+    } else {
+      sw = sh * targetAspect;
+      sx = clamp(plateW * focus - sw / 2, 0, Math.max(0, plateW - sw));
+    }
+
+    return { sx: sx, sy: sy, sw: sw, sh: sh };
+  }
+
+  function buildRenderedSkyline(crop, bandTop, drawH) {
+    var skyline = new Int32Array(width);
+
+    for (var x = 0; x < width; x++) {
+      var sourceX = crop.sx + ((x + 0.5) / width) * crop.sw - 0.5;
+      var sourceY = sampleSourceSkyline(sourceX);
+      var renderedY = bandTop + ((sourceY - crop.sy) / crop.sh) * drawH;
+      skyline[x] = clamp(Math.round(renderedY), 0, height);
+    }
+
+    return skyline;
+  }
+
+  function layoutPlate() {
+    var cssW = window.innerWidth;
+    var cssH = window.innerHeight;
+
+    dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    width = Math.max(1, Math.round(cssW * dpr));
+    height = Math.max(1, Math.round(cssH * dpr));
+
+    canvas.width = width;
+    canvas.height = height;
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+
+    buffer.width = width;
+    buffer.height = height;
+    bufferCtx.clearRect(0, 0, width, height);
+    bufferCtx.imageSmoothingEnabled = true;
+    bufferCtx.imageSmoothingQuality = "high";
+
+    var portrait = cssW < cssH;
+    var visibleBandH = Math.round(height * (portrait ? 0.56 : 0.52));
+    var overscan = Math.round(height * (portrait ? 0.18 : 0.16));
+    var drawH = visibleBandH + overscan;
+    var bandTop = height - visibleBandH;
+    var crop = sourceCrop(width, drawH, portrait);
+
+    bufferCtx.drawImage(
+      plate,
+      crop.sx,
+      crop.sy,
+      crop.sw,
+      crop.sh,
+      0,
+      bandTop,
+      width,
+      drawH
+    );
+
+    var pixels = bufferCtx.getImageData(0, 0, width, height).data;
+    var luminance = new Uint8Array(width * height);
+
+    for (var i = bandTop * width; i < luminance.length; i++) {
+      var p = i * 4;
+      luminance[i] = Math.round(
+        pixels[p] * 0.2126 + pixels[p + 1] * 0.7152 + pixels[p + 2] * 0.0722
+      );
+    }
+
+    var skyline = buildRenderedSkyline(crop, bandTop, drawH);
+    var ridgeTop = height;
+    var ridgeLow = 0;
+
+    for (i = 0; i < skyline.length; i++) {
+      if (skyline[i] < ridgeTop) ridgeTop = skyline[i];
+      if (skyline[i] < height && skyline[i] > ridgeLow) ridgeLow = skyline[i];
+    }
+
+    state = {
+      width: width,
+      height: height,
+      cssWidth: cssW,
+      cssHeight: cssH,
+      dpr: dpr,
+      dark: themeMedia.matches,
+      portrait: portrait,
+      skyline: skyline,
+      ridgeTop: ridgeTop,
+      ridgeLow: ridgeLow,
+      crop: crop,
+      bandTop: bandTop,
+      drawHeight: drawH
+    };
+
+    makeTerrain(luminance, skyline);
+    makeEdgeDots();
+    makeClouds();
+    makeStars();
+
+    var now = performance.now();
+    comet.active = false;
+    comet.next = state.dark
+      ? now + 150000 + hash2(width, height, 901) * 240000
+      : Infinity;
+
+    drawFrame(reducedMotion ? FIXED_TIME : now);
+  }
+
+  function diffuse(x, y, error, skyline) {
+    if (x < 0 || y < 0 || x >= width || y >= height || y < skyline[x]) return;
+    activeWork[y * width + x] += error;
+  }
+
+  function atkinson(paper, skyline) {
+    activeWork = new Float32Array(paper);
+    var dots = new Uint8Array(width * height);
+
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        var i = y * width + x;
+
+        if (y < skyline[x]) {
+          activeWork[i] = 1;
+          continue;
+        }
+
+        var old = activeWork[i];
+        var quantized = old >= 0.5 ? 1 : 0;
+        dots[i] = quantized ? 0 : 1;
+
+        var error = (old - quantized) * 0.125;
+        if (!error) continue;
+
+        diffuse(x + 1, y, error, skyline);
+        diffuse(x + 2, y, error, skyline);
+        diffuse(x - 1, y + 1, error, skyline);
+        diffuse(x, y + 1, error, skyline);
+        diffuse(x + 1, y + 1, error, skyline);
+        diffuse(x, y + 2, error, skyline);
+      }
+    }
+
+    activeWork = null;
+    return dots;
+  }
+
+  function makeTerrain(luminance, skyline) {
+    var total = width * height;
+    var paper = new Float32Array(total);
+    var dark = state.dark;
+    var activeTheme = theme();
+
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        var i = y * width + x;
+
+        if (y < skyline[x]) {
+          paper[i] = 1;
+          continue;
+        }
+
+        var value = luminance[i] / 255;
+        var density;
+
+        if (dark) {
+          var lit = Math.pow(smoothstep(0.055, 0.95, value), 1.27);
+          density = 0.035 + 0.965 * lit;
+        } else {
+          var shadow = Math.pow(smoothstep(0.035, 0.84, 1 - value), 1.10);
+          density = 0.018 + 0.982 * shadow;
+        }
+
+        paper[i] = 1 - clamp(density, 0, 1);
+      }
+    }
+
+    var dots = atkinson(paper, skyline);
+    terrainImage = ctx.createImageData(width, height);
+    var output = terrainImage.data;
+    var rgb = parseInt(activeTheme.ink.replace("#", ""), 16);
+    var red = (rgb >> 16) & 255;
+    var green = (rgb >> 8) & 255;
+    var blue = rgb & 255;
+    var edgeDepth = Math.max(3, Math.round(4 * dpr));
+    var seed = width * 13 + height * 29 + 701;
+
+    for (var index = 0; index < dots.length; index++) {
+      if (!dots[index]) continue;
+
+      var py = Math.floor(index / width);
+      var px = index - py * width;
+      var distance = py - skyline[px];
+      var edgeMix = smoothstep(0, edgeDepth, distance);
+
+      if (distance < edgeDepth && hash2(px, py, seed) < (1 - edgeMix) * 0.10) {
+        continue;
+      }
+
+      var p = index * 4;
+      output[p] = red;
+      output[p + 1] = green;
+      output[p + 2] = blue;
+      output[p + 3] = Math.round(
+        activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22)
+      );
+    }
+  }
+
+  function makeEdgeDots() {
+    edgeDots = [];
+    if (!state) return;
+
+    var reach = Math.max(5, Math.round(8 * dpr));
+    var xStep = Math.max(1, Math.round(dpr * 0.8));
+    var seed = width * 17 + height * 31 + 811;
+
+    for (var x = 0; x < width; x += xStep) {
+      var edge = state.skyline[x];
+      if (edge >= height) continue;
+
+      for (var distance = 1; distance <= reach; distance++) {
+        var y = edge - distance;
+        if (y < 0) break;
+
+        var envelope = 1 - distance / (reach + 1);
+        var keep = 0.015 + envelope * envelope * 0.070;
+        if (hash2(x, y, seed) > keep) continue;
+
+        edgeDots.push({
+          x: x,
+          y: y,
+          envelope: envelope,
+          phase: hash2(x, y, seed + 3) * Math.PI * 2,
+          threshold: bayerThreshold(x, y),
+          strength: 0.55 + hash2(x, y, seed + 7) * 0.55
+        });
+      }
+    }
+  }
+
+  function drawEdge(now) {
+    if (!edgeDots.length) return;
+
+    var activeTheme = theme();
+    var t = now * 0.000008;
+    ctx.fillStyle = activeTheme.ink;
+
+    for (var i = 0; i < edgeDots.length; i++) {
+      var dot = edgeDots[i];
+      var field = warpedField(
+        dot.x * 0.0023,
+        dot.y * 0.0026 + dot.phase,
+        t,
+        991
+      );
+      var pulse = 0.5 + 0.5 * Math.sin(dot.phase + t * 0.26);
+      var density = dot.envelope * (0.30 + field * 0.55 + pulse * 0.15);
+
+      if (density < dot.threshold * 0.68) continue;
+
+      var lift = Math.round((field - 0.50) * dpr * 1.7);
+      var alpha =
+        activeTheme.dustAlpha *
+        dot.envelope *
+        dot.strength *
+        smoothstep(0.22, 0.82, density);
+
+      if (alpha < 0.006) continue;
+
+      ctx.globalAlpha = clamp(alpha, 0, 0.18);
+      ctx.fillRect(dot.x, dot.y - lift, 1, 1);
+    }
+  }
+
+  function findValley() {
+    var start = Math.floor(width * 0.12);
+    var end = Math.floor(width * 0.88);
+    var step = Math.max(2, Math.floor(width / 240));
+    var valleyX = Math.floor(width * 0.5);
+    var valleyY = state.ridgeTop;
+
+    for (var x = start; x <= end; x += step) {
+      if (state.skyline[x] > valleyY) {
+        valleyX = x;
+        valleyY = state.skyline[x];
+      }
+    }
+
+    return {
+      x: valleyX,
+      y: valleyY,
+      depth: valleyY - state.ridgeTop
+    };
+  }
+
+  function makeClouds() {
+    cloudDots = [];
+    if (!state) return;
+
+    var valley = findValley();
+    if (valley.depth < 28 * dpr) return;
+
+    var activeTheme = theme();
+    var span = clamp(
+      width * (state.dark ? 0.44 : 0.62),
+      240 * dpr,
+      1100 * dpr
+    );
+    var cloudHeight = clamp(
+      valley.depth * (state.dark ? 0.50 : 0.72),
+      60 * dpr,
+      190 * dpr
+    );
+    var centerY = valley.y - cloudHeight * (state.dark ? 0.22 : 0.28);
+    var dotStep = Math.max(2, Math.round((state.dark ? 3.2 : 2.8) * dpr));
+    var seed = state.dark ? 1701 : 1801;
+    var densityScale = state.dark ? 0.25 : 0.38;
+
+    for (var y = centerY - cloudHeight; y <= centerY + cloudHeight * 0.55; y += dotStep) {
+      for (
+        var x = valley.x - span * 0.5;
+        x <= valley.x + span * 0.5;
+        x += dotStep
+      ) {
+        if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+        var u = (x - valley.x) / (span * 0.5);
+        var v = (y - centerY) / cloudHeight;
+        var basin = Math.exp(-(u * u * 2.5 + v * v * 4.5));
+        var left = Math.exp(
+          -((u + 0.43) * (u + 0.43) * 5.3 + (v + 0.02) * (v + 0.02) * 7.2)
+        );
+        var right = Math.exp(
+          -((u - 0.39) * (u - 0.39) * 5.6 + (v + 0.06) * (v + 0.06) * 7.6)
+        );
+        var shape = clamp(basin + left * 0.45 + right * 0.40, 0, 1);
+
+        if (shape < 0.07) continue;
+
+        var cellX = Math.floor(x / dotStep);
+        var cellY = Math.floor(y / dotStep);
+        if (hash2(cellX, cellY, seed) > 0.07 + shape * densityScale) continue;
+
+        cloudDots.push({
+          x: x,
+          y: y,
+          shape: shape,
+          phase: hash2(cellX, cellY, seed + 11) * 17,
+          threshold: bayerThreshold(cellX, cellY),
+          alpha: activeTheme.cloudAlpha
+        });
+      }
+    }
+  }
+
+  function drawClouds(now) {
+    if (!cloudDots.length) return;
+
+    var activeTheme = theme();
+    var t = now * 0.000010;
+    var swell = 0.86 + 0.14 * Math.sin(t * 0.32 + 0.8);
+    ctx.fillStyle = activeTheme.ink;
+
+    for (var i = 0; i < cloudDots.length; i++) {
+      var dot = cloudDots[i];
+      var ix = clamp(Math.round(dot.x), 0, width - 1);
+      var ridgeDistance = state.skyline[ix] - dot.y;
+      var ridgeFade = 0.36 + 0.64 * smoothstep(-90 * dpr, 30 * dpr, ridgeDistance);
+      var field = warpedField(
+        dot.x * 0.00155 + dot.phase * 0.01,
+        dot.y * 0.00185,
+        t,
+        state.dark ? 1201 : 1401
+      );
+      var density = dot.shape * (0.26 + field * 0.74) * swell;
+
+      if (density < dot.threshold * (state.dark ? 0.62 : 0.53)) continue;
+
+      var alpha = dot.alpha * ridgeFade * (0.34 + density * 0.66);
+      if (alpha < 0.006) continue;
+
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.18 : 0.28);
+      ctx.fillRect(Math.round(dot.x), Math.round(dot.y), 1, 1);
+    }
+  }
+
+  function makeStars() {
+    stars = [];
+    if (!state.dark) return;
+
+    var count = state.portrait ? 18 : 26;
+    var seed = width * 41 + height * 73 + 1901;
+    var minDistance = Math.sqrt((width * Math.max(1, state.ridgeTop)) / count) * 0.42;
+    var guard = 0;
+
+    while (stars.length < count && guard++ < count * 1600) {
+      var x = Math.floor(hash(seed++) * width);
+      var maxY = Math.max(8 * dpr, state.skyline[x] - 34 * dpr);
+      if (maxY <= 10 * dpr) continue;
+
+      var vertical = hash(seed++);
+      if (hash(seed++) > 0.58) vertical *= vertical;
+      var y = Math.floor((0.04 + vertical * 0.87) * maxY);
+      var clear = true;
+
+      for (var i = 0; i < stars.length; i++) {
+        var dx = stars[i].x - x;
+        var dy = stars[i].y - y;
+        if (dx * dx + dy * dy < minDistance * minDistance) {
+          clear = false;
+          break;
+        }
+      }
+
+      if (!clear) continue;
+
+      var bright = hash(seed++) > 0.88;
+      stars.push({
+        x: x,
+        y: y,
+        size: 1,
+        magnitude: bright ? 0.76 + hash(seed++) * 0.20 : 0.25 + hash(seed++) * 0.40,
+        period: 18000 + hash(seed++) * 47000,
+        phase: hash(seed++) * Math.PI * 2,
+        breathePeriod: 38000 + hash(seed++) * 90000,
+        breatheOffset: hash(seed++) * 110000
+      });
+    }
+  }
+
+  function drawStars(now) {
+    if (!state.dark) return;
+
+    var activeTheme = theme();
+    ctx.fillStyle = activeTheme.star;
+
+    for (var i = 0; i < stars.length; i++) {
+      var star = stars[i];
+      var twinkle =
+        0.72 +
+        Math.sin((now / star.period) * Math.PI * 2 + star.phase) * 0.14 +
+        Math.sin((now / (star.period * 1.87)) * Math.PI * 2 + star.phase * 1.7) * 0.05;
+      var breathe =
+        0.76 +
+        0.24 *
+          Math.sin(
+            ((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2
+          );
+      var edge = state.skyline[clamp(Math.round(star.x), 0, width - 1)];
+      var horizonFade = smoothstep(0, 26 * dpr, edge - star.y);
+      var alpha =
+        activeTheme.starAlpha *
+        star.magnitude *
+        twinkle *
+        breathe *
+        horizonFade;
+
+      if (alpha < 0.01) continue;
+
+      ctx.globalAlpha = clamp(alpha, 0, 0.88);
+      ctx.fillRect(star.x, star.y, star.size, star.size);
+    }
+  }
+
+  function scheduleComet(now) {
+    if (!state.dark) return;
+
+    var seed = Math.floor(now / 1000) + width * 3 + height * 5;
+    var direction = hash(seed) > 0.5 ? 1 : -1;
+
+    comet.active = true;
+    comet.start = now;
+    comet.duration = 1500 + hash(seed + 1) * 1300;
+    comet.x0 = (0.15 + hash(seed + 2) * 0.70) * width;
+    comet.y0 = (0.08 + hash(seed + 3) * 0.24) * Math.max(state.ridgeTop, 1);
+    comet.x1 = comet.x0 + direction * (0.09 + hash(seed + 4) * 0.13) * width;
+    comet.y1 = comet.y0 + (0.06 + hash(seed + 5) * 0.10) * Math.max(state.ridgeTop, 1);
+    comet.tail = (0.014 + hash(seed + 6) * 0.020) * width;
+    comet.next = now + comet.duration + 150000 + hash(seed + 7) * 240000;
+  }
+
+  function drawComet(now) {
+    if (!state.dark || !comet.active) return;
+
+    var progress = (now - comet.start) / comet.duration;
+    if (progress >= 1) {
+      comet.active = false;
+      return;
+    }
+    if (progress < 0) return;
+
+    var fade =
+      smoothstep(0, 0.14, progress) *
+      (1 - smoothstep(0.72, 1, progress));
+    var x = lerp(comet.x0, comet.x1, progress);
+    var y = lerp(comet.y0, comet.y1, progress);
+    var dx = comet.x1 - comet.x0;
+    var dy = comet.y1 - comet.y0;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    dx /= len;
+    dy /= len;
+
+    ctx.fillStyle = theme().star;
+
+    for (var step = comet.tail; step > 0; step -= Math.max(1, dpr)) {
+      var tx = Math.round(x - dx * step);
+      var ty = Math.round(y - dy * step);
+      if (tx < 0 || tx >= width || ty < 0 || ty >= height) continue;
+      if (ty >= state.skyline[tx] - 12 * dpr) continue;
+
+      var alpha =
+        fade *
+        Math.pow(1 - step / comet.tail, 1.55) *
+        theme().starAlpha *
+        0.58;
+      if (alpha < 0.008) continue;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(tx, ty, 1, 1);
+    }
+  }
+
+  function drawFrame(now) {
+    if (!state || !terrainImage) return;
+
+    ctx.globalAlpha = 1;
+    ctx.clearRect(0, 0, width, height);
+    ctx.putImageData(terrainImage, 0, 0);
+
+    drawEdge(now);
+    drawClouds(now);
+    drawStars(now);
+    drawComet(now);
+
+    ctx.globalAlpha = 1;
+  }
+
+  function tick(now) {
+    rafId = window.requestAnimationFrame(tick);
+
+    if (!state || reducedMotion || !visible) return;
+    if (now - lastDraw < 1000 / 24) return;
+
+    lastDraw = now;
+
+    if (state.dark && !comet.active && now >= comet.next) {
+      scheduleComet(now);
+    }
+
+    drawFrame(now);
+  }
+
+  function build() {
+    if (!plate.complete || !plate.naturalWidth || !skylineData) return;
+
+    window.cancelAnimationFrame(rafId);
+    rafId = 0;
+
+    layoutPlate();
+
+    if (!reducedMotion) {
+      rafId = window.requestAnimationFrame(tick);
+    }
+  }
+
+  function onResize() {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(build, 180);
+  }
+
+  listenMedia(themeMedia, function () {
+    window.setTimeout(build, 0);
+  });
+
+  listenMedia(motionMedia, function (event) {
+    reducedMotion = event.matches;
+    build();
+  });
+
+  window.addEventListener("resize", onResize, { passive: true });
+
+  document.addEventListener("visibilitychange", function () {
+    visible = !document.hidden;
+    if (visible && !reducedMotion && !rafId) {
+      rafId = window.requestAnimationFrame(tick);
+    }
+  });
+
+  window.__portfolioSky = {
+    build: build,
+    step: function (now) {
+      drawFrame(reducedMotion ? FIXED_TIME : now == null ? performance.now() : now);
+    },
+    cometNow: function (now) {
+      var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
+      if (state && state.dark) scheduleComet(time);
+      drawFrame(time);
+    },
+    state: function () {
+      if (!state) return null;
+      return {
+        width: state.width,
+        height: state.height,
+        cssWidth: state.cssWidth,
+        cssHeight: state.cssHeight,
+        dpr: state.dpr,
+        dark: state.dark,
+        ridgeTop: state.ridgeTop,
+        ridgeLow: state.ridgeLow,
+        edgeDots: edgeDots.length,
+        cloudDots: cloudDots.length,
+        stars: stars.length,
+        motion: {
+          reduced: reducedMotion,
+          visible: visible,
+          rafActive: !!rafId
+        }
+      };
+    }
+  };
+
+  Promise.all([
+    new Promise(function (resolve, reject) {
+      plate.decoding = "async";
+      plate.onload = resolve;
+      plate.onerror = reject;
+      plate.src = SOURCE;
+    }),
+    fetch(SKYLINE_SOURCE, { cache: "force-cache" }).then(function (response) {
+      if (!response.ok) throw new Error("failed to load skyline");
+      return response.json();
+    })
+  ])
+    .then(function (values) {
+      skylineData = values[1];
+      build();
+    })
+    .catch(function () {
+      document.documentElement.setAttribute("data-plate-error", "1");
+    });
+})();
