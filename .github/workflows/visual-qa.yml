@@ -41,5 +41,6 @@ jobs:
           name: visual-qa
           path: |
             qa-*.png
+            public/assets/annapurna-circuit.jpg
             /tmp/portfolio-server.log
           if-no-files-found: warn
