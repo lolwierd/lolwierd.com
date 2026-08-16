@@ -155,9 +155,9 @@
         shape += .48 * Math.exp(-((u + .44) * (u + .44) * 5.4 + (v + .02) * (v + .02) * 4.8));
         shape += .43 * Math.exp(-((u - .39) * (u - .39) * 5.8 + (v - .04) * (v - .04) * 5.0));
         shape = clamp(shape, 0, 1);
-        if (shape < .055) continue;
+        if (shape < .045) continue;
         var ix = Math.floor(x / step), iy = Math.floor(y / step);
-        if (hash2(ix, iy, config.seed) > .09 + shape * .88) continue;
+        if (hash2(ix, iy, config.seed) > .06 + shape * .92) continue;
         dots.push({
           x: x,
           y: y,
@@ -176,9 +176,9 @@
     banks = [];
     if (!state || state.dark) return;
 
-    seedBank({ cx:.42, cy:.61, span:.34, tall:.34, min:48, max:130, step:1.2, seed:10101, phase:.35 }, 0);
-    seedBank({ cx:.60, cy:.72, span:.43, tall:.38, min:52, max:145, step:1.2, seed:10201, phase:2.15 }, 1);
-    seedBank({ cx:.53, cy:.49, span:.30, tall:.27, min:42, max:112, step:1.15, seed:10301, phase:4.10 }, 2);
+    seedBank({ cx:.41, cy:.61, span:.37, tall:.35, min:50, max:135, step:1.1, seed:10101, phase:.35 }, 0);
+    seedBank({ cx:.59, cy:.73, span:.49, tall:.40, min:56, max:155, step:1.1, seed:10201, phase:2.15 }, 1);
+    seedBank({ cx:.53, cy:.49, span:.32, tall:.28, min:44, max:118, step:1.05, seed:10301, phase:4.10 }, 2);
   }
 
   function build() {
@@ -208,73 +208,62 @@
     if (!reduced && visible) raf = requestAnimationFrame(tick);
   }
 
-  function drawRidgeBridge() {
+  function drawRidgeCleanup() {
     if (!ridge || state.dark) return;
 
-    var ink = "#293039";
     var paper = "#eee9df";
     var end = Math.floor(width * .135);
     var fadeStart = Math.floor(width * .105);
-    var depth = Math.max(10, Math.round(11 * dpr));
+    var eraseUp = Math.max(2, Math.round(2 * dpr));
+    var eraseIn = Math.max(3, Math.round(4 * dpr));
 
     for (var x = 0; x < end; x++) {
       var y = ridge[x];
       if (y <= 0 || y >= height) continue;
       var fade = x <= fadeStart ? 1 : 1 - smooth(fadeStart, end, x);
 
+      // Remove the artificial outer rim only. The real photographed rock/dither below becomes the edge.
       ctx.fillStyle = paper;
-      ctx.globalAlpha = .97 * fade;
-      ctx.fillRect(x, Math.max(0, y - Math.max(1, Math.round(1.4 * dpr))), 1, Math.max(1, Math.round(1.2 * dpr)));
-
-      ctx.fillStyle = ink;
-      ctx.globalAlpha = .94 * fade;
-      ctx.fillRect(x, y, 1, 1);
-
-      for (var d = 1; d < depth; d++) {
-        var progress = d / depth;
-        var density = lerp(.95, .50, progress);
-        if (hash2(x, d, 12031) > density) continue;
-        ctx.globalAlpha = lerp(.88, .38, progress) * fade;
-        ctx.fillRect(x, y + d, 1, 1);
-      }
+      ctx.globalAlpha = .985 * fade;
+      ctx.fillRect(x, Math.max(0, y - eraseUp), 1, eraseUp + eraseIn);
     }
   }
 
   function drawBank(bank, now) {
     var config = bank.config;
     var paper = "#eee9df";
-    var haze = "#4f5964";
+    var haze = "#616a72";
 
     var ox = (
-      Math.sin(now / 5200 * Math.PI * 2 + config.phase) * 18 +
-      Math.sin(now / 8300 * Math.PI * 2 + config.phase * .63) * 6
+      Math.sin(now / 5000 * Math.PI * 2 + config.phase) * 22 +
+      Math.sin(now / 7900 * Math.PI * 2 + config.phase * .63) * 8
     ) * dpr;
     var oy = (
-      Math.sin(now / 6500 * Math.PI * 2 + config.phase * 1.17) * 10 +
-      Math.sin(now / 9800 * Math.PI * 2 + config.phase * .78) * 4
+      Math.sin(now / 6100 * Math.PI * 2 + config.phase * 1.17) * 12 +
+      Math.sin(now / 9300 * Math.PI * 2 + config.phase * .78) * 5
     ) * dpr;
-    var swell = .70 + .30 * Math.sin(now / 3800 * Math.PI * 2 + config.phase);
-    var t = now * .00042;
+    var swell = .58 + .42 * Math.sin(now / 3900 * Math.PI * 2 + config.phase);
+    var t = now * .00048;
 
     for (var i = 0; i < bank.dots.length; i++) {
       var dot = bank.dots[i];
       var field = fbm(dot.x * .0020 + t, dot.y * .00185 - t * .72, 11101 + bank.index * 113);
-      var local = .5 + .5 * Math.sin(now / 4300 * Math.PI * 2 + dot.phase);
-      var density = dot.shape * (.22 + field * .64 + local * .36) * swell;
-      if (density < dot.cut * .20 + .025) continue;
+      var local = .5 + .5 * Math.sin(now / 3900 * Math.PI * 2 + dot.phase);
+      var density = dot.shape * (.24 + field * .66 + local * .40) * swell;
+      if (density < dot.cut * .18 + .018) continue;
 
       var px = Math.round(dot.x + ox);
       var py = Math.round(dot.y + oy);
       if (px < 0 || px >= width || py < 0 || py >= height) continue;
 
       ctx.fillStyle = paper;
-      ctx.globalAlpha = clamp(.68 + density * .30, 0, .96);
-      ctx.fillRect(px, py, Math.max(1, Math.round(1.65 * dpr)), Math.max(1, Math.round(1.05 * dpr)));
+      ctx.globalAlpha = clamp(.74 + density * .24, 0, .97);
+      ctx.fillRect(px, py, Math.max(2, Math.round(1.9 * dpr)), Math.max(1, Math.round(1.1 * dpr)));
 
-      if (dot.grain < .90) {
+      if (dot.grain < .96) {
         ctx.fillStyle = haze;
-        ctx.globalAlpha = clamp(.18 + density * .34, 0, .48);
-        ctx.fillRect(px, py, Math.max(1, Math.round(1.1 * dpr)), 1);
+        ctx.globalAlpha = clamp(.24 + density * .34, 0, .55);
+        ctx.fillRect(px, py, Math.max(1, Math.round(1.25 * dpr)), 1);
       }
     }
   }
@@ -282,7 +271,7 @@
   function draw(now) {
     if (!ctx || !state) return;
     ctx.clearRect(0, 0, width, height);
-    drawRidgeBridge();
+    drawRidgeCleanup();
     if (!state.dark) {
       for (var i = 0; i < banks.length; i++) drawBank(banks[i], now);
     }
@@ -322,7 +311,7 @@
       return {
         ready: !!state,
         banks: banks.map(function (bank) { return bank.dots.length; }),
-        repair: !!ridge,
+        cleanup: !!ridge,
         reduced: reduced
       };
     }
