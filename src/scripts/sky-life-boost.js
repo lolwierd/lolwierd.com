@@ -1,258 +1,111 @@
-(function () {
+(function(){
   "use strict";
+  var tm=matchMedia("(prefers-color-scheme: dark)"), mm=matchMedia("(prefers-reduced-motion: reduce)");
+  var reduced=mm.matches, shown=!document.hidden, FIX=21437, FRAME=1000/24;
+  var canvas,ctx,state,W,H,D,raf=0,last=0,tries=0;
+  var basin=[],veil=[],stars=[],repair=[];
+  var B=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
-  var themeMedia = matchMedia("(prefers-color-scheme: dark)");
-  var motionMedia = matchMedia("(prefers-reduced-motion: reduce)");
-  var reduced = motionMedia.matches;
-  var visible = !document.hidden;
-  var FIXED_TIME = 21437;
-  var FRAME = 1000 / 24;
-  var BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+  function C(v,a,b){return v<a?a:v>b?b:v}
+  function L(a,b,t){return a+(b-a)*t}
+  function S(a,b,v){var t=C((v-a)/(b-a),0,1);return t*t*(3-2*t)}
+  function h(n){n=Math.imul(n^(n>>>16),2246822507);n=Math.imul(n^(n>>>13),3266489909);return((n^(n>>>16))>>>0)/4294967296}
+  function h2(a,b,q){return h(Math.imul(a|0,374761393)^Math.imul(b|0,668265263)^Math.imul(q|0,2246822519))}
+  function n2(a,b,q){var X=Math.floor(a),Y=Math.floor(b),u=a-X,v=b-Y;u=u*u*(3-2*u);v=v*v*(3-2*v);var A=h2(X,Y,q),Bb=h2(X+1,Y,q),Cc=h2(X,Y+1,q),Dd=h2(X+1,Y+1,q);return L(L(A,Bb,u),L(Cc,Dd,u),v)}
+  function fbm(a,b,q){var z=0,A=.58,F=1,N=0;for(var i=0;i<4;i++){z+=n2(a*F,b*F,q+i*97)*A;N+=A;F*=2.03;A*=.47}return z/N}
+  function warped(a,b,t,q){var i=fbm(a-t*.18,b+t*.11,q);return fbm(a+i*.72+t*.20,b+i*.47-t*.14,q+181)}
+  function bt(a,b){return B[((Math.floor(b)&3)<<2)+(Math.floor(a)&3)]/16}
+  function theme(){return tm.matches?
+    {dark:1,ink:"#e4dac8",paper:"#0b0e13",haze:"#151922",body:.24,rim:.13,veil:.07,star:.38}:
+    {dark:0,ink:"#293039",paper:"#eee9df",haze:"#d8d0c3",body:.82,rim:.17,veil:.28,star:0}}
+  function listen(m,fn){m.addEventListener?m.addEventListener("change",fn):m.addListener(fn)}
+  function base(){return window.__portfolioSky&&window.__portfolioSky.state?window.__portfolioSky.state():null}
+  function ensure(){if(canvas)return;canvas=document.createElement("canvas");canvas.id="sky-life";canvas.setAttribute("aria-hidden","true");Object.assign(canvas.style,{position:"fixed",inset:"0",zIndex:"0",pointerEvents:"none",display:"block"});document.body.appendChild(canvas);ctx=canvas.getContext("2d",{alpha:true})}
 
-  var canvas, ctx, state, width, height, dpr;
-  var raf = 0, last = 0, tries = 0;
-  var basin = [], veil = [], stars = [];
-
-  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function smooth(a, b, v) {
-    var t = clamp((v - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
-  }
-  function hash(n) {
-    n = Math.imul(n ^ (n >>> 16), 2246822507);
-    n = Math.imul(n ^ (n >>> 13), 3266489909);
-    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-  }
-  function hash2(a, b, seed) {
-    return hash(Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(seed | 0, 2246822519));
-  }
-  function noise(x, y, seed) {
-    var ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
-    var ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
-    var a = hash2(ix, iy, seed), b = hash2(ix + 1, iy, seed);
-    var c = hash2(ix, iy + 1, seed), d = hash2(ix + 1, iy + 1, seed);
-    return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
-  }
-  function fbm(x, y, seed) {
-    var value = 0, amp = .58, freq = 1, norm = 0;
-    for (var i = 0; i < 4; i++) {
-      value += noise(x * freq, y * freq, seed + i * 97) * amp;
-      norm += amp; freq *= 2.03; amp *= .47;
+  function seedLayer(out,cx,cy,span,tall,step,seed,density,kind){
+    out.length=0;
+    for(var y=cy-tall;y<=cy+tall*.52;y+=step)for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
+      if(x<0||x>=W||y<0||y>=H)continue;
+      var u=(x-cx)/(span*.5),v=(y-cy)/tall,shape;
+      if(kind===0){
+        shape=Math.exp(-(u*u*2.0+v*v*3.5));
+        shape+=.58*Math.exp(-((u+.46)*(u+.46)*4.3+(v+.02)*(v+.02)*5.3));
+        shape+=.51*Math.exp(-((u-.40)*(u-.40)*4.8+(v+.08)*(v+.08)*5.9));
+      }else{
+        shape=Math.exp(-((u+.48)*(u+.48)*6.2));
+        shape+=Math.exp(-((u-.39)*(u-.39)*6.8));
+        shape+=.62*Math.exp(-(u*u*2.15));
+        shape*=Math.exp(-(v*v*3.25));
+      }
+      shape=C(shape,0,1); if(shape<.045)continue;
+      var ix=Math.floor(x/step),iy=Math.floor(y/step); if(h2(ix,iy,seed)>.055+shape*density)continue;
+      out.push({x:x,y:y,q:shape,p:h2(ix,iy,seed+9)*15,b:bt(ix,iy)});
     }
-    return value / norm;
-  }
-  function warped(x, y, time, seed) {
-    var inner = fbm(x - time * .18, y + time * .11, seed);
-    return fbm(x + inner * .72 + time * .20, y + inner * .47 - time * .14, seed + 181);
-  }
-  function threshold(x, y) {
-    return BAYER[((Math.floor(y) & 3) << 2) + (Math.floor(x) & 3)] / 16;
-  }
-  function theme() {
-    return themeMedia.matches
-      ? { dark: true, ink: "#e4dac8", basinAlpha: .17, veilAlpha: .055, starAlpha: .34 }
-      : { dark: false, ink: "#293039", basinAlpha: .35, veilAlpha: .21, starAlpha: 0 };
-  }
-  function listen(media, fn) {
-    media.addEventListener ? media.addEventListener("change", fn) : media.addListener(fn);
-  }
-  function baseState() {
-    return window.__portfolioSky && window.__portfolioSky.state ? window.__portfolioSky.state() : null;
-  }
-  function ensureCanvas() {
-    if (canvas) return;
-    canvas = document.createElement("canvas");
-    canvas.id = "sky-life";
-    canvas.setAttribute("aria-hidden", "true");
-    Object.assign(canvas.style, {
-      position: "fixed", inset: "0", zIndex: "0", pointerEvents: "none", display: "block"
-    });
-    document.body.appendChild(canvas);
-    ctx = canvas.getContext("2d", { alpha: true });
   }
 
-  function seedLayer(out, cx, cy, span, tall, step, seed, density, kind) {
-    out.length = 0;
-    for (var y = cy - tall; y <= cy + tall * .46; y += step) {
-      for (var x = cx - span * .5; x <= cx + span * .5; x += step) {
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-        var u = (x - cx) / (span * .5), v = (y - cy) / tall;
-        var shape;
-        if (kind === 0) {
-          shape = Math.exp(-(u*u*2.15 + v*v*3.8));
-          shape += .52 * Math.exp(-((u+.46)*(u+.46)*4.6 + (v+.03)*(v+.03)*5.8));
-          shape += .46 * Math.exp(-((u-.40)*(u-.40)*5.0 + (v+.08)*(v+.08)*6.4));
-        } else {
-          shape = Math.exp(-((u+.48)*(u+.48)*6.8));
-          shape += Math.exp(-((u-.40)*(u-.40)*7.3));
-          shape += .55 * Math.exp(-(u*u*2.35));
-          shape *= Math.exp(-(v*v*3.7));
-        }
-        shape = clamp(shape, 0, 1);
-        if (shape < .055) continue;
-        var ix = Math.floor(x / step), iy = Math.floor(y / step);
-        if (hash2(ix, iy, seed) > .05 + shape * density) continue;
-        out.push({ x:x, y:y, shape:shape, phase:hash2(ix, iy, seed + 9) * 14, cut:threshold(ix, iy) });
+  function makeRepair(){
+    repair.length=0;
+    var range=Math.max(1,state.ridgeLow-state.ridgeTop),step=Math.max(1,Math.round(1.25*D));
+    for(var x=0;x<W*.19;x+=step){
+      var nx=x/W;
+      var center=state.ridgeTop+range*(.22+nx*1.95);
+      var half=(7+nx*34)*D;
+      for(var y=center-half;y<=center+half;y+=step){
+        if(y<0||y>=H)continue;
+        var band=1-Math.abs(y-center)/half; if(band<=0)continue;
+        var ix=Math.floor(x/step),iy=Math.floor(y/step);
+        if(h2(ix,iy,8301)>.10+band*.42)continue;
+        repair.push({x:x,y:y,q:band,p:h2(ix,iy,8317)});
       }
     }
   }
 
-  function make() {
-    var active = theme();
-    var range = Math.max(1, state.ridgeLow - state.ridgeTop);
-    var portrait = state.cssHeight > state.cssWidth;
-    var cx = width * (portrait ? .52 : .55);
-    var cy = lerp(state.ridgeTop, state.ridgeLow, active.dark ? .72 : .80);
-    seedLayer(
-      basin, cx, cy,
-      width * (active.dark ? .58 : .91),
-      clamp(range * (active.dark ? .84 : 1.48), 70*dpr, 260*dpr),
-      Math.max(2, Math.round((active.dark ? 3.0 : 2.25) * dpr)),
-      active.dark ? 7101 : 7201,
-      active.dark ? .29 : .61,
-      0
-    );
+  function make(){
+    var a=theme(),range=Math.max(1,state.ridgeLow-state.ridgeTop),portrait=state.cssHeight>state.cssWidth;
+    var cx=W*(portrait?.53:.57),cy=L(state.ridgeTop,state.ridgeLow,a.dark?.73:.79);
+    seedLayer(basin,cx,cy,W*(a.dark?.60:.94),C(range*(a.dark?.92:1.56),78*D,270*D),Math.max(2,Math.round((a.dark?2.8:2.05)*D)),a.dark?7101:7201,a.dark?.34:.72,0);
+    var vy=L(state.ridgeTop,state.ridgeLow,a.dark?.35:.40);
+    seedLayer(veil,W*.52,vy,W*(a.dark?.84:.96),C(range*(a.dark?.42:.82),48*D,195*D),Math.max(2,Math.round((a.dark?3.0:2.35)*D)),a.dark?7301:7401,a.dark?.12:.47,1);
+    makeRepair();
+    stars.length=0;
+    if(a.dark){var q=W*31+H*47+7501,count=portrait?14:24;for(var i=0;i<count;i++)stars.push({x:(.05+h(q++)*.90)*W,y:(.05+h(q++)*.65)*Math.max(state.ridgeTop,1),x2:(.05+h(q++)*.90)*W,y2:(.05+h(q++)*.65)*Math.max(state.ridgeTop,1),m:.24+h(q++)*.46,p:h(q++)*6.28,r:10000+h(q++)*26000,z:1100+h(q++)*2200,o:h(q++)*90000,R:52000+h(q++)*76000,w:i<7})}
+  }
 
-    var veilY = lerp(state.ridgeTop, state.ridgeLow, active.dark ? .34 : .39);
-    seedLayer(
-      veil, width*.5, veilY,
-      width * (active.dark ? .82 : .92),
-      clamp(range * (active.dark ? .38 : .76), 44*dpr, 185*dpr),
-      Math.max(2, Math.round((active.dark ? 3.2 : 2.55) * dpr)),
-      active.dark ? 7301 : 7401,
-      active.dark ? .10 : .38,
-      1
-    );
+  function build(){
+    var b=base(); if(!b){if(tries++<60)setTimeout(build,120);return}
+    ensure();state=b;W=state.width;H=state.height;D=state.dpr;canvas.width=W;canvas.height=H;canvas.style.width=state.cssWidth+"px";canvas.style.height=state.cssHeight+"px";make();draw(reduced?FIX:performance.now());if(raf)cancelAnimationFrame(raf);raf=0;last=0;if(!reduced&&shown)raf=requestAnimationFrame(tick)
+  }
 
-    stars.length = 0;
-    if (active.dark) {
-      var q = width * 31 + height * 47 + 7501;
-      var count = portrait ? 12 : 20;
-      for (var i = 0; i < count; i++) {
-        stars.push({
-          x:(.05+hash(q++)*.90)*width,
-          y:(.05+hash(q++)*.65)*Math.max(state.ridgeTop,1),
-          x2:(.05+hash(q++)*.90)*width,
-          y2:(.05+hash(q++)*.65)*Math.max(state.ridgeTop,1),
-          mag:.22+hash(q++)*.42,
-          phase:hash(q++)*Math.PI*2,
-          period:13000+hash(q++)*32000,
-          shimmer:1200+hash(q++)*2600,
-          offset:hash(q++)*100000,
-          swap:65000+hash(q++)*90000,
-          wander:i<5
-        });
-      }
+  function drawRepair(){
+    var a=theme(); ctx.fillStyle=a.paper;
+    for(var i=0;i<repair.length;i++){var d=repair[i];var alpha=(a.dark?.34:.58)*d.q*(.55+d.p*.45);if(alpha<.02)continue;ctx.globalAlpha=alpha;ctx.fillRect(Math.round(d.x),Math.round(d.y),1,1)}
+  }
+
+  function drawBasin(now){
+    if(!basin.length)return;var a=theme(),t=now*(a.dark?.000018:.00024);
+    var breathe=a.dark?.86+.14*Math.sin(now/26000*6.283+.8):.63+.37*Math.sin(now/18000*6.283+1.05);
+    if(!a.dark){
+      ctx.fillStyle=a.paper;
+      for(var i=0;i<basin.length;i++){var d=basin[i],A=warped(d.x*.00125+d.p*.011,d.y*.00155,t*1.18,8101),Q=warped(d.x*.00185-d.p*.008,d.y*.00115+d.p*.006,t*.82,8129),den=d.q*(.10+A*.62+Q*.48)*breathe;if(den<d.b*.22)continue;var body=a.body*d.q*(.30+den*.70);ctx.globalAlpha=C(body,0,.88);ctx.fillRect(Math.round(d.x),Math.round(d.y),1,1)}
+      ctx.fillStyle=a.haze;
+      for(i=0;i<basin.length;i++){d=basin[i];A=warped(d.x*.00155+d.p*.015,d.y*.00175,t*.96,8201);Q=warped(d.x*.0021,d.y*.00120+d.p*.004,t*.66,8231);den=d.q*(.08+A*.58+Q*.44)*breathe;if(den<d.b*.34)continue;ctx.globalAlpha=C(.06+d.q*.12,0,.18);ctx.fillRect(Math.round(d.x),Math.round(d.y-2*D),1,1)}
     }
+    ctx.fillStyle=a.ink;
+    for(var j=0;j<basin.length;j++){var dot=basin[j],aa=warped(dot.x*.00145+dot.p*.012,dot.y*.0017,t*(a.dark?.82:1.05),a.dark?7601:7701),bb=warped(dot.x*.00195-dot.p*.010,dot.y*.0012+dot.p*.006,t*(a.dark?.52:.76),a.dark?7629:7733),density=dot.q*(.04+aa*.61+bb*.48)*breathe;if(density<dot.b*(a.dark?.54:.31))continue;var al=a.rim*(.12+density*.88);if(al<.004)continue;ctx.globalAlpha=C(al,0,a.dark?.19:.22);ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1)}
   }
 
-  function build() {
-    var next = baseState();
-    if (!next) {
-      if (tries++ < 50) setTimeout(build, 120);
-      return;
-    }
-    ensureCanvas();
-    state = next; width = state.width; height = state.height; dpr = state.dpr;
-    canvas.width = width; canvas.height = height;
-    canvas.style.width = state.cssWidth + "px";
-    canvas.style.height = state.cssHeight + "px";
-    make();
-    draw(reduced ? FIXED_TIME : performance.now());
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0; last = 0;
-    if (!reduced && visible) raf = requestAnimationFrame(tick);
+  function drawVeil(now){
+    if(!veil.length)return;var a=theme(),t=now*(a.dark?.000012:.00017),breathe=a.dark?.93+.07*Math.sin(now/37000*6.283+.4):.60+.40*Math.sin(now/24000*6.283+1.7);
+    if(!a.dark){ctx.fillStyle=a.paper;for(var i=0;i<veil.length;i++){var d=veil[i],A=warped(d.x*.00122+d.p*.017,d.y*.00148,t*1.1,8401),Q=warped(d.x*.00195-d.p*.009,d.y*.00108+d.p*.007,t*.74,8429),den=d.q*(.05+A*.61+Q*.50)*breathe;if(den<d.b*.30)continue;ctx.globalAlpha=C(a.veil*d.q*(.18+den*.82),0,.34);ctx.fillRect(Math.round(d.x),Math.round(d.y),1,1)}}
+    ctx.fillStyle=a.ink;for(var k=0;k<veil.length;k++){var dot=veil[k],aa=warped(dot.x*.0013+dot.p*.018,dot.y*.00155,t*(a.dark?.55:.92),a.dark?7801:7901),bb=warped(dot.x*.0021-dot.p*.01,dot.y*.0011+dot.p*.008,t*(a.dark?.35:.70),a.dark?7827:7929),density=dot.q*(.03+aa*.62+bb*.52)*breathe;if(density<dot.b*(a.dark?.69:.34))continue;var al=(a.dark?.06:.10)*(.14+density*.86);if(al<.004)continue;ctx.globalAlpha=C(al,0,a.dark?.065:.13);ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1)}
   }
 
-  function drawBasin(now) {
-    var active = theme();
-    if (!basin.length) return;
-    var t = now * (active.dark ? .000011 : .000085);
-    var breathe = active.dark
-      ? .88 + .12 * Math.sin(now / 31000 * Math.PI * 2 + .8)
-      : .68 + .32 * Math.sin(now / 22000 * Math.PI * 2 + 1.1);
-    ctx.fillStyle = active.ink;
-    for (var i = 0; i < basin.length; i++) {
-      var dot = basin[i];
-      var a = warped(dot.x*.00145 + dot.phase*.012, dot.y*.0017, t*(active.dark?.82:1.18), active.dark?7601:7701);
-      var b = warped(dot.x*.00195 - dot.phase*.010, dot.y*.0012 + dot.phase*.006, t*(active.dark?.52:.86), active.dark?7629:7733);
-      var localDay = active.dark ? 1 : .78 + .22 * Math.sin(now/28000*Math.PI*2 + dot.x/width*1.8 + dot.phase*.03);
-      var density = dot.shape * (.04 + a*.61 + b*.48) * breathe * localDay;
-      if (density < dot.cut * (active.dark ? .55 : .36)) continue;
-      var alpha = active.basinAlpha * (.15 + density*.85);
-      if (alpha < .005) continue;
-      ctx.globalAlpha = clamp(alpha, 0, active.dark ? .21 : .47);
-      ctx.fillRect(Math.round(dot.x), Math.round(dot.y), 1, 1);
-    }
-  }
+  function drawStars(now){var a=theme();if(!a.dark)return;ctx.fillStyle=a.ink;for(var i=0;i<stars.length;i++){var z=stars[i],tw=.74+Math.sin(now/z.r*6.283+z.p)*.18+Math.sin(now/z.z*6.283+z.p*1.7)*.08,xx=z.x,yy=z.y,fade=1;if(z.w){var k=((now+z.o)%z.R)/z.R;if(k<.32)fade=S(.02,.07,k)*(1-S(.25,.32,k));else if(k<.47)fade=0;else if(k<.82){xx=z.x2;yy=z.y2;fade=S(.47,.55,k)*(1-S(.75,.82,k))}else fade=0}var al=a.star*z.m*tw*fade;if(al<.01)continue;ctx.globalAlpha=C(al,0,.62);ctx.fillRect(Math.round(xx),Math.round(yy),1,1)}}
 
-  function drawVeil(now) {
-    var active = theme();
-    if (!veil.length) return;
-    var t = now * (active.dark ? .000009 : .000070);
-    var breathe = active.dark
-      ? .93 + .07*Math.sin(now/41000*Math.PI*2 + .4)
-      : .65 + .35*Math.sin(now/27000*Math.PI*2 + 1.8);
-    ctx.fillStyle = active.ink;
-    for (var i = 0; i < veil.length; i++) {
-      var dot = veil[i];
-      var a = warped(dot.x*.0013 + dot.phase*.018, dot.y*.00155, t*(active.dark?.55:1.02), active.dark?7801:7901);
-      var b = warped(dot.x*.0021 - dot.phase*.01, dot.y*.0011 + dot.phase*.008, t*(active.dark?.35:.82), active.dark?7827:7929);
-      var density = dot.shape * (.03 + a*.62 + b*.52) * breathe;
-      if (density < dot.cut * (active.dark ? .70 : .36)) continue;
-      var alpha = active.veilAlpha * (.14 + density*.86);
-      if (alpha < .004) continue;
-      ctx.globalAlpha = clamp(alpha, 0, active.dark ? .065 : .26);
-      ctx.fillRect(Math.round(dot.x), Math.round(dot.y), 1, 1);
-    }
-  }
+  function draw(now){if(!ctx||!state)return;ctx.clearRect(0,0,W,H);drawRepair();drawStars(now);drawBasin(now);drawVeil(now);ctx.globalAlpha=1}
+  function tick(now){if(!shown||reduced){raf=0;return}if(!last||now-last>=FRAME){last=now;draw(now)}raf=requestAnimationFrame(tick)}
 
-  function drawStars(now) {
-    var active = theme();
-    if (!active.dark) return;
-    ctx.fillStyle = active.ink;
-    for (var i = 0; i < stars.length; i++) {
-      var star = stars[i];
-      var twinkle = .74 + Math.sin(now/star.period*Math.PI*2+star.phase)*.18 + Math.sin(now/star.shimmer*Math.PI*2+star.phase*1.7)*.07;
-      var sx=star.x, sy=star.y, fade=1;
-      if (star.wander) {
-        var cycle=((now+star.offset)%star.swap)/star.swap;
-        if(cycle<.34) fade=smooth(.02,.08,cycle)*(1-smooth(.28,.34,cycle));
-        else if(cycle<.54) fade=0;
-        else if(cycle<.88){sx=star.x2;sy=star.y2;fade=smooth(.54,.62,cycle)*(1-smooth(.82,.88,cycle));}
-        else fade=0;
-      }
-      var alpha=active.starAlpha*star.mag*twinkle*fade;
-      if(alpha<.01) continue;
-      ctx.globalAlpha=clamp(alpha,0,.55);
-      ctx.fillRect(Math.round(sx),Math.round(sy),1,1);
-    }
-  }
-
-  function draw(now) {
-    if (!ctx || !state) return;
-    ctx.clearRect(0,0,width,height);
-    drawStars(now);
-    drawBasin(now);
-    drawVeil(now);
-    ctx.globalAlpha=1;
-  }
-  function tick(now) {
-    if(!visible||reduced){raf=0;return;}
-    if(!last||now-last>=FRAME){last=now;draw(now);}
-    raf=requestAnimationFrame(tick);
-  }
-
-  listen(themeMedia, build);
-  listen(motionMedia, function(e){reduced=e.matches;build();});
-  addEventListener("resize", function(){clearTimeout(build._timer);build._timer=setTimeout(build,100);},{passive:true});
-  document.addEventListener("visibilitychange",function(){visible=!document.hidden;if(visible&&!reduced&&!raf)raf=requestAnimationFrame(tick);});
-
-  window.__portfolioLife={
-    build:build,
-    step:function(now){draw(now==null?(reduced?FIXED_TIME:performance.now()):now);},
-    state:function(){return{ready:!!state,basin:basin.length,veil:veil.length,stars:stars.length,reduced:reduced};}
-  };
+  listen(tm,build);listen(mm,function(e){reduced=e.matches;build()});addEventListener("resize",function(){clearTimeout(build._t);build._t=setTimeout(build,110)},{passive:true});document.addEventListener("visibilitychange",function(){shown=!document.hidden;if(shown&&!reduced&&!raf)raf=requestAnimationFrame(tick)});
+  window.__portfolioLife={build:build,step:function(now){draw(now==null?(reduced?FIX:performance.now()):now)},state:function(){return{ready:!!state,basin:basin.length,veil:veil.length,repair:repair.length,stars:stars.length,reduced:reduced}}};
   build();
 })();
