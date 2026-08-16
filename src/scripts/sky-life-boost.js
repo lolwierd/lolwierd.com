@@ -151,13 +151,14 @@
         if (x < 0 || x >= width || y < 0 || y >= height) continue;
         var u = (x - cx) / (span * .5);
         var v = (y - cy) / tall;
-        var shape = Math.exp(-(u * u * 2.15 + v * v * 3.15));
-        shape += .48 * Math.exp(-((u + .44) * (u + .44) * 5.4 + (v + .02) * (v + .02) * 4.8));
-        shape += .43 * Math.exp(-((u - .39) * (u - .39) * 5.8 + (v - .04) * (v - .04) * 5.0));
+        var shape = Math.exp(-(u * u * (config.deck ? 1.75 : 2.15) + v * v * (config.deck ? 4.8 : 3.15)));
+        shape += (config.deck ? .34 : .48) * Math.exp(-((u + .44) * (u + .44) * 5.4 + (v + .02) * (v + .02) * 4.8));
+        shape += (config.deck ? .30 : .43) * Math.exp(-((u - .39) * (u - .39) * 5.8 + (v - .04) * (v - .04) * 5.0));
         shape = clamp(shape, 0, 1);
-        if (shape < .045) continue;
+        if (shape < (config.deck ? .025 : .045)) continue;
         var ix = Math.floor(x / step), iy = Math.floor(y / step);
-        if (hash2(ix, iy, config.seed) > .06 + shape * .92) continue;
+        var keep = config.deck ? .025 + shape * .97 : .06 + shape * .92;
+        if (hash2(ix, iy, config.seed) > keep) continue;
         dots.push({
           x: x,
           y: y,
@@ -179,6 +180,7 @@
     seedBank({ cx:.41, cy:.61, span:.37, tall:.35, min:50, max:135, step:1.1, seed:10101, phase:.35 }, 0);
     seedBank({ cx:.59, cy:.73, span:.49, tall:.40, min:56, max:155, step:1.1, seed:10201, phase:2.15 }, 1);
     seedBank({ cx:.53, cy:.49, span:.32, tall:.28, min:44, max:118, step:1.05, seed:10301, phase:4.10 }, 2);
+    seedBank({ cx:.54, cy:.77, span:.54, tall:.18, min:34, max:78, step:.9, seed:10401, phase:5.25, deck:true }, 3);
   }
 
   function build() {
@@ -221,8 +223,6 @@
       var y = ridge[x];
       if (y <= 0 || y >= height) continue;
       var fade = x <= fadeStart ? 1 : 1 - smooth(fadeStart, end, x);
-
-      // Remove the artificial outer rim only. The real photographed rock/dither below becomes the edge.
       ctx.fillStyle = paper;
       ctx.globalAlpha = .985 * fade;
       ctx.fillRect(x, Math.max(0, y - eraseUp), 1, eraseUp + eraseIn);
@@ -232,38 +232,47 @@
   function drawBank(bank, now) {
     var config = bank.config;
     var paper = "#eee9df";
-    var haze = "#616a72";
+    var haze = config.deck ? "#6d7479" : "#616a72";
+    var deck = !!config.deck;
 
     var ox = (
-      Math.sin(now / 5000 * Math.PI * 2 + config.phase) * 22 +
-      Math.sin(now / 7900 * Math.PI * 2 + config.phase * .63) * 8
+      Math.sin(now / (deck ? 5700 : 5000) * Math.PI * 2 + config.phase) * (deck ? 28 : 22) +
+      Math.sin(now / (deck ? 9100 : 7900) * Math.PI * 2 + config.phase * .63) * (deck ? 9 : 8)
     ) * dpr;
     var oy = (
-      Math.sin(now / 6100 * Math.PI * 2 + config.phase * 1.17) * 12 +
-      Math.sin(now / 9300 * Math.PI * 2 + config.phase * .78) * 5
+      Math.sin(now / (deck ? 6700 : 6100) * Math.PI * 2 + config.phase * 1.17) * (deck ? 9 : 12) +
+      Math.sin(now / (deck ? 10200 : 9300) * Math.PI * 2 + config.phase * .78) * (deck ? 4 : 5)
     ) * dpr;
-    var swell = .58 + .42 * Math.sin(now / 3900 * Math.PI * 2 + config.phase);
-    var t = now * .00048;
+    var swell = deck
+      ? .70 + .30 * Math.sin(now / 4700 * Math.PI * 2 + config.phase)
+      : .58 + .42 * Math.sin(now / 3900 * Math.PI * 2 + config.phase);
+    var t = now * (deck ? .00038 : .00048);
 
     for (var i = 0; i < bank.dots.length; i++) {
       var dot = bank.dots[i];
       var field = fbm(dot.x * .0020 + t, dot.y * .00185 - t * .72, 11101 + bank.index * 113);
-      var local = .5 + .5 * Math.sin(now / 3900 * Math.PI * 2 + dot.phase);
-      var density = dot.shape * (.24 + field * .66 + local * .40) * swell;
-      if (density < dot.cut * .18 + .018) continue;
+      var local = .5 + .5 * Math.sin(now / (deck ? 5200 : 3900) * Math.PI * 2 + dot.phase);
+      var density = dot.shape * ((deck ? .34 : .24) + field * (deck ? .58 : .66) + local * (deck ? .30 : .40)) * swell;
+      var gate = deck ? dot.cut * .105 + .008 : dot.cut * .18 + .018;
+      if (density < gate) continue;
 
       var px = Math.round(dot.x + ox);
       var py = Math.round(dot.y + oy);
       if (px < 0 || px >= width || py < 0 || py >= height) continue;
 
       ctx.fillStyle = paper;
-      ctx.globalAlpha = clamp(.74 + density * .24, 0, .97);
-      ctx.fillRect(px, py, Math.max(2, Math.round(1.9 * dpr)), Math.max(1, Math.round(1.1 * dpr)));
+      ctx.globalAlpha = clamp((deck ? .84 : .74) + density * (deck ? .14 : .24), 0, .98);
+      ctx.fillRect(
+        px,
+        py,
+        Math.max(2, Math.round((deck ? 2.25 : 1.9) * dpr)),
+        Math.max(1, Math.round((deck ? 1.25 : 1.1) * dpr))
+      );
 
-      if (dot.grain < .96) {
+      if (dot.grain < (deck ? .98 : .96)) {
         ctx.fillStyle = haze;
-        ctx.globalAlpha = clamp(.24 + density * .34, 0, .55);
-        ctx.fillRect(px, py, Math.max(1, Math.round(1.25 * dpr)), 1);
+        ctx.globalAlpha = clamp((deck ? .21 : .24) + density * (deck ? .28 : .34), 0, deck ? .46 : .55);
+        ctx.fillRect(px, py, Math.max(1, Math.round((deck ? 1.5 : 1.25) * dpr)), 1);
       }
     }
   }
