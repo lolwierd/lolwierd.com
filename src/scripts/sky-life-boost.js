@@ -67,14 +67,12 @@
     var end=Math.floor(width*.185);
     var copy=new Int32Array(values);
     var radius=Math.max(1,Math.round(1.2*dpr));
-
     for(var x=0;x<end;x++){
       var lo=clamp(x-radius,0,width-1), hi=clamp(x+radius,0,width-1);
       var a=copy[lo], b=copy[x], c=copy[hi];
       var median=a+b+c-Math.min(a,b,c)-Math.max(a,b,c);
       if(Math.abs(b-median)>Math.max(2,Math.round(1.5*dpr))) values[x]=median;
     }
-
     var maxStep=Math.max(2,Math.round(2.4*dpr));
     for(x=1;x<end;x++) values[x]=clamp(values[x],values[x-1]-maxStep,values[x-1]+maxStep);
     for(x=end-2;x>=0;x--) values[x]=clamp(values[x],values[x+1]-maxStep,values[x+1]+maxStep);
@@ -104,7 +102,6 @@
   function seedWeather() {
     weather=[];
     if(!state||state.dark) return;
-
     var range=Math.max(1,state.ridgeLow-state.ridgeTop);
     var portrait=state.cssHeight>state.cssWidth;
     var cx=width*(portrait?.51:.55);
@@ -113,28 +110,19 @@
     var tall=clamp(range*1.55,105*dpr,285*dpr);
     var step=Math.max(2,Math.round(1.65*dpr));
     var seed=9101;
-
     for(var y=cy-tall;y<=cy+tall*.54;y+=step){
       for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
         if(x<0||x>=width||y<0||y>=height) continue;
         var u=(x-cx)/(span*.5), v=(y-cy)/tall;
-
         var shape=.92*Math.exp(-(u*u*1.72+v*v*3.0));
         shape+=.70*Math.exp(-((u+.48)*(u+.48)*3.55+(v+.02)*(v+.02)*4.25));
         shape+=.64*Math.exp(-((u-.41)*(u-.41)*3.80+(v+.08)*(v+.08)*4.65));
         shape+=.35*Math.exp(-((u-.04)*(u-.04)*2.45+(v+.53)*(v+.53)*6.30));
         shape=clamp(shape,0,1);
         if(shape<.035) continue;
-
         var ix=Math.floor(x/step), iy=Math.floor(y/step);
-        if(hash2(ix,iy,seed)>.10+shape*.84) continue;
-        weather.push({
-          x:x,y:y,shape:shape,
-          phase:hash2(ix,iy,seed+13)*Math.PI*2,
-          cut:threshold(ix,iy),
-          grain:hash2(ix,iy,seed+31),
-          lobe: hash2(Math.floor(x/(120*dpr)), Math.floor(y/(90*dpr)), seed+47) * Math.PI * 2
-        });
+        if(hash2(ix,iy,seed)>.10+shape*.76) continue;
+        weather.push({x:x,y:y,shape:shape,phase:hash2(ix,iy,seed+13)*Math.PI*2,cut:threshold(ix,iy),grain:hash2(ix,iy,seed+31),lobe:hash2(Math.floor(x/(120*dpr)),Math.floor(y/(90*dpr)),seed+47)*Math.PI*2});
       }
     }
   }
@@ -144,28 +132,28 @@
     if(!state||state.dark) return;
     var range=Math.max(1,state.ridgeLow-state.ridgeTop);
     var banks=[
-      {cx:.43,cy:.63,span:.30,tall:.28,phase:.4,seed:10101},
-      {cx:.59,cy:.72,span:.37,tall:.31,phase:2.0,seed:10201},
-      {cx:.53,cy:.51,span:.25,tall:.21,phase:4.1,seed:10301}
+      {cx:.42,cy:.61,span:.34,tall:.34,phase:.4,seed:10101},
+      {cx:.60,cy:.72,span:.42,tall:.38,phase:2.0,seed:10201},
+      {cx:.53,cy:.49,span:.30,tall:.27,phase:4.1,seed:10301}
     ];
-    var step=Math.max(2,Math.round(1.45*dpr));
+    var step=Math.max(2,Math.round(1.15*dpr));
     for(var bi=0;bi<banks.length;bi++){
       var bank=banks[bi];
       var cx=width*bank.cx;
       var cy=lerp(state.ridgeTop,state.ridgeLow,bank.cy);
       var span=width*bank.span;
-      var tall=clamp(range*bank.tall,38*dpr,105*dpr);
+      var tall=clamp(range*bank.tall,48*dpr,130*dpr);
       for(var y=cy-tall;y<=cy+tall;y+=step){
         for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
           if(x<0||x>=width||y<0||y>=height) continue;
           var u=(x-cx)/(span*.5),v=(y-cy)/tall;
-          var shape=Math.exp(-(u*u*2.4+v*v*3.5));
-          shape+=.44*Math.exp(-((u+.45)*(u+.45)*6.4+(v+.02)*(v+.02)*5.4));
-          shape+=.39*Math.exp(-((u-.38)*(u-.38)*7.0+(v-.05)*(v-.05)*5.9));
+          var shape=Math.exp(-(u*u*2.1+v*v*3.0));
+          shape+=.52*Math.exp(-((u+.45)*(u+.45)*5.6+(v+.02)*(v+.02)*4.8));
+          shape+=.46*Math.exp(-((u-.38)*(u-.38)*6.0+(v-.05)*(v-.05)*5.0));
           shape=clamp(shape,0,1);
-          if(shape<.075) continue;
+          if(shape<.055) continue;
           var ix=Math.floor(x/step),iy=Math.floor(y/step);
-          if(hash2(ix,iy,bank.seed)>.12+shape*.86) continue;
+          if(hash2(ix,iy,bank.seed)>.08+shape*.90) continue;
           wisps.push({bank:bi,x:x,y:y,shape:shape,cut:threshold(ix,iy),grain:hash2(ix,iy,bank.seed+17)});
         }
       }
@@ -196,29 +184,24 @@
     var paper=dark?"#0b0e13":"#eee9df";
     var end=Math.floor(width*.185);
     var fadeStart=Math.floor(width*.145);
-    var eraseUp=Math.max(1,Math.round(1*dpr));
-    var eraseDown=Math.max(3,Math.round(3*dpr));
-    var core=Math.max(1,Math.round(1*dpr));
-    var transition=Math.max(core+3,Math.round(6*dpr));
-
+    var eraseUp=Math.max(3,Math.round(3*dpr));
+    var eraseDown=Math.max(20,Math.round(22*dpr));
+    var core=Math.max(4,Math.round(4*dpr));
     for(var x=0;x<end;x++){
       var y=ridge[x];
       if(y<=0||y>=height) continue;
       var xf=x<=fadeStart?1:1-smooth(fadeStart,end,x);
-
       ctx.fillStyle=paper;
-      ctx.globalAlpha=.99*xf;
+      ctx.globalAlpha=.995*xf;
       ctx.fillRect(x,Math.max(0,y-eraseUp),1,eraseUp+eraseDown);
-
       ctx.fillStyle=ink;
-      ctx.globalAlpha=.94*xf;
+      ctx.globalAlpha=.98*xf;
       ctx.fillRect(x,y,1,core);
-
-      for(var d=core;d<transition;d++){
-        var mix=(d-core)/Math.max(1,transition-core);
-        var density=.68+mix*.28;
+      for(var d=core;d<eraseDown;d++){
+        var depth=d/eraseDown;
+        var density=.56+depth*.38;
         if(hash2(x,d,9921)>density) continue;
-        ctx.globalAlpha=(.52+mix*.30)*xf;
+        ctx.globalAlpha=(.58+depth*.28)*xf;
         ctx.fillRect(x,y+d,1,1);
       }
     }
@@ -226,58 +209,48 @@
 
   function drawWeather(now) {
     if(state.dark||!weather.length) return;
-
-    var paper="#eee9df";
-    var haze="#69737b";
-    var t=now*.00115;
-    var breath=.72+.28*Math.sin(now/3000*Math.PI*2+.55);
-
+    var paper="#eee9df", haze="#69737b";
+    var t=now*.00062;
+    var breath=.86+.14*Math.sin(now/4200*Math.PI*2+.55);
     for(var i=0;i<weather.length;i++){
       var dot=weather[i];
       var a=warped(dot.x*.00142+dot.phase*.010,dot.y*.00162,t,9201);
       var b=warped(dot.x*.00210-dot.phase*.007,dot.y*.00118+dot.phase*.004,t*.69,9349);
-      var regional=.5+.5*Math.sin(now/3400*Math.PI*2 + dot.x/(145*dpr) + dot.lobe);
-      var secondary=.5+.5*Math.sin(now/5200*Math.PI*2 + dot.y/(170*dpr) + dot.lobe*.63);
-      var density=dot.shape*(.08+a*.46+b*.30+regional*.36+secondary*.18)*breath;
-      var rise=(Math.sin(now/3600*Math.PI*2+dot.lobe)*3.3 + Math.sin(now/5100*Math.PI*2+dot.x/(210*dpr))*1.8)*dpr;
-      var py=Math.round(dot.y-rise);
-      if(py<0||py>=height) continue;
-      var gate=dot.cut*.58 + .055;
-      if(density<gate) continue;
-
+      var regional=.5+.5*Math.sin(now/4200*Math.PI*2+dot.x/(145*dpr)+dot.lobe);
+      var density=dot.shape*(.10+a*.46+b*.30+regional*.24)*breath;
+      if(density<dot.cut*.56+.07) continue;
       ctx.fillStyle=paper;
-      ctx.globalAlpha=clamp(.54+density*.40,0,.93);
-      ctx.fillRect(Math.round(dot.x),py,Math.max(1,Math.round(1.35*dpr)),1);
-
-      if(dot.grain<.72 && density>.28){
+      ctx.globalAlpha=clamp(.34+density*.34,0,.70);
+      ctx.fillRect(Math.round(dot.x),Math.round(dot.y),Math.max(1,Math.round(1.2*dpr)),1);
+      if(dot.grain<.50&&density>.32){
         ctx.fillStyle=haze;
-        ctx.globalAlpha=clamp(.08+(density-.28)*.25,0,.24);
-        ctx.fillRect(Math.round(dot.x),py,1,1);
+        ctx.globalAlpha=clamp(.045+(density-.32)*.14,0,.15);
+        ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1);
       }
     }
   }
 
   function drawWisps(now) {
     if(state.dark||!wisps.length) return;
-    var paper="#eee9df", haze="#4f5964";
+    var paper="#eee9df", haze="#48535e";
     var phases=[.4,2.0,4.1];
     for(var i=0;i<wisps.length;i++){
       var dot=wisps[i], phase=phases[dot.bank];
-      var ox=(Math.sin(now/2900*Math.PI*2+phase)*9 + Math.sin(now/4300*Math.PI*2+phase*.7)*4)*dpr;
-      var oy=(Math.sin(now/2100*Math.PI*2+phase*1.2)*9 + Math.sin(now/3500*Math.PI*2+phase)*4)*dpr;
-      var swell=.68+.32*Math.sin(now/1750*Math.PI*2+phase);
-      var field=fbm(dot.x*.0022+now*.00031,dot.y*.0020-now*.00021,11001+dot.bank*101);
-      var density=dot.shape*(.18+field*.82)*swell;
-      if(density<dot.cut*.22+.03) continue;
+      var ox=(Math.sin(now/2600*Math.PI*2+phase)*12 + Math.sin(now/4300*Math.PI*2+phase*.7)*5)*dpr;
+      var oy=(Math.sin(now/1900*Math.PI*2+phase*1.2)*10 + Math.sin(now/3200*Math.PI*2+phase)*4)*dpr;
+      var swell=.70+.30*Math.sin(now/1700*Math.PI*2+phase);
+      var field=fbm(dot.x*.0020+now*.00030,dot.y*.0018-now*.00020,11001+dot.bank*101);
+      var density=dot.shape*(.34+field*.66)*swell;
+      if(density<dot.cut*.20+.025) continue;
       var px=Math.round(dot.x+ox),py=Math.round(dot.y+oy);
       if(px<0||px>=width||py<0||py>=height) continue;
       ctx.fillStyle=paper;
-      ctx.globalAlpha=clamp(.70+density*.27,0,.96);
-      ctx.fillRect(px,py,Math.max(1,Math.round(1.7*dpr)),1);
-      if(dot.grain<.82){
+      ctx.globalAlpha=clamp(.67+density*.29,0,.96);
+      ctx.fillRect(px,py,Math.max(2,Math.round(2.0*dpr)),Math.max(1,Math.round(1.15*dpr)));
+      if(dot.grain<.88){
         ctx.fillStyle=haze;
-        ctx.globalAlpha=clamp(.13+density*.28,0,.39);
-        ctx.fillRect(px,py,1,1);
+        ctx.globalAlpha=clamp(.15+density*.30,0,.42);
+        ctx.fillRect(px,py,Math.max(1,Math.round(1.2*dpr)),1);
       }
     }
   }
