@@ -27,17 +27,17 @@
     dark: {
       ink: "#e4dac8",
       terrainAlpha: 0.91,
-      dustAlpha: 0.19,
-      cloudAlpha: 0.12,
+      dustAlpha: 0.23,
+      cloudAlpha: 0.16,
       star: "#eee6d8",
-      starAlpha: 0.90,
-      satelliteAlpha: 0.30
+      starAlpha: 0.94,
+      satelliteAlpha: 0.34
     },
     light: {
       ink: "#293039",
       terrainAlpha: 0.87,
-      dustAlpha: 0.105,
-      cloudAlpha: 0.235,
+      dustAlpha: 0.12,
+      cloudAlpha: 0.28,
       star: "#293039",
       starAlpha: 0,
       satelliteAlpha: 0
@@ -321,8 +321,8 @@
 
   function makeEdgeDots() {
     edgeDots = [];
-    var reach = Math.max(8, Math.round(13 * dpr));
-    var xStep = Math.max(1, Math.round(dpr * 0.72));
+    var reach = Math.max(9, Math.round(15 * dpr));
+    var xStep = Math.max(1, Math.round(dpr * 0.70));
     var seed = width * 17 + height * 31 + 811;
 
     for (var x = 0; x < width; x += xStep) {
@@ -334,7 +334,7 @@
         if (y < 0) break;
 
         var envelope = 1 - distance / (reach + 1);
-        var keep = 0.010 + envelope * envelope * 0.065;
+        var keep = 0.014 + envelope * envelope * 0.084;
         if (hash2(x, y, seed) > keep) continue;
 
         edgeDots.push({
@@ -343,8 +343,8 @@
           envelope: envelope,
           phase: hash2(x, y, seed + 3) * Math.PI * 2,
           threshold: bayerThreshold(x, y),
-          strength: 0.48 + hash2(x, y, seed + 7) * 0.60,
-          drift: 0.45 + hash2(x, y, seed + 13) * 0.75
+          strength: 0.48 + hash2(x, y, seed + 7) * 0.62,
+          drift: 0.45 + hash2(x, y, seed + 13) * 0.78
         });
       }
     }
@@ -352,26 +352,26 @@
 
   function drawEdge(now) {
     var activeTheme = theme();
-    var t = now * 0.0000065;
+    var t = now * 0.0000095;
     ctx.fillStyle = activeTheme.ink;
 
     for (var i = 0; i < edgeDots.length; i++) {
       var dot = edgeDots[i];
       var field = warpedField(dot.x * 0.0021, dot.y * 0.0025 + dot.phase, t, 991);
-      var longPulse = 0.5 + 0.5 * Math.sin(dot.phase + t * 0.21);
-      var density = dot.envelope * (0.27 + field * 0.58 + longPulse * 0.15);
-      if (density < dot.threshold * 0.66) continue;
+      var longPulse = 0.5 + 0.5 * Math.sin(dot.phase + t * 0.28);
+      var density = dot.envelope * (0.24 + field * 0.60 + longPulse * 0.16);
+      if (density < dot.threshold * 0.60) continue;
 
-      var detach = smoothstep(0.59, 0.88, field) * dot.drift;
-      var lift = Math.round(detach * (1.0 + (1 - dot.envelope) * 1.6) * dpr);
+      var detach = smoothstep(0.54, 0.84, field) * dot.drift;
+      var lift = Math.round(detach * (1.2 + (1 - dot.envelope) * 2.0) * dpr);
       var alpha =
         activeTheme.dustAlpha *
         dot.envelope *
         dot.strength *
-        smoothstep(0.20, 0.80, density);
+        smoothstep(0.17, 0.78, density);
 
       if (alpha < 0.005) continue;
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.19 : 0.115);
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.23 : 0.13);
       ctx.fillRect(dot.x, dot.y - lift, 1, 1);
     }
   }
@@ -381,33 +381,33 @@
     var valley = findValley();
     if (valley.depth < 28 * dpr) return;
 
-    var span = clamp(width * (state.dark ? 0.50 : 0.74), 260 * dpr, 1280 * dpr);
+    var span = clamp(width * (state.dark ? 0.56 : 0.78), 280 * dpr, 1360 * dpr);
     var cloudHeight = clamp(
-      valley.depth * (state.dark ? 0.58 : 0.92),
-      70 * dpr,
-      state.dark ? 190 * dpr : 260 * dpr
+      valley.depth * (state.dark ? 0.68 : 1.02),
+      78 * dpr,
+      state.dark ? 220 * dpr : 300 * dpr
     );
-    var centerY = valley.y - cloudHeight * (state.dark ? 0.24 : 0.31);
-    var dotStep = Math.max(2, Math.round((state.dark ? 3.0 : 2.55) * dpr));
+    var centerY = valley.y - cloudHeight * (state.dark ? 0.25 : 0.32);
+    var dotStep = Math.max(2, Math.round((state.dark ? 2.7 : 2.30) * dpr));
     var seed = state.dark ? 1701 : 1801;
-    var densityScale = state.dark ? 0.30 : 0.46;
+    var densityScale = state.dark ? 0.38 : 0.55;
 
-    for (var y = centerY - cloudHeight; y <= centerY + cloudHeight * 0.58; y += dotStep) {
+    for (var y = centerY - cloudHeight; y <= centerY + cloudHeight * 0.60; y += dotStep) {
       for (var x = valley.x - span * 0.5; x <= valley.x + span * 0.5; x += dotStep) {
         if (x < 0 || x >= width || y < 0 || y >= height) continue;
 
         var u = (x - valley.x) / (span * 0.5);
         var v = (y - centerY) / cloudHeight;
-        var basin = Math.exp(-(u * u * 2.20 + v * v * 4.25));
-        var left = Math.exp(-((u + 0.48) * (u + 0.48) * 5.2 + (v + 0.04) * (v + 0.04) * 7.0));
-        var right = Math.exp(-((u - 0.43) * (u - 0.43) * 5.1 + (v + 0.02) * (v + 0.02) * 7.5));
-        var high = Math.exp(-((u - 0.05) * (u - 0.05) * 7.0 + (v + 0.52) * (v + 0.52) * 10.0));
-        var shape = clamp(basin + left * 0.48 + right * 0.44 + high * (state.dark ? 0.16 : 0.36), 0, 1);
-        if (shape < 0.055) continue;
+        var basin = Math.exp(-(u * u * 2.05 + v * v * 4.05));
+        var left = Math.exp(-((u + 0.48) * (u + 0.48) * 5.0 + (v + 0.04) * (v + 0.04) * 6.8));
+        var right = Math.exp(-((u - 0.43) * (u - 0.43) * 4.9 + (v + 0.02) * (v + 0.02) * 7.1));
+        var high = Math.exp(-((u - 0.05) * (u - 0.05) * 6.7 + (v + 0.52) * (v + 0.52) * 9.2));
+        var shape = clamp(basin + left * 0.50 + right * 0.46 + high * (state.dark ? 0.22 : 0.42), 0, 1);
+        if (shape < 0.05) continue;
 
         var cellX = Math.floor(x / dotStep);
         var cellY = Math.floor(y / dotStep);
-        if (hash2(cellX, cellY, seed) > 0.06 + shape * densityScale) continue;
+        if (hash2(cellX, cellY, seed) > 0.08 + shape * densityScale) continue;
 
         cloudDots.push({
           x: x,
@@ -423,25 +423,25 @@
 
   function drawClouds(now) {
     var activeTheme = theme();
-    var t = now * 0.0000085;
-    var swell = 0.78 + 0.15 * Math.sin(t * 0.24 + 0.8) + 0.07 * Math.sin(t * 0.11 + 2.1);
+    var t = now * 0.000016;
+    var swell = 0.75 + 0.17 * Math.sin(t * 0.30 + 0.8) + 0.08 * Math.sin(t * 0.13 + 2.1);
     ctx.fillStyle = activeTheme.ink;
 
     for (var i = 0; i < cloudDots.length; i++) {
       var dot = cloudDots[i];
       var ix = clamp(Math.round(dot.x), 0, width - 1);
       var ridgeDistance = state.skyline[ix] - dot.y;
-      var ridgeFade = 0.33 + 0.67 * smoothstep(-115 * dpr, 34 * dpr, ridgeDistance);
+      var ridgeFade = 0.31 + 0.69 * smoothstep(-125 * dpr, 38 * dpr, ridgeDistance);
       var fieldA = warpedField(dot.x * 0.00145 + dot.phase * 0.009, dot.y * 0.00170, t, state.dark ? 1201 : 1401);
-      var fieldB = warpedField(dot.x * 0.00205, dot.y * 0.00125 + dot.phase * 0.006, t * 0.63, state.dark ? 1327 : 1523);
-      var weather = fieldA * 0.72 + fieldB * 0.28;
-      var density = dot.shape * (0.19 + weather * 0.81) * swell;
-      var threshold = dot.threshold * (state.dark ? 0.60 : 0.49);
+      var fieldB = warpedField(dot.x * 0.00205, dot.y * 0.00125 + dot.phase * 0.006, t * 0.71, state.dark ? 1327 : 1523);
+      var weather = fieldA * 0.70 + fieldB * 0.30;
+      var density = dot.shape * (0.15 + weather * 0.85) * swell;
+      var threshold = dot.threshold * (state.dark ? 0.55 : 0.44);
       if (density < threshold) continue;
 
-      var alpha = activeTheme.cloudAlpha * ridgeFade * (0.26 + density * 0.74);
+      var alpha = activeTheme.cloudAlpha * ridgeFade * (0.20 + density * 0.80);
       if (alpha < 0.005) continue;
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.155 : 0.31);
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.20 : 0.36);
       ctx.fillRect(Math.round(dot.x), Math.round(dot.y), 1, 1);
     }
   }
@@ -451,11 +451,11 @@
     wanderers = [];
     if (!state.dark) return;
 
-    var count = state.portrait ? 24 : 36;
-    var seatCount = count + 10;
+    var count = state.portrait ? 28 : 42;
+    var seatCount = count + 12;
     var seats = [];
     var seed = width * 41 + height * 73 + 1901;
-    var minDistance = Math.sqrt((width * Math.max(1, state.ridgeTop)) / seatCount) * 0.35;
+    var minDistance = Math.sqrt((width * Math.max(1, state.ridgeTop)) / seatCount) * 0.33;
     var guard = 0;
 
     while (seats.length < seatCount && guard++ < seatCount * 1800) {
@@ -478,29 +478,29 @@
       }
       if (!clear) continue;
 
-      var bright = hash(seed++) > 0.87;
+      var bright = hash(seed++) > 0.86;
       seats.push({
         x: x,
         y: y,
         size: 1,
-        magnitude: bright ? 0.76 + hash(seed++) * 0.22 : 0.24 + hash(seed++) * 0.43,
-        period: 16000 + hash(seed++) * 51000,
+        magnitude: bright ? 0.78 + hash(seed++) * 0.20 : 0.28 + hash(seed++) * 0.45,
+        period: 13500 + hash(seed++) * 43000,
         phase: hash(seed++) * Math.PI * 2,
-        breathePeriod: 42000 + hash(seed++) * 98000,
-        breatheOffset: hash(seed++) * 130000,
-        vanishPeriod: 105000 + hash(seed++) * 175000,
-        vanishOffset: hash(seed++) * 200000,
-        sparkle: bright ? 0.12 + hash(seed++) * 0.13 : 0.02 + hash(seed++) * 0.05
+        breathePeriod: 33000 + hash(seed++) * 76000,
+        breatheOffset: hash(seed++) * 110000,
+        vanishPeriod: 76000 + hash(seed++) * 130000,
+        vanishOffset: hash(seed++) * 170000,
+        sparkle: bright ? 0.15 + hash(seed++) * 0.15 : 0.035 + hash(seed++) * 0.07
       });
     }
 
     stars = seats.slice(0, count);
-    for (var w = 0; w < Math.min(3, seats.length - count - 1); w++) {
+    for (var w = 0; w < Math.min(3, seats.length - count - 2); w++) {
       wanderers.push({
         first: seats[count + w],
-        second: seats[count + w + 3],
-        period: 150000 + w * 47000,
-        offset: 33000 + w * 61000
+        second: seats[count + w + 4],
+        period: 90000 + w * 33000,
+        offset: 19000 + w * 43000
       });
     }
   }
@@ -508,17 +508,17 @@
   function starAlpha(star, now) {
     var primary = Math.sin((now / star.period) * Math.PI * 2 + star.phase);
     var secondary = Math.sin((now / (star.period * 1.91)) * Math.PI * 2 + star.phase * 1.7);
-    var shimmer = Math.sin((now / Math.max(9000, star.period * 0.37)) * Math.PI * 2 + star.phase * 2.3);
-    var twinkle = 0.73 + primary * 0.13 + secondary * 0.06 + shimmer * star.sparkle;
-    var breathe = 0.74 + 0.26 * Math.sin(((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2);
+    var shimmer = Math.sin((now / Math.max(7000, star.period * 0.34)) * Math.PI * 2 + star.phase * 2.3);
+    var twinkle = 0.70 + primary * 0.21 + secondary * 0.10 + shimmer * star.sparkle;
+    var breathe = 0.62 + 0.38 * Math.sin(((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2);
 
     var vanishPhase = (((now + star.vanishOffset) % star.vanishPeriod) + star.vanishPeriod) % star.vanishPeriod / star.vanishPeriod;
     var visibleFactor = 1;
-    if (vanishPhase > 0.84) {
-      var p = (vanishPhase - 0.84) / 0.16;
-      visibleFactor = p < 0.42
-        ? 1 - smoothstep(0, 0.42, p)
-        : smoothstep(0.58, 1, p);
+    if (vanishPhase > 0.80) {
+      var p = (vanishPhase - 0.80) / 0.20;
+      visibleFactor = p < 0.40
+        ? 1 - smoothstep(0, 0.40, p)
+        : smoothstep(0.60, 1, p);
     }
 
     var edge = state.skyline[clamp(Math.round(star.x), 0, width - 1)];
@@ -528,8 +528,8 @@
 
   function drawOneStar(star, now, multiplier) {
     var alpha = starAlpha(star, now) * multiplier;
-    if (alpha < 0.009) return;
-    ctx.globalAlpha = clamp(alpha, 0, 0.93);
+    if (alpha < 0.008) return;
+    ctx.globalAlpha = clamp(alpha, 0, 0.96);
     ctx.fillRect(Math.round(star.x), Math.round(star.y), 1, 1);
   }
 
@@ -545,15 +545,15 @@
       var oldAlpha = 1;
       var newAlpha = 0;
 
-      if (phase < 0.70) {
+      if (phase < 0.62) {
         oldAlpha = 1;
-      } else if (phase < 0.80) {
-        oldAlpha = 1 - smoothstep(0.70, 0.80, phase);
-      } else if (phase < 0.88) {
+      } else if (phase < 0.72) {
+        oldAlpha = 1 - smoothstep(0.62, 0.72, phase);
+      } else if (phase < 0.82) {
         oldAlpha = 0;
       } else {
         oldAlpha = 0;
-        newAlpha = smoothstep(0.88, 1, phase);
+        newAlpha = smoothstep(0.82, 1, phase);
       }
 
       drawOneStar(wanderer.first, now, oldAlpha);
