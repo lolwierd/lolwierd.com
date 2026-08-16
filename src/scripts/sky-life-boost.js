@@ -62,6 +62,21 @@
     return lerp(skylineData.y[a],skylineData.y[b],p-a);
   }
 
+  function smoothLeftRidge(values) {
+    var end=Math.floor(width*.20);
+    var radius=Math.max(2,Math.round(2*dpr));
+    var copy=new Int32Array(values);
+    for(var x=0;x<end;x++){
+      var sample=[];
+      for(var k=-radius;k<=radius;k++) sample.push(copy[clamp(x+k,0,width-1)]);
+      sample.sort(function(a,b){return a-b;});
+      values[x]=sample[Math.floor(sample.length/2)];
+    }
+    var maxStep=Math.max(1,Math.round(1.5*dpr));
+    for(x=1;x<end;x++) values[x]=clamp(values[x],values[x-1]-maxStep,values[x-1]+maxStep);
+    for(x=end-2;x>=0;x--) values[x]=clamp(values[x],values[x+1]-maxStep,values[x+1]+maxStep);
+  }
+
   function buildRidge() {
     ridge=null;
     if(!skylineData||!state) return;
@@ -80,6 +95,7 @@
       var sourceY=sampleSourceSkyline(sourceX);
       ridge[x]=clamp(Math.round(bandTop+((sourceY-sy)/sh)*drawH),0,height);
     }
+    smoothLeftRidge(ridge);
   }
 
   function seedWeather() {
@@ -90,22 +106,22 @@
     var cx=width*(portrait?.52:.55);
     var cy=lerp(state.ridgeTop,state.ridgeLow,.80);
     var span=width*.94;
-    var tall=clamp(range*1.58,90*dpr,290*dpr);
-    var step=Math.max(2,Math.round(1.75*dpr));
+    var tall=clamp(range*1.62,100*dpr,300*dpr);
+    var step=Math.max(2,Math.round(1.55*dpr));
     var seed=9101;
 
-    for(var y=cy-tall;y<=cy+tall*.48;y+=step){
+    for(var y=cy-tall;y<=cy+tall*.50;y+=step){
       for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
         if(x<0||x>=width||y<0||y>=height) continue;
         var u=(x-cx)/(span*.5), v=(y-cy)/tall;
-        var shape=Math.exp(-(u*u*1.95+v*v*3.45));
-        shape+=.58*Math.exp(-((u+.48)*(u+.48)*4.1+(v+.03)*(v+.03)*5.1));
-        shape+=.52*Math.exp(-((u-.40)*(u-.40)*4.5+(v+.08)*(v+.08)*5.6));
-        shape+=.24*Math.exp(-((u-.04)*(u-.04)*2.9+(v+.55)*(v+.55)*8.2));
+        var shape=Math.exp(-(u*u*1.85+v*v*3.20));
+        shape+=.62*Math.exp(-((u+.48)*(u+.48)*3.9+(v+.03)*(v+.03)*4.8));
+        shape+=.56*Math.exp(-((u-.40)*(u-.40)*4.2+(v+.08)*(v+.08)*5.1));
+        shape+=.28*Math.exp(-((u-.04)*(u-.04)*2.6+(v+.55)*(v+.55)*7.4));
         shape=clamp(shape,0,1);
-        if(shape<.045) continue;
+        if(shape<.04) continue;
         var ix=Math.floor(x/step), iy=Math.floor(y/step);
-        if(hash2(ix,iy,seed)>.08+shape*.72) continue;
+        if(hash2(ix,iy,seed)>.08+shape*.78) continue;
         weather.push({
           x:x,y:y,shape:shape,
           phase:hash2(ix,iy,seed+13)*Math.PI*2,
@@ -135,19 +151,19 @@
   function drawRidge() {
     if(!ridge) return;
     var ink=themeMedia.matches?"#e4dac8":"#293039";
-    var end=Math.floor(width*.18);
-    var core=Math.max(3,Math.round(3*dpr));
-    var fill=Math.max(core+2,Math.round(13*dpr));
+    var end=Math.floor(width*.19);
+    var core=Math.max(4,Math.round(4*dpr));
+    var fill=Math.max(core+2,Math.round(15*dpr));
     ctx.fillStyle=ink;
     for(var x=0;x<end;x++){
       var y=ridge[x];
       if(y<=0||y>=height) continue;
-      ctx.globalAlpha=.96;
+      ctx.globalAlpha=.98;
       ctx.fillRect(x,y,1,core);
       for(var d=core;d<fill;d++){
         var fall=1-(d-core)/Math.max(1,fill-core);
-        if(hash2(x,d,9921)>fall*.78) continue;
-        ctx.globalAlpha=.72*fall;
+        if(hash2(x,d,9921)>fall*.82) continue;
+        ctx.globalAlpha=.78*fall;
         ctx.fillRect(x,y+d,1,1);
       }
     }
@@ -155,27 +171,31 @@
 
   function drawWeather(now) {
     if(state.dark||!weather.length) return;
-    var t=now*.00062;
-    var paper="#eee9df", ink="#59616a";
-    var global=.78+.22*Math.sin(now/2800*Math.PI*2+.7);
+    var t=now*.00078;
+    var paper="#eee9df", haze="#5f6872";
+    var global=.76+.24*Math.sin(now/2400*Math.PI*2+.7);
 
     for(var i=0;i<weather.length;i++){
       var dot=weather[i];
       var a=warped(dot.x*.00155+dot.phase*.015,dot.y*.00175,t,9201);
       var b=warped(dot.x*.00220-dot.phase*.009,dot.y*.00120+dot.phase*.006,t*.73,9349);
-      var pulse=.5+.5*Math.sin(now/2100*Math.PI*2+dot.phase*.72);
-      var pulse2=.5+.5*Math.sin(now/3300*Math.PI*2+dot.phase*1.17);
-      var density=dot.shape*(.02+a*.57+b*.43+(pulse-.5)*.48+(pulse2-.5)*.24)*global;
-      if(density<dot.cut*.23) continue;
+      var pulse=.5+.5*Math.sin(now/1700*Math.PI*2+dot.phase*.72);
+      var pulse2=.5+.5*Math.sin(now/2600*Math.PI*2+dot.phase*1.17);
+      var density=dot.shape*(.02+a*.57+b*.43+(pulse-.5)*.60+(pulse2-.5)*.34)*global;
+      if(density<dot.cut*.16) continue;
+
+      var rise=(Math.sin(now/3200*Math.PI*2+dot.x*.008+dot.phase*.13)*4 + Math.sin(now/4700*Math.PI*2+dot.x*.003)*3)*dpr;
+      var py=Math.round(dot.y-rise);
+      if(py<0||py>=height) continue;
 
       ctx.fillStyle=paper;
-      ctx.globalAlpha=clamp(.30+density*.58,0,.86);
-      ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1);
+      ctx.globalAlpha=clamp(.42+density*.52,0,.92);
+      ctx.fillRect(Math.round(dot.x),py,1,1);
 
-      if(dot.grain<.36&&density>.34){
-        ctx.fillStyle=ink;
-        ctx.globalAlpha=clamp(.025+density*.11,0,.15);
-        ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1);
+      if(dot.grain<.58&&density>.25){
+        ctx.fillStyle=haze;
+        ctx.globalAlpha=clamp(.045+density*.13,0,.19);
+        ctx.fillRect(Math.round(dot.x),py,1,1);
       }
     }
   }
