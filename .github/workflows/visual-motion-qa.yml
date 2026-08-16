@@ -31,15 +31,20 @@ jobs:
           import fs from 'fs';
           const executablePath = fs.existsSync('/usr/bin/chromium-browser') ? '/usr/bin/chromium-browser' : '/usr/bin/chromium';
           const browser = await chromium.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
+
           async function shot(name, dark, viewport, t) {
             const page = await browser.newPage({ viewport, colorScheme: dark ? 'dark' : 'light' });
+            await page.addInitScript(() => {
+              // Freeze the normal animation loops so manual timestamps are deterministic.
+              window.requestAnimationFrame = () => 0;
+              window.cancelAnimationFrame = () => {};
+            });
             await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
             await page.waitForTimeout(1600);
             await page.evaluate((time) => {
               window.__portfolioSky?.step?.(time);
               window.__portfolioLife?.step?.(time);
             }, t);
-            await page.waitForTimeout(120);
             const state = await page.evaluate(() => ({
               base: window.__portfolioSky?.state?.(),
               life: window.__portfolioLife?.state?.()
@@ -48,11 +53,13 @@ jobs:
             await page.screenshot({ path: name, fullPage: true });
             await page.close();
           }
+
           await shot('qa-dark-early.png', true, { width: 1440, height: 900 }, 1000);
           await shot('qa-dark-later.png', true, { width: 1440, height: 900 }, 46000);
           await shot('qa-light-early.png', false, { width: 1440, height: 900 }, 1000);
+          await shot('qa-light-10s.png', false, { width: 1440, height: 900 }, 11000);
           await shot('qa-light-later.png', false, { width: 1440, height: 900 }, 46000);
-          await shot('qa-phone-light.png', false, { width: 390, height: 844 }, 46000);
+          await shot('qa-phone-light.png', false, { width: 390, height: 844 }, 11000);
           await browser.close();
           NODE
       - name: capture
@@ -64,5 +71,6 @@ jobs:
             qa-dark-early.png
             qa-dark-later.png
             qa-light-early.png
+            qa-light-10s.png
             qa-light-later.png
             qa-phone-light.png
