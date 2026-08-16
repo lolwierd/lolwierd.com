@@ -3,6 +3,7 @@
   var tm=matchMedia("(prefers-color-scheme: dark)"), mm=matchMedia("(prefers-reduced-motion: reduce)");
   var reduced=mm.matches, shown=!document.hidden, FIX=21437, FRAME=1000/24;
   var canvas,ctx,state,W,H,D,raf=0,last=0,tries=0;
+  var skylineData=null,screenSkyline=null;
   var basin=[],veil=[],stars=[],repair=[];
   var B=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
@@ -20,6 +21,23 @@
     {dark:0,ink:"#293039",paper:"#eee9df",haze:"#d8d0c3",body:.82,rim:.17,veil:.28,star:0}}
   function listen(m,fn){m.addEventListener?m.addEventListener("change",fn):m.addListener(fn)}
   function base(){return window.__portfolioSky&&window.__portfolioSky.state?window.__portfolioSky.state():null}
+  function sampleSkyline(sourceX){
+    if(!skylineData||!skylineData.y||!skylineData.y.length)return 0;
+    var pos=C(sourceX/skylineData.step,0,skylineData.y.length-1),left=Math.floor(pos),right=Math.min(skylineData.y.length-1,left+1);
+    return L(skylineData.y[left],skylineData.y[right],pos-left);
+  }
+  function sourceCrop(targetW,targetH,portrait){
+    var plateW=skylineData.width,plateH=skylineData.height,sourceAspect=plateW/plateH,targetAspect=targetW/targetH,sx=0,sy=0,sw=plateW,sh=plateH,focus=portrait?.55:.52;
+    if(targetAspect>sourceAspect){sh=sw/targetAspect;sy=C(plateH*.10,0,Math.max(0,plateH-sh));}
+    else{sw=sh*targetAspect;sx=C(plateW*focus-sw/2,0,Math.max(0,plateW-sw));}
+    return{sx:sx,sy:sy,sw:sw,sh:sh};
+  }
+  function buildScreenSkyline(){
+    if(!skylineData)return null;
+    var portrait=state.cssWidth<state.cssHeight,visible=Math.round(H*(portrait?.56:.52)),overscan=Math.round(H*(portrait?.18:.16)),drawH=visible+overscan,bandTop=H-visible,crop=sourceCrop(W,drawH,portrait),out=new Int32Array(W);
+    for(var x=0;x<W;x++){var sx=crop.sx+((x+.5)/W)*crop.sw-.5,sy=sampleSkyline(sx);out[x]=C(Math.round(bandTop+((sy-crop.sy)/crop.sh)*drawH),0,H);}
+    return out;
+  }
   function ensure(){if(canvas)return;canvas=document.createElement("canvas");canvas.id="sky-life";canvas.setAttribute("aria-hidden","true");Object.assign(canvas.style,{position:"fixed",inset:"0",zIndex:"0",pointerEvents:"none",display:"block"});document.body.appendChild(canvas);ctx=canvas.getContext("2d",{alpha:true})}
 
   function seedLayer(out,cx,cy,span,tall,step,seed,density,kind){
@@ -45,16 +63,15 @@
 
   function makeRepair(){
     repair.length=0;
-    var range=Math.max(1,state.ridgeLow-state.ridgeTop),step=Math.max(1,Math.round(1.25*D));
-    for(var x=0;x<W*.19;x+=step){
-      var nx=x/W;
-      var center=state.ridgeTop+range*(.22+nx*1.95);
-      var half=(7+nx*34)*D;
-      for(var y=center-half;y<=center+half;y+=step){
-        if(y<0||y>=H)continue;
-        var band=1-Math.abs(y-center)/half; if(band<=0)continue;
+    if(!screenSkyline)return;
+    var limit=Math.floor(W*.14),step=Math.max(1,Math.round(D));
+    for(var x=0;x<limit;x+=step){
+      var edge=screenSkyline[Math.min(W-1,Math.round(x))],taper=1-S(.09,.14,x/W);
+      for(var depth=2*D;depth<=11*D;depth+=step){
+        var y=edge+depth;if(y<0||y>=H)continue;
+        var band=(1-depth/(12*D))*taper;if(band<=0)continue;
         var ix=Math.floor(x/step),iy=Math.floor(y/step);
-        if(h2(ix,iy,8301)>.10+band*.42)continue;
+        if(h2(ix,iy,8301)>.18+band*.58)continue;
         repair.push({x:x,y:y,q:band,p:h2(ix,iy,8317)});
       }
     }
@@ -73,7 +90,7 @@
 
   function build(){
     var b=base(); if(!b){if(tries++<60)setTimeout(build,120);return}
-    ensure();state=b;W=state.width;H=state.height;D=state.dpr;canvas.width=W;canvas.height=H;canvas.style.width=state.cssWidth+"px";canvas.style.height=state.cssHeight+"px";make();draw(reduced?FIX:performance.now());if(raf)cancelAnimationFrame(raf);raf=0;last=0;if(!reduced&&shown)raf=requestAnimationFrame(tick)
+    ensure();state=b;W=state.width;H=state.height;D=state.dpr;canvas.width=W;canvas.height=H;canvas.style.width=state.cssWidth+"px";canvas.style.height=state.cssHeight+"px";screenSkyline=buildScreenSkyline();make();draw(reduced?FIX:performance.now());if(raf)cancelAnimationFrame(raf);raf=0;last=0;if(!reduced&&shown)raf=requestAnimationFrame(tick)
   }
 
   function drawRepair(){
@@ -107,5 +124,5 @@
 
   listen(tm,build);listen(mm,function(e){reduced=e.matches;build()});addEventListener("resize",function(){clearTimeout(build._t);build._t=setTimeout(build,110)},{passive:true});document.addEventListener("visibilitychange",function(){shown=!document.hidden;if(shown&&!reduced&&!raf)raf=requestAnimationFrame(tick)});
   window.__portfolioLife={build:build,step:function(now){draw(now==null?(reduced?FIX:performance.now()):now)},state:function(){return{ready:!!state,basin:basin.length,veil:veil.length,repair:repair.length,stars:stars.length,reduced:reduced}}};
-  build();
+  fetch("/assets/annapurna-skyline.json",{cache:"force-cache"}).then(function(r){if(!r.ok)throw new Error("skyline");return r.json()}).then(function(data){skylineData=data;build()}).catch(function(){build()});
 })();
