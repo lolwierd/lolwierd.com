@@ -38,20 +38,23 @@ this is not blur, glow, feathering, or an animated mountain silhouette.
 
 ## motion
 
-motion belongs to the air, not the mountain, and should be easy to miss on a short visit.
+motion belongs to the air, not the mountain. it should be noticeable when someone stays with the first viewport, but it must never become a looping effect pasted over the photograph.
 
 ### dark
 
-- the sky stays mostly empty, with a small irregular set of stars.
-- each star changes brightness independently and slowly rather than blinking as a group.
-- valley cloud is faint and secondary to the sky.
-- comets are rare, randomized at minute-scale intervals, quick, and constrained above the ridge.
+- the sky stays mostly empty, with an irregular set of stars rather than a decorative star pattern.
+- stars breathe and shimmer independently; a small subset fully fades out and returns at another seat.
+- a second faint mist field gives the valley a little more depth without competing with the sky.
+- comets remain rare, randomized at minute-scale intervals, quick, and constrained above the ridge.
+- an occasional dim satellite can cross slowly enough to be missed entirely.
 
 ### light
 
 - there are no daytime stars.
-- a restrained dithered cloud field sits in the valley and changes density in place rather than sliding across the screen.
-- the cloud is weather around the range, not a second illustration competing with it.
+- daylight is weather-led: a broad lower cloud system occupies the basin and a thinner upper veil reaches across the shoulders of the range.
+- neither layer slides across the page. their seats stay anchored to the mountain composition while two interacting warped-noise fields continually reform which dither pixels are visible.
+- the lower cloud and upper veil breathe on different roughly 20–30 second cycles, with a small position-dependent daylight modulation so the change feels like cloud cover affecting the air rather than a global opacity pulse.
+- the change is intentionally legible within several seconds. the range can feel different after ten seconds while its photographed geometry remains fixed.
 
 `prefers-reduced-motion` freezes the same composition at a stable phase.
 
