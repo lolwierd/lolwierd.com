@@ -22,44 +22,36 @@ below the hero, the scenery ends cleanly. content sits on an opaque reading grou
 
 the mountain is rendered from the real annapurna photograph in `public/assets/annapurna-circuit.jpg`.
 
-the photograph is never shown directly. the browser finds the rock/sky handoff per rendered column, transforms terrain luminance separately for light and dark themes, and runs atkinson error diffusion at canvas resolution. the output is one ink color with alpha, so the page background is the paper between dots.
+the photograph supplies the terrain geometry and every luminance value used by the dither. `public/assets/annapurna-skyline.json` is a small ridge trace derived directly from that same photograph. keeping the photo-derived ridge explicitly avoids trying to rediscover the rock/sky boundary from jpeg colours on every device, which was fragile around bright snow.
 
-the skyline is deliberately crisp. only tiny jpeg spikes are removed; broad smoothing is not allowed to round the peaks. terrain pixels remain full-strength right up to the detected skyline.
+at runtime the ridge trace is mapped through the current desktop or mobile crop, the photographed terrain luminance is transformed separately for light and dark themes, and atkinson error diffusion runs at canvas resolution. the output is one ink colour with alpha, so the page background is the paper between dots.
 
-the terrain is still. always.
+the skyline stays faithful to the photograph and deliberately crisp. the terrain itself never moves.
 
 ## the living boundary
 
-the ridge should look decisive at a glance and alive when watched.
+the ridge should look decisive at a glance and alive only when watched.
 
-a razor-thin band outside the skyline uses the same useful idea as React Bits' Dither: a slowly evolving fbm/noise field runs underneath a fixed 8x8 ordered-dither threshold pattern. the base mountain never fades or moves. instead, a small number of pixels just outside the hard edge appear, disappear, and lift by a pixel or two as the field changes.
+a very thin band outside the photographed skyline uses a slowly evolving fbm/noise field underneath a fixed ordered-dither threshold pattern. the base mountain never fades or translates. instead, a sparse set of individual pixels just outside the edge can appear, disappear, or lift by roughly a pixel as the field changes.
 
-this is not blur, glow, feathering, or an animated mountain silhouette. the mountain/sky handoff stays hard in every frame.
+this is not blur, glow, feathering, or an animated mountain silhouette.
 
 ## motion
 
-this page is closer to a very quiet film than a still photograph. randomness should be asynchronous and non-repeating enough that the scene does not reveal a loop.
+motion belongs to the air, not the mountain, and should be easy to miss on a short visit.
 
 ### dark
 
-night is sky-led.
-
-- a broad, irregular star field fills the usable sky rather than placing a few evenly spaced points.
-- stars have independent primary twinkle, slower breathing, and small high-frequency shimmer. a minority occasionally flare for a moment.
-- several stars disappear completely and reappear at another seat through long fades.
-- valley cloud remains, but it is lower-density and secondary to the sky.
-- comets happen occasionally, at randomized minute-scale intervals, cross quickly, and stay above the ridge.
+- the sky stays mostly empty, with a small irregular set of stars.
+- each star changes brightness independently and slowly rather than blinking as a group.
+- valley cloud is faint and secondary to the sky.
+- comets are rare, randomized at minute-scale intervals, quick, and constrained above the ridge.
 
 ### light
 
-day is weather-led.
-
-- there are no decorative daytime stars.
-- a much larger cloud system occupies the basin and reaches across much of the range.
-- the cloud does not slide across the page like a sprite. its footprint stays tied to the valley while the internal dither density swells, ebbs, rolls, and reforms.
-- an upper veil can reach across shoulders of the mountain, so portions of the range disappear and return as the weather breathes.
-
-both cloud systems use moving warped-noise density under fixed dither seats, so movement reads as changing weather rather than translated geometry.
+- there are no daytime stars.
+- a restrained dithered cloud field sits in the valley and changes density in place rather than sliding across the screen.
+- the cloud is weather around the range, not a second illustration competing with it.
 
 `prefers-reduced-motion` freezes the same composition at a stable phase.
 
