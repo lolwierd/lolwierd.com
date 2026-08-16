@@ -64,7 +64,7 @@
 
   function smoothLeftRidge(values) {
     var end=Math.floor(width*.20);
-    var radius=Math.max(2,Math.round(2*dpr));
+    var radius=Math.max(3,Math.round(3*dpr));
     var copy=new Int32Array(values);
     for(var x=0;x<end;x++){
       var sample=[];
@@ -72,7 +72,7 @@
       sample.sort(function(a,b){return a-b;});
       values[x]=sample[Math.floor(sample.length/2)];
     }
-    var maxStep=Math.max(1,Math.round(1.5*dpr));
+    var maxStep=Math.max(1,Math.round(1.25*dpr));
     for(x=1;x<end;x++) values[x]=clamp(values[x],values[x-1]-maxStep,values[x-1]+maxStep);
     for(x=end-2;x>=0;x--) values[x]=clamp(values[x],values[x+1]-maxStep,values[x+1]+maxStep);
   }
@@ -107,7 +107,7 @@
     var cy=lerp(state.ridgeTop,state.ridgeLow,.80);
     var span=width*.94;
     var tall=clamp(range*1.62,100*dpr,300*dpr);
-    var step=Math.max(2,Math.round(1.55*dpr));
+    var step=Math.max(2,Math.round(1.45*dpr));
     var seed=9101;
 
     for(var y=cy-tall;y<=cy+tall*.50;y+=step){
@@ -121,7 +121,7 @@
         shape=clamp(shape,0,1);
         if(shape<.04) continue;
         var ix=Math.floor(x/step), iy=Math.floor(y/step);
-        if(hash2(ix,iy,seed)>.08+shape*.78) continue;
+        if(hash2(ix,iy,seed)>.07+shape*.82) continue;
         weather.push({
           x:x,y:y,shape:shape,
           phase:hash2(ix,iy,seed+13)*Math.PI*2,
@@ -150,20 +150,31 @@
 
   function drawRidge() {
     if(!ridge) return;
-    var ink=themeMedia.matches?"#e4dac8":"#293039";
+    var dark=themeMedia.matches;
+    var ink=dark?"#e4dac8":"#293039";
+    var paper=dark?"#0b0e13":"#eee9df";
     var end=Math.floor(width*.19);
+    var fadeStart=Math.floor(width*.15);
+    var clearAbove=Math.max(10,Math.round(12*dpr));
     var core=Math.max(4,Math.round(4*dpr));
     var fill=Math.max(core+2,Math.round(15*dpr));
-    ctx.fillStyle=ink;
+
     for(var x=0;x<end;x++){
       var y=ridge[x];
       if(y<=0||y>=height) continue;
-      ctx.globalAlpha=.98;
+      var xf=x<=fadeStart?1:1-(x-fadeStart)/Math.max(1,end-fadeStart);
+
+      ctx.fillStyle=paper;
+      ctx.globalAlpha=.98*xf;
+      ctx.fillRect(x,Math.max(0,y-clearAbove),1,clearAbove+1);
+
+      ctx.fillStyle=ink;
+      ctx.globalAlpha=.98*xf;
       ctx.fillRect(x,y,1,core);
       for(var d=core;d<fill;d++){
         var fall=1-(d-core)/Math.max(1,fill-core);
         if(hash2(x,d,9921)>fall*.82) continue;
-        ctx.globalAlpha=.78*fall;
+        ctx.globalAlpha=.80*fall*xf;
         ctx.fillRect(x,y+d,1,1);
       }
     }
@@ -171,30 +182,30 @@
 
   function drawWeather(now) {
     if(state.dark||!weather.length) return;
-    var t=now*.00078;
-    var paper="#eee9df", haze="#5f6872";
-    var global=.76+.24*Math.sin(now/2400*Math.PI*2+.7);
+    var t=now*.00082;
+    var paper="#eee9df", haze="#59636d";
+    var global=.74+.26*Math.sin(now/2300*Math.PI*2+.7);
 
     for(var i=0;i<weather.length;i++){
       var dot=weather[i];
       var a=warped(dot.x*.00155+dot.phase*.015,dot.y*.00175,t,9201);
       var b=warped(dot.x*.00220-dot.phase*.009,dot.y*.00120+dot.phase*.006,t*.73,9349);
-      var pulse=.5+.5*Math.sin(now/1700*Math.PI*2+dot.phase*.72);
-      var pulse2=.5+.5*Math.sin(now/2600*Math.PI*2+dot.phase*1.17);
-      var density=dot.shape*(.02+a*.57+b*.43+(pulse-.5)*.60+(pulse2-.5)*.34)*global;
-      if(density<dot.cut*.16) continue;
+      var pulse=.5+.5*Math.sin(now/1650*Math.PI*2+dot.phase*.72);
+      var pulse2=.5+.5*Math.sin(now/2450*Math.PI*2+dot.phase*1.17);
+      var density=dot.shape*(.02+a*.57+b*.43+(pulse-.5)*.62+(pulse2-.5)*.36)*global;
+      if(density<dot.cut*.14) continue;
 
-      var rise=(Math.sin(now/3200*Math.PI*2+dot.x*.008+dot.phase*.13)*4 + Math.sin(now/4700*Math.PI*2+dot.x*.003)*3)*dpr;
+      var rise=(Math.sin(now/2900*Math.PI*2+dot.x*.008+dot.phase*.13)*5 + Math.sin(now/4100*Math.PI*2+dot.x*.003)*3)*dpr;
       var py=Math.round(dot.y-rise);
       if(py<0||py>=height) continue;
 
       ctx.fillStyle=paper;
-      ctx.globalAlpha=clamp(.42+density*.52,0,.92);
+      ctx.globalAlpha=clamp(.44+density*.52,0,.94);
       ctx.fillRect(Math.round(dot.x),py,1,1);
 
-      if(dot.grain<.58&&density>.25){
+      if(dot.grain<.78&&density>.20){
         ctx.fillStyle=haze;
-        ctx.globalAlpha=clamp(.045+density*.13,0,.19);
+        ctx.globalAlpha=clamp(.075+density*.19,0,.30);
         ctx.fillRect(Math.round(dot.x),py,1,1);
       }
     }
