@@ -215,7 +215,7 @@
     var paper = "#eee9df";
     var end = Math.floor(width * .135);
     var fadeStart = Math.floor(width * .105);
-    var depth = Math.max(7, Math.round(8 * dpr));
+    var depth = Math.max(10, Math.round(11 * dpr));
 
     for (var x = 0; x < end; x++) {
       var y = ridge[x];
@@ -227,14 +227,14 @@
       ctx.fillRect(x, Math.max(0, y - Math.max(1, Math.round(1.4 * dpr))), 1, Math.max(1, Math.round(1.2 * dpr)));
 
       ctx.fillStyle = ink;
-      ctx.globalAlpha = .92 * fade;
+      ctx.globalAlpha = .94 * fade;
       ctx.fillRect(x, y, 1, 1);
 
       for (var d = 1; d < depth; d++) {
         var progress = d / depth;
-        var density = lerp(.90, .42, progress);
+        var density = lerp(.95, .50, progress);
         if (hash2(x, d, 12031) > density) continue;
-        ctx.globalAlpha = lerp(.80, .28, progress) * fade;
+        ctx.globalAlpha = lerp(.88, .38, progress) * fade;
         ctx.fillRect(x, y + d, 1, 1);
       }
     }
@@ -246,35 +246,35 @@
     var haze = "#4f5964";
 
     var ox = (
-      Math.sin(now / 6200 * Math.PI * 2 + config.phase) * 12 +
-      Math.sin(now / 9700 * Math.PI * 2 + config.phase * .63) * 4
+      Math.sin(now / 5200 * Math.PI * 2 + config.phase) * 18 +
+      Math.sin(now / 8300 * Math.PI * 2 + config.phase * .63) * 6
     ) * dpr;
     var oy = (
-      Math.sin(now / 7600 * Math.PI * 2 + config.phase * 1.17) * 7 +
-      Math.sin(now / 11800 * Math.PI * 2 + config.phase * .78) * 3
+      Math.sin(now / 6500 * Math.PI * 2 + config.phase * 1.17) * 10 +
+      Math.sin(now / 9800 * Math.PI * 2 + config.phase * .78) * 4
     ) * dpr;
-    var swell = .76 + .24 * Math.sin(now / 4400 * Math.PI * 2 + config.phase);
-    var t = now * .00034;
+    var swell = .70 + .30 * Math.sin(now / 3800 * Math.PI * 2 + config.phase);
+    var t = now * .00042;
 
     for (var i = 0; i < bank.dots.length; i++) {
       var dot = bank.dots[i];
       var field = fbm(dot.x * .0020 + t, dot.y * .00185 - t * .72, 11101 + bank.index * 113);
-      var local = .5 + .5 * Math.sin(now / 5100 * Math.PI * 2 + dot.phase);
-      var density = dot.shape * (.20 + field * .62 + local * .30) * swell;
-      if (density < dot.cut * .23 + .035) continue;
+      var local = .5 + .5 * Math.sin(now / 4300 * Math.PI * 2 + dot.phase);
+      var density = dot.shape * (.22 + field * .64 + local * .36) * swell;
+      if (density < dot.cut * .20 + .025) continue;
 
       var px = Math.round(dot.x + ox);
       var py = Math.round(dot.y + oy);
       if (px < 0 || px >= width || py < 0 || py >= height) continue;
 
       ctx.fillStyle = paper;
-      ctx.globalAlpha = clamp(.64 + density * .28, 0, .94);
-      ctx.fillRect(px, py, Math.max(1, Math.round(1.55 * dpr)), 1);
+      ctx.globalAlpha = clamp(.68 + density * .30, 0, .96);
+      ctx.fillRect(px, py, Math.max(1, Math.round(1.65 * dpr)), Math.max(1, Math.round(1.05 * dpr)));
 
-      if (dot.grain < .84) {
+      if (dot.grain < .90) {
         ctx.fillStyle = haze;
-        ctx.globalAlpha = clamp(.12 + density * .24, 0, .34);
-        ctx.fillRect(px, py, 1, 1);
+        ctx.globalAlpha = clamp(.18 + density * .34, 0, .48);
+        ctx.fillRect(px, py, Math.max(1, Math.round(1.1 * dpr)), 1);
       }
     }
   }
