@@ -64,14 +64,14 @@
   function makeRepair(){
     repair.length=0;
     if(!screenSkyline)return;
-    var limit=Math.floor(W*.12),step=Math.max(1,Math.round(D));
+    var limit=Math.floor(W*.11),step=Math.max(1,Math.round(D));
     for(var x=0;x<limit;x+=step){
-      var edge=screenSkyline[Math.min(W-1,Math.round(x))],taper=1-S(.075,.12,x/W);
-      for(var depth=1*D;depth<=9*D;depth+=step){
+      var edge=screenSkyline[Math.min(W-1,Math.round(x))],taper=1-S(.075,.11,x/W);
+      for(var depth=1*D;depth<=22*D;depth+=step){
         var y=edge+depth;if(y<0||y>=H)continue;
-        var band=(1-depth/(10*D))*taper;if(band<=0)continue;
+        var band=(1-depth/(23*D))*taper;if(band<=0)continue;
         var ix=Math.floor(x/step),iy=Math.floor(y/step);
-        if(h2(ix,iy,8301)>.34+band*.60)continue;
+        if(h2(ix,iy,8301)>.48+band*.50)continue;
         repair.push({x:x,y:y,q:band,p:h2(ix,iy,8317)});
       }
     }
@@ -95,7 +95,7 @@
 
   function drawRepair(){
     var a=theme(); ctx.fillStyle=a.ink;
-    for(var i=0;i<repair.length;i++){var d=repair[i];var alpha=(a.dark?.62:.76)*d.q*(.68+d.p*.32);if(alpha<.02)continue;ctx.globalAlpha=alpha;ctx.fillRect(Math.round(d.x),Math.round(d.y),1,1)}
+    for(var i=0;i<repair.length;i++){var d=repair[i];var alpha=(a.dark?.74:.90)*d.q*(.76+d.p*.24);if(alpha<.02)continue;ctx.globalAlpha=alpha;ctx.fillRect(Math.round(d.x),Math.round(d.y),1,1)}
   }
 
   function drawBasin(now){
