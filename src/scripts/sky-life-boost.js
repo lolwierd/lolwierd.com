@@ -11,7 +11,7 @@
   var BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 
   var canvas, ctx, state, width, height, dpr;
-  var skylineData = null, ridge = null, weather = [];
+  var skylineData = null, ridge = null, weather = [], wisps = [];
   var raf = 0, last = 0, tries = 0;
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -67,16 +67,12 @@
     var end=Math.floor(width*.185);
     var copy=new Int32Array(values);
     var radius=Math.max(1,Math.round(1.2*dpr));
-
-    // Remove only one-pixel-ish spikes/hooks. Preserve the photographed profile.
     for(var x=0;x<end;x++){
       var lo=clamp(x-radius,0,width-1), hi=clamp(x+radius,0,width-1);
       var a=copy[lo], b=copy[x], c=copy[hi];
       var median=a+b+c-Math.min(a,b,c)-Math.max(a,b,c);
       if(Math.abs(b-median)>Math.max(2,Math.round(1.5*dpr))) values[x]=median;
     }
-
-    // A tiny slope limiter prevents the notch seen in the browser crop without flattening the peak.
     var maxStep=Math.max(2,Math.round(2.4*dpr));
     for(x=1;x<end;x++) values[x]=clamp(values[x],values[x-1]-maxStep,values[x-1]+maxStep);
     for(x=end-2;x>=0;x--) values[x]=clamp(values[x],values[x+1]-maxStep,values[x+1]+maxStep);
@@ -106,7 +102,6 @@
   function seedWeather() {
     weather=[];
     if(!state||state.dark) return;
-
     var range=Math.max(1,state.ridgeLow-state.ridgeTop);
     var portrait=state.cssHeight>state.cssWidth;
     var cx=width*(portrait?.51:.55);
@@ -115,29 +110,52 @@
     var tall=clamp(range*1.55,105*dpr,285*dpr);
     var step=Math.max(2,Math.round(1.65*dpr));
     var seed=9101;
-
     for(var y=cy-tall;y<=cy+tall*.54;y+=step){
       for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
         if(x<0||x>=width||y<0||y>=height) continue;
         var u=(x-cx)/(span*.5), v=(y-cy)/tall;
-
-        // Broad valley bank + two shoulders. These are geographical, not screen-space particles.
         var shape=.92*Math.exp(-(u*u*1.72+v*v*3.0));
         shape+=.70*Math.exp(-((u+.48)*(u+.48)*3.55+(v+.02)*(v+.02)*4.25));
         shape+=.64*Math.exp(-((u-.41)*(u-.41)*3.80+(v+.08)*(v+.08)*4.65));
         shape+=.35*Math.exp(-((u-.04)*(u-.04)*2.45+(v+.53)*(v+.53)*6.30));
         shape=clamp(shape,0,1);
         if(shape<.035) continue;
-
         var ix=Math.floor(x/step), iy=Math.floor(y/step);
-        if(hash2(ix,iy,seed)>.10+shape*.84) continue;
-        weather.push({
-          x:x,y:y,shape:shape,
-          phase:hash2(ix,iy,seed+13)*Math.PI*2,
-          cut:threshold(ix,iy),
-          grain:hash2(ix,iy,seed+31),
-          lobe: hash2(Math.floor(x/(120*dpr)), Math.floor(y/(90*dpr)), seed+47) * Math.PI * 2
-        });
+        if(hash2(ix,iy,seed)>.10+shape*.76) continue;
+        weather.push({x:x,y:y,shape:shape,phase:hash2(ix,iy,seed+13)*Math.PI*2,cut:threshold(ix,iy),grain:hash2(ix,iy,seed+31),lobe:hash2(Math.floor(x/(120*dpr)),Math.floor(y/(90*dpr)),seed+47)*Math.PI*2});
+      }
+    }
+  }
+
+  function seedWisps() {
+    wisps=[];
+    if(!state||state.dark) return;
+    var range=Math.max(1,state.ridgeLow-state.ridgeTop);
+    var banks=[
+      {cx:.43,cy:.63,span:.30,tall:.28,phase:.4,seed:10101},
+      {cx:.59,cy:.72,span:.37,tall:.31,phase:2.0,seed:10201},
+      {cx:.53,cy:.51,span:.25,tall:.21,phase:4.1,seed:10301}
+    ];
+    var step=Math.max(2,Math.round(1.45*dpr));
+    for(var bi=0;bi<banks.length;bi++){
+      var bank=banks[bi];
+      var cx=width*bank.cx;
+      var cy=lerp(state.ridgeTop,state.ridgeLow,bank.cy);
+      var span=width*bank.span;
+      var tall=clamp(range*bank.tall,38*dpr,105*dpr);
+      for(var y=cy-tall;y<=cy+tall;y+=step){
+        for(var x=cx-span*.5;x<=cx+span*.5;x+=step){
+          if(x<0||x>=width||y<0||y>=height) continue;
+          var u=(x-cx)/(span*.5),v=(y-cy)/tall;
+          var shape=Math.exp(-(u*u*2.4+v*v*3.5));
+          shape+=.44*Math.exp(-((u+.45)*(u+.45)*6.4+(v+.02)*(v+.02)*5.4));
+          shape+=.39*Math.exp(-((u-.38)*(u-.38)*7.0+(v-.05)*(v-.05)*5.9));
+          shape=clamp(shape,0,1);
+          if(shape<.075) continue;
+          var ix=Math.floor(x/step),iy=Math.floor(y/step);
+          if(hash2(ix,iy,bank.seed)>.12+shape*.82) continue;
+          wisps.push({bank:bi,x:x,y:y,shape:shape,cut:threshold(ix,iy),grain:hash2(ix,iy,bank.seed+17)});
+        }
       }
     }
   }
@@ -152,6 +170,7 @@
     canvas.style.height=state.cssHeight+"px";
     buildRidge();
     seedWeather();
+    seedWisps();
     draw(reduced?FIXED_TIME:performance.now());
     if(raf) cancelAnimationFrame(raf);
     raf=0; last=0;
@@ -168,27 +187,19 @@
     var eraseUp=Math.max(2,Math.round(2*dpr));
     var eraseDown=Math.max(6,Math.round(7*dpr));
     var transition=Math.max(7,Math.round(9*dpr));
-
     for(var x=0;x<end;x++){
       var y=ridge[x];
       if(y<=0||y>=height) continue;
       var xf=x<=fadeStart?1:1-smooth(fadeStart,end,x);
-
-      // Remove the old double/cornice edge from the base dither.
       ctx.fillStyle=paper;
       ctx.globalAlpha=.99*xf;
       ctx.fillRect(x,Math.max(0,y-eraseUp),1,eraseUp+eraseDown);
-
-      // Re-introduce one decisive photographic skyline pixel.
       ctx.fillStyle=ink;
       ctx.globalAlpha=.94*xf;
       ctx.fillRect(x,y,1,1);
-
-      // Blend back into the untouched photograph instead of drawing a border/band.
       for(var d=1;d<transition;d++){
         var density=clamp(.14+d/transition*.80,0,1);
-        var gate=hash2(x,d,9921);
-        if(gate>density) continue;
+        if(hash2(x,d,9921)>density) continue;
         ctx.globalAlpha=(.18+d/transition*.62)*xf;
         ctx.fillRect(x,y+d,1,1);
       }
@@ -197,42 +208,48 @@
 
   function drawWeather(now) {
     if(state.dark||!weather.length) return;
-
-    var paper="#eee9df";
-    var haze="#69737b";
-    var t=now*.00115;
-    // Main breathing cycle is fast enough to register within a second, slow enough not to flicker.
-    var breath=.72+.28*Math.sin(now/3000*Math.PI*2+.55);
-
+    var paper="#eee9df", haze="#69737b";
+    var t=now*.00082;
+    var breath=.82+.18*Math.sin(now/3600*Math.PI*2+.55);
     for(var i=0;i<weather.length;i++){
       var dot=weather[i];
       var a=warped(dot.x*.00142+dot.phase*.010,dot.y*.00162,t,9201);
       var b=warped(dot.x*.00210-dot.phase*.007,dot.y*.00118+dot.phase*.004,t*.69,9349);
-
-      // Coherent regional change: nearby dots share the same lobe phase.
-      var regional=.5+.5*Math.sin(now/3400*Math.PI*2 + dot.x/(145*dpr) + dot.lobe);
-      var secondary=.5+.5*Math.sin(now/5200*Math.PI*2 + dot.y/(170*dpr) + dot.lobe*.63);
-      var density=dot.shape*(.08+a*.46+b*.30+regional*.36+secondary*.18)*breath;
-
-      // The local bank itself lifts/falls a few pixels. The mountain never moves.
-      var rise=(Math.sin(now/3600*Math.PI*2+dot.lobe)*3.3 + Math.sin(now/5100*Math.PI*2+dot.x/(210*dpr))*1.8)*dpr;
-      var py=Math.round(dot.y-rise);
-      if(py<0||py>=height) continue;
-
-      // Ordered dither threshold that actually crosses within the first second.
-      var gate=dot.cut*.58 + .055;
-      if(density<gate) continue;
-
-      // Paper pixels make cloud visibly pass in front of slopes/valley instead of merely tinting empty sky.
+      var regional=.5+.5*Math.sin(now/3800*Math.PI*2+dot.x/(145*dpr)+dot.lobe);
+      var density=dot.shape*(.10+a*.46+b*.30+regional*.28)*breath;
+      if(density<dot.cut*.52+.065) continue;
       ctx.fillStyle=paper;
-      ctx.globalAlpha=clamp(.54+density*.40,0,.93);
-      ctx.fillRect(Math.round(dot.x),py,Math.max(1,Math.round(1.35*dpr)),1);
-
-      // Sparse gray body keeps the cloud readable against the light sky as well.
-      if(dot.grain<.72 && density>.28){
+      ctx.globalAlpha=clamp(.40+density*.36,0,.78);
+      ctx.fillRect(Math.round(dot.x),Math.round(dot.y),Math.max(1,Math.round(1.2*dpr)),1);
+      if(dot.grain<.58&&density>.30){
         ctx.fillStyle=haze;
-        ctx.globalAlpha=clamp(.08+(density-.28)*.25,0,.24);
-        ctx.fillRect(Math.round(dot.x),py,1,1);
+        ctx.globalAlpha=clamp(.05+(density-.30)*.16,0,.17);
+        ctx.fillRect(Math.round(dot.x),Math.round(dot.y),1,1);
+      }
+    }
+  }
+
+  function drawWisps(now) {
+    if(state.dark||!wisps.length) return;
+    var paper="#eee9df", haze="#4f5964";
+    var phases=[.4,2.0,4.1];
+    for(var i=0;i<wisps.length;i++){
+      var dot=wisps[i], phase=phases[dot.bank];
+      var ox=(Math.sin(now/3300*Math.PI*2+phase)*7 + Math.sin(now/5100*Math.PI*2+phase*.7)*3)*dpr;
+      var oy=(Math.sin(now/2300*Math.PI*2+phase*1.2)*7 + Math.sin(now/3900*Math.PI*2+phase)*3)*dpr;
+      var swell=.76+.24*Math.sin(now/2100*Math.PI*2+phase);
+      var field=fbm(dot.x*.0022+now*.00023,dot.y*.0020-now*.00015,11001+dot.bank*101);
+      var density=dot.shape*(.24+field*.76)*swell;
+      if(density<dot.cut*.26+.04) continue;
+      var px=Math.round(dot.x+ox),py=Math.round(dot.y+oy);
+      if(px<0||px>=width||py<0||py>=height) continue;
+      ctx.fillStyle=paper;
+      ctx.globalAlpha=clamp(.60+density*.34,0,.94);
+      ctx.fillRect(px,py,Math.max(1,Math.round(1.5*dpr)),1);
+      if(dot.grain<.78){
+        ctx.fillStyle=haze;
+        ctx.globalAlpha=clamp(.11+density*.24,0,.34);
+        ctx.fillRect(px,py,1,1);
       }
     }
   }
@@ -242,6 +259,7 @@
     ctx.clearRect(0,0,width,height);
     drawRidge();
     drawWeather(now);
+    drawWisps(now);
     ctx.globalAlpha=1;
   }
   function tick(now){
@@ -258,7 +276,7 @@
   window.__portfolioLife={
     build:build,
     step:function(now){draw(now==null?(reduced?FIXED_TIME:performance.now()):now);},
-    state:function(){return{ready:!!state,weather:weather.length,repair:!!ridge,reduced:reduced};}
+    state:function(){return{ready:!!state,weather:weather.length,wisps:wisps.length,repair:!!ridge,reduced:reduced};}
   };
 
   fetch(SKYLINE_SOURCE,{cache:"force-cache"})
