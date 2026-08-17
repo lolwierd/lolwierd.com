@@ -12,7 +12,7 @@
   var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   var SOURCE = "/assets/annapurna-circuit.jpg";
-  var SKYLINE_SOURCE = "/assets/annapurna-skyline.json";
+  var SKYLINE_SOURCE = "/assets/annapurna-skyline.json?v=20260817c";
   var MAX_DPR = 2;
   var FIXED_TIME = 21437;
 
@@ -28,7 +28,6 @@
       ink: "#e4dac8",
       terrainAlpha: 0.91,
       dustAlpha: 0.23,
-      cloudAlpha: 0.16,
       star: "#eee6d8",
       starAlpha: 0.94,
       satelliteAlpha: 0.34
@@ -37,7 +36,6 @@
       ink: "#293039",
       terrainAlpha: 0.87,
       dustAlpha: 0.12,
-      cloudAlpha: 0.28,
       star: "#293039",
       starAlpha: 0,
       satelliteAlpha: 0
@@ -48,7 +46,7 @@
   var state = null;
   var terrainImage = null;
   var edgeDots = [];
-  var cloudDots = [];
+
   var stars = [];
   var wanderers = [];
 
@@ -188,7 +186,7 @@
 
     if (targetAspect > sourceAspect) {
       sh = sw / targetAspect;
-      sy = clamp(plateH * 0.10, 0, Math.max(0, plateH - sh));
+      sy = clamp(plateH * 0.17, 0, Math.max(0, plateH - sh));
     } else {
       sw = sh * targetAspect;
       sx = clamp(plateW * focus - sw / 2, 0, Math.max(0, plateW - sw));
@@ -302,22 +300,6 @@
     }
   }
 
-  function findValley() {
-    var start = Math.floor(width * 0.12);
-    var end = Math.floor(width * 0.88);
-    var step = Math.max(2, Math.floor(width / 240));
-    var valleyX = Math.floor(width * 0.5);
-    var valleyY = state.ridgeTop;
-
-    for (var x = start; x <= end; x += step) {
-      if (state.skyline[x] > valleyY) {
-        valleyX = x;
-        valleyY = state.skyline[x];
-      }
-    }
-
-    return { x: valleyX, y: valleyY, depth: valleyY - state.ridgeTop };
-  }
 
   function makeEdgeDots() {
     edgeDots = [];
@@ -376,75 +358,7 @@
     }
   }
 
-  function makeClouds() {
-    cloudDots = [];
-    var valley = findValley();
-    if (valley.depth < 28 * dpr) return;
 
-    var span = clamp(width * (state.dark ? 0.56 : 0.78), 280 * dpr, 1360 * dpr);
-    var cloudHeight = clamp(
-      valley.depth * (state.dark ? 0.68 : 1.02),
-      78 * dpr,
-      state.dark ? 220 * dpr : 300 * dpr
-    );
-    var centerY = valley.y - cloudHeight * (state.dark ? 0.25 : 0.32);
-    var dotStep = Math.max(2, Math.round((state.dark ? 2.7 : 2.30) * dpr));
-    var seed = state.dark ? 1701 : 1801;
-    var densityScale = state.dark ? 0.38 : 0.55;
-
-    for (var y = centerY - cloudHeight; y <= centerY + cloudHeight * 0.60; y += dotStep) {
-      for (var x = valley.x - span * 0.5; x <= valley.x + span * 0.5; x += dotStep) {
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-
-        var u = (x - valley.x) / (span * 0.5);
-        var v = (y - centerY) / cloudHeight;
-        var basin = Math.exp(-(u * u * 2.05 + v * v * 4.05));
-        var left = Math.exp(-((u + 0.48) * (u + 0.48) * 5.0 + (v + 0.04) * (v + 0.04) * 6.8));
-        var right = Math.exp(-((u - 0.43) * (u - 0.43) * 4.9 + (v + 0.02) * (v + 0.02) * 7.1));
-        var high = Math.exp(-((u - 0.05) * (u - 0.05) * 6.7 + (v + 0.52) * (v + 0.52) * 9.2));
-        var shape = clamp(basin + left * 0.50 + right * 0.46 + high * (state.dark ? 0.22 : 0.42), 0, 1);
-        if (shape < 0.05) continue;
-
-        var cellX = Math.floor(x / dotStep);
-        var cellY = Math.floor(y / dotStep);
-        if (hash2(cellX, cellY, seed) > 0.08 + shape * densityScale) continue;
-
-        cloudDots.push({
-          x: x,
-          y: y,
-          shape: shape,
-          phase: hash2(cellX, cellY, seed + 11) * 21,
-          threshold: bayerThreshold(cellX, cellY),
-          octave: hash2(cellX, cellY, seed + 17)
-        });
-      }
-    }
-  }
-
-  function drawClouds(now) {
-    var activeTheme = theme();
-    var t = now * 0.000016;
-    var swell = 0.75 + 0.17 * Math.sin(t * 0.30 + 0.8) + 0.08 * Math.sin(t * 0.13 + 2.1);
-    ctx.fillStyle = activeTheme.ink;
-
-    for (var i = 0; i < cloudDots.length; i++) {
-      var dot = cloudDots[i];
-      var ix = clamp(Math.round(dot.x), 0, width - 1);
-      var ridgeDistance = state.skyline[ix] - dot.y;
-      var ridgeFade = 0.31 + 0.69 * smoothstep(-125 * dpr, 38 * dpr, ridgeDistance);
-      var fieldA = warpedField(dot.x * 0.00145 + dot.phase * 0.009, dot.y * 0.00170, t, state.dark ? 1201 : 1401);
-      var fieldB = warpedField(dot.x * 0.00205, dot.y * 0.00125 + dot.phase * 0.006, t * 0.71, state.dark ? 1327 : 1523);
-      var weather = fieldA * 0.70 + fieldB * 0.30;
-      var density = dot.shape * (0.15 + weather * 0.85) * swell;
-      var threshold = dot.threshold * (state.dark ? 0.55 : 0.44);
-      if (density < threshold) continue;
-
-      var alpha = activeTheme.cloudAlpha * ridgeFade * (0.20 + density * 0.80);
-      if (alpha < 0.005) continue;
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.20 : 0.36);
-      ctx.fillRect(Math.round(dot.x), Math.round(dot.y), 1, 1);
-    }
-  }
 
   function makeStars() {
     stars = [];
@@ -649,8 +563,6 @@
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
     ctx.putImageData(terrainImage, 0, 0);
-    drawEdge(now);
-    drawClouds(now);
     drawStars(now);
     drawSatellite(now);
     drawComet(now);
@@ -675,7 +587,7 @@
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.56 : 0.52));
+    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.67));
     var overscan = Math.round(height * (portrait ? 0.18 : 0.16));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
@@ -707,6 +619,7 @@
       dark: themeMedia.matches,
       portrait: portrait,
       skyline: skyline,
+      luminance: luminance,
       ridgeTop: ridgeTop,
       ridgeLow: ridgeLow,
       crop: crop,
@@ -716,7 +629,6 @@
 
     makeTerrain(luminance, skyline);
     makeEdgeDots();
-    makeClouds();
     makeStars();
 
     var now = performance.now();
@@ -789,10 +701,11 @@
         cssHeight: state.cssHeight,
         dpr: state.dpr,
         dark: state.dark,
+        skyline: state.skyline,
+        luminance: state.luminance,
         ridgeTop: state.ridgeTop,
         ridgeLow: state.ridgeLow,
         edgeDots: edgeDots.length,
-        cloudDots: cloudDots.length,
         stars: stars.length,
         wanderers: wanderers.length,
         comet: { active: comet.active, next: comet.next },
@@ -809,7 +722,7 @@
       plate.onerror = reject;
       plate.src = SOURCE;
     }),
-    fetch(SKYLINE_SOURCE, { cache: "force-cache" }).then(function (response) {
+    fetch(SKYLINE_SOURCE, { cache: "reload" }).then(function (response) {
       if (!response.ok) throw new Error("failed to load skyline");
       return response.json();
     })

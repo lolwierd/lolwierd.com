@@ -5,17 +5,33 @@
   var motionMedia = matchMedia("(prefers-reduced-motion: reduce)");
   var reduced = motionMedia.matches;
   var visible = !document.hidden;
-  var SKYLINE_SOURCE = "/assets/annapurna-skyline.json";
   var FIXED_TIME = 1400;
   var FRAME_MS = 1000 / 30;
-  var BAYER = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+
+  // 8x8 Bayer Matrix for smooth 64-level spatial dithering
+  var BAYER_8 = [
+     0, 32,  8, 40,  2, 34, 10, 42,
+    48, 16, 56, 24, 50, 18, 58, 26,
+    12, 44,  4, 36, 14, 46,  6, 38,
+    60, 28, 52, 20, 62, 30, 54, 22,
+     3, 35, 11, 43,  1, 33,  9, 41,
+    51, 19, 59, 27, 49, 17, 57, 25,
+    15, 47,  7, 39, 13, 45,  5, 37,
+    63, 31, 55, 23, 61, 29, 53, 21
+  ];
 
   var canvas = null;
   var ctx = null;
   var state = null;
-  var skylineData = null;
   var ridge = null;
-  var banks = [];
+  var luminance = null;
+
+  // Glacial snow crystal glints inside sunlit snow faces
+  var snowCrystals = [];
+  // Shadow couloir breathing dots in deep rock valleys
+  var shadowDots = [];
+
+  var mouse = { x: -1000, y: -1000, vx: 0, vy: 0, speed: 0, lastX: 0, lastY: 0, lastT: 0 };
   var raf = 0;
   var last = 0;
   var tries = 0;
@@ -23,8 +39,22 @@
   var height = 0;
   var dpr = 1;
 
+  window.addEventListener("pointermove", function (e) {
+    var now = performance.now();
+    var dt = Math.max(1, now - (mouse.lastT || now));
+    var dx = e.clientX * dpr - mouse.lastX;
+    var dy = e.clientY * dpr - mouse.lastY;
+    mouse.x = e.clientX * dpr;
+    mouse.y = e.clientY * dpr;
+    mouse.vx = dx / dt;
+    mouse.vy = dy / dt;
+    mouse.speed = Math.min(3.0, Math.hypot(mouse.vx, mouse.vy));
+    mouse.lastX = mouse.x;
+    mouse.lastY = mouse.y;
+    mouse.lastT = now;
+  }, { passive: true });
+
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
   function smooth(a, b, v) {
     var t = clamp((v - a) / (b - a), 0, 1);
     return t * t * (3 - 2 * t);
@@ -41,27 +71,26 @@
       Math.imul(seed | 0, 2246822519)
     );
   }
-  function threshold(x, y) {
-    return BAYER[((Math.floor(y) & 3) << 2) + (Math.floor(x) & 3)] / 16;
+
+  function bayer8Threshold(x, y) {
+    var px = ((Math.floor(x) % 8) + 8) % 8;
+    var py = ((Math.floor(y) % 8) + 8) % 8;
+    return BAYER_8[py * 8 + px] / 64.0;
   }
-  function valueNoise(x, y, seed) {
-    var ix = Math.floor(x), iy = Math.floor(y);
-    var fx = x - ix, fy = y - iy;
-    var ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
-    var a = hash2(ix, iy, seed), b = hash2(ix + 1, iy, seed);
-    var c = hash2(ix, iy + 1, seed), d = hash2(ix + 1, iy + 1, seed);
-    return lerp(lerp(a, b, ux), lerp(c, d, ux), uy);
+
+  /* ─── ReactBits Coupled-Sinusoid Dither Wave Field ─────────────── */
+  function ditherWave(x, y, time, freq, speed, seed) {
+    var u = x * freq + ((seed & 255) * 0.031);
+    var v = y * freq + (((seed >> 8) & 255) * 0.047);
+    var t = time * speed;
+
+    var w1 = Math.sin(u * 1.6 + t * 0.28 + Math.cos(v * 2.2 + t * 0.19));
+    var w2 = Math.cos(v * 1.8 - t * 0.23 + Math.sin(u * 1.4 + t * 0.16));
+    var w3 = Math.sin((u + v) * 1.1 + t * 0.35);
+
+    return (w1 * 0.45 + w2 * 0.40 + w3 * 0.15) * 0.5 + 0.5; // [0, 1] range
   }
-  function fbm(x, y, seed) {
-    var value = 0, amp = .58, freq = 1, norm = 0;
-    for (var i = 0; i < 4; i++) {
-      value += valueNoise(x * freq, y * freq, seed + i * 89) * amp;
-      norm += amp;
-      amp *= .47;
-      freq *= 2.03;
-    }
-    return value / norm;
-  }
+
   function listen(media, fn) {
     if (media.addEventListener) media.addEventListener("change", fn);
     else media.addListener(fn);
@@ -89,109 +118,99 @@
     ctx = canvas.getContext("2d", { alpha: true });
   }
 
-  function sampleSkyline(sourceX) {
-    var p = clamp(sourceX / skylineData.step, 0, skylineData.y.length - 1);
-    var a = Math.floor(p), b = Math.min(skylineData.y.length - 1, a + 1);
-    return lerp(skylineData.y[a], skylineData.y[b], p - a);
-  }
+  /* ─── Glacial Snow Crystal Highlights (Inside Mountain Body) ───────
+     Strictly located inside bright snow faces (y >= ridge[x] + 2*dpr).
+     Zero dots in the sky. Zero edge halos.
+     ──────────────────────────────────────────────────────────────── */
+  function seedSnowCrystals() {
+    snowCrystals = [];
+    if (!ridge || !luminance) return;
 
-  function buildRidge() {
-    ridge = null;
-    if (!state || !skylineData) return;
+    var step = Math.max(2, Math.round(2.0 * dpr));
+    var seed = width * 23 + height * 41 + 50101;
 
-    var plateW = skylineData.width || 3000;
-    var plateH = skylineData.height || 2000;
-    var portrait = state.cssWidth < state.cssHeight;
-    var visibleBandH = Math.round(height * (portrait ? .56 : .52));
-    var overscan = Math.round(height * (portrait ? .18 : .16));
-    var drawH = visibleBandH + overscan;
-    var bandTop = height - visibleBandH;
-    var targetAspect = width / drawH;
-    var sourceAspect = plateW / plateH;
-    var sx = 0, sy = 0, sw = plateW, sh = plateH;
-    var focus = portrait ? .55 : .52;
+    for (var y = 0; y < height; y += step) {
+      for (var x = 0; x < width; x += step) {
+        var ridgeY = ridge[x];
+        // Strictly inside the terrain, safely below the skyline boundary
+        if (y < ridgeY + 3 * dpr) continue;
 
-    if (targetAspect > sourceAspect) {
-      sh = sw / targetAspect;
-      sy = clamp(plateH * .10, 0, Math.max(0, plateH - sh));
-    } else {
-      sw = sh * targetAspect;
-      sx = clamp(plateW * focus - sw / 2, 0, Math.max(0, plateW - sw));
-    }
+        var idx = y * width + x;
+        var lum = luminance[idx];
 
-    ridge = new Int32Array(width);
-    for (var x = 0; x < width; x++) {
-      var sourceX = sx + ((x + .5) / width) * sw - .5;
-      var sourceY = sampleSkyline(sourceX);
-      ridge[x] = clamp(Math.round(bandTop + ((sourceY - sy) / sh) * drawH), 0, height);
-    }
+        // Snow faces have high luminance in the source photograph
+        if (lum < 135) continue;
 
-    var end = Math.floor(width * .14);
-    var copy = new Int32Array(ridge);
-    var maxStep = Math.max(2, Math.round(2.2 * dpr));
-    for (x = 1; x < end; x++) {
-      var prev = copy[x - 1], here = copy[x], next = copy[Math.min(width - 1, x + 1)];
-      var median = prev + here + next - Math.min(prev, here, next) - Math.max(prev, here, next);
-      if (Math.abs(here - median) > Math.max(2, Math.round(1.5 * dpr))) ridge[x] = median;
-      ridge[x] = clamp(ridge[x], ridge[x - 1] - maxStep, ridge[x - 1] + maxStep);
-    }
-  }
+        var snowWeight = smooth(135, 250, lum);
+        var cellX = Math.floor(x / step);
+        var cellY = Math.floor(y / step);
 
-  function seedBank(config, index) {
-    var range = Math.max(1, state.ridgeLow - state.ridgeTop);
-    var cx = width * config.cx;
-    var cy = lerp(state.ridgeTop, state.ridgeLow, config.cy);
-    var span = width * config.span;
-    var tall = clamp(range * config.tall, config.min * dpr, config.max * dpr);
-    var step = Math.max(2, Math.round(config.step * dpr));
-    var dots = [];
+        // Sparse crystalline distribution
+        if (hash2(cellX, cellY, seed) > 0.04 + snowWeight * 0.22) continue;
 
-    for (var y = cy - tall; y <= cy + tall; y += step) {
-      for (var x = cx - span * .5; x <= cx + span * .5; x += step) {
-        if (x < 0 || x >= width || y < 0 || y >= height) continue;
-        var u = (x - cx) / (span * .5);
-        var v = (y - cy) / tall;
-        var shape = Math.exp(-(u * u * (config.deck ? 1.75 : 2.15) + v * v * (config.deck ? 4.8 : 3.15)));
-        shape += (config.deck ? .34 : .48) * Math.exp(-((u + .44) * (u + .44) * 5.4 + (v + .02) * (v + .02) * 4.8));
-        shape += (config.deck ? .30 : .43) * Math.exp(-((u - .39) * (u - .39) * 5.8 + (v - .04) * (v - .04) * 5.0));
-        shape = clamp(shape, 0, 1);
-        if (shape < (config.deck ? .025 : .045)) continue;
-        var ix = Math.floor(x / step), iy = Math.floor(y / step);
-        var keep = config.deck ? .025 + shape * .97 : .06 + shape * .92;
-        if (hash2(ix, iy, config.seed) > keep) continue;
-        dots.push({
+        snowCrystals.push({
           x: x,
           y: y,
-          shape: shape,
-          cut: threshold(ix, iy),
-          grain: hash2(ix, iy, config.seed + 17),
-          phase: hash2(Math.floor(x / (80 * dpr)), Math.floor(y / (65 * dpr)), config.seed + 31) * Math.PI * 2
+          weight: snowWeight,
+          lum: lum,
+          phase: hash2(cellX, cellY, seed + 11) * Math.PI * 2,
+          bayerCut: bayer8Threshold(cellX, cellY),
+          sparkleSpeed: 0.6 + hash2(cellX, cellY, seed + 17) * 0.8
         });
       }
     }
-
-    banks.push({ config: config, dots: dots, index: index });
   }
 
-  function seedBanks() {
-    banks = [];
-    if (!state || state.dark) return;
+  /* ─── Diurnal Shadow Couloir Breathing (Inside Rock Valleys) ───────
+     Strictly located inside dark shadow couloirs (y >= ridge[x] + 2*dpr).
+     ──────────────────────────────────────────────────────────────── */
+  function seedShadowCouloirs() {
+    shadowDots = [];
+    if (!ridge || !luminance) return;
 
-    seedBank({ cx:.41, cy:.61, span:.37, tall:.35, min:50, max:135, step:1.1, seed:10101, phase:.35 }, 0);
-    seedBank({ cx:.59, cy:.73, span:.49, tall:.40, min:56, max:155, step:1.1, seed:10201, phase:2.15 }, 1);
-    seedBank({ cx:.53, cy:.49, span:.32, tall:.28, min:44, max:118, step:1.05, seed:10301, phase:4.10 }, 2);
-    seedBank({ cx:.54, cy:.77, span:.54, tall:.18, min:34, max:78, step:.9, seed:10401, phase:5.25, deck:true }, 3);
+    var step = Math.max(3, Math.round(2.8 * dpr));
+    var seed = width * 17 + height * 31 + 60201;
+
+    for (var y = 0; y < height; y += step) {
+      for (var x = 0; x < width; x += step) {
+        var ridgeY = ridge[x];
+        if (y < ridgeY + 4 * dpr) continue;
+
+        var idx = y * width + x;
+        var lum = luminance[idx];
+
+        // Shadow couloirs have mid-to-dark luminance in the source photo
+        if (lum > 115) continue;
+
+        var shadowWeight = smooth(115, 20, lum);
+        var cellX = Math.floor(x / step);
+        var cellY = Math.floor(y / step);
+
+        if (hash2(cellX, cellY, seed) > 0.03 + shadowWeight * 0.18) continue;
+
+        shadowDots.push({
+          x: x,
+          y: y,
+          weight: shadowWeight,
+          phase: hash2(cellX, cellY, seed + 23) * 19.0,
+          bayerCut: bayer8Threshold(cellX, cellY)
+        });
+      }
+    }
   }
 
+  /* ─── build ─────────────────────────────────────────────────────── */
   function build() {
     var next = baseState();
-    if (!next || !skylineData) {
+    if (!next || !next.skyline || !next.luminance) {
       if (tries++ < 80) setTimeout(build, 80);
       return;
     }
 
     ensureCanvas();
     state = next;
+    ridge = state.skyline;
+    luminance = state.luminance;
     width = state.width;
     height = state.height;
     dpr = state.dpr;
@@ -200,8 +219,8 @@
     canvas.style.width = state.cssWidth + "px";
     canvas.style.height = state.cssHeight + "px";
 
-    buildRidge();
-    seedBanks();
+    seedSnowCrystals();
+    seedShadowCouloirs();
     draw(reduced ? FIXED_TIME : performance.now());
 
     if (raf) cancelAnimationFrame(raf);
@@ -210,82 +229,74 @@
     if (!reduced && visible) raf = requestAnimationFrame(tick);
   }
 
-  function drawRidgeCleanup() {
-    if (!ridge || state.dark) return;
+  /* ─── draw ──────────────────────────────────────────────────────── */
 
-    var paper = "#eee9df";
-    var end = Math.floor(width * .135);
-    var fadeStart = Math.floor(width * .105);
-    var eraseUp = Math.max(2, Math.round(2 * dpr));
-    var eraseIn = Math.max(3, Math.round(4 * dpr));
+  function drawSnowCrystals(now) {
+    if (!snowCrystals.length) return;
 
-    for (var x = 0; x < end; x++) {
-      var y = ridge[x];
-      if (y <= 0 || y >= height) continue;
-      var fade = x <= fadeStart ? 1 : 1 - smooth(fadeStart, end, x);
-      ctx.fillStyle = paper;
-      ctx.globalAlpha = .985 * fade;
-      ctx.fillRect(x, Math.max(0, y - eraseUp), 1, eraseUp + eraseIn);
+    var color = state.dark ? "#e4dac8" : "#293039";
+    var t = now * 0.0005;
+
+    ctx.fillStyle = color;
+
+    for (var i = 0; i < snowCrystals.length; i++) {
+      var dot = snowCrystals[i];
+
+      // Mouse proximity creates a bright crystal glint
+      var mdist = Math.hypot(dot.x - mouse.x, dot.y - mouse.y);
+      var cursorGlint = mdist < 140 * dpr ? (1 - mdist / (140 * dpr)) * mouse.speed * 0.60 : 0;
+
+      // ReactBits coupled wave interference across the snow faces
+      var wave = ditherWave(dot.x, dot.y, t * dot.sparkleSpeed, 0.004, 1.0, 50501);
+      var sparkle = 0.5 + 0.5 * Math.sin(dot.phase + t * 2.2 * dot.sparkleSpeed);
+
+      var intensity = dot.weight * (0.20 + wave * 0.50 + sparkle * 0.30 + cursorGlint);
+
+      // Bayer 8x8 threshold gating
+      if (intensity < dot.bayerCut * (state.dark ? 0.60 : 0.55)) continue;
+
+      var alpha = (state.dark ? 0.28 : 0.22) * dot.weight * smooth(0.10, 0.70, intensity) + cursorGlint * 0.35;
+      if (alpha < 0.02) continue;
+
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.45 : 0.38);
+      ctx.fillRect(dot.x, dot.y, 1, 1);
     }
   }
 
-  function drawBank(bank, now) {
-    var config = bank.config;
-    var paper = "#eee9df";
-    var haze = config.deck ? "#6d7479" : "#616a72";
-    var deck = !!config.deck;
+  function drawShadowCouloirs(now) {
+    if (!shadowDots.length) return;
 
-    var ox = (
-      Math.sin(now / (deck ? 5700 : 5000) * Math.PI * 2 + config.phase) * (deck ? 28 : 22) +
-      Math.sin(now / (deck ? 9100 : 7900) * Math.PI * 2 + config.phase * .63) * (deck ? 9 : 8)
-    ) * dpr;
-    var oy = (
-      Math.sin(now / (deck ? 6700 : 6100) * Math.PI * 2 + config.phase * 1.17) * (deck ? 9 : 12) +
-      Math.sin(now / (deck ? 10200 : 9300) * Math.PI * 2 + config.phase * .78) * (deck ? 4 : 5)
-    ) * dpr;
-    var swell = deck
-      ? .70 + .30 * Math.sin(now / 4700 * Math.PI * 2 + config.phase)
-      : .58 + .42 * Math.sin(now / 3900 * Math.PI * 2 + config.phase);
-    var t = now * (deck ? .00038 : .00048);
+    var color = state.dark ? "#0b0e13" : "#eee9df";
+    var t = now * 0.0002;
 
-    for (var i = 0; i < bank.dots.length; i++) {
-      var dot = bank.dots[i];
-      var field = fbm(dot.x * .0020 + t, dot.y * .00185 - t * .72, 11101 + bank.index * 113);
-      var local = .5 + .5 * Math.sin(now / (deck ? 5200 : 3900) * Math.PI * 2 + dot.phase);
-      var density = dot.shape * ((deck ? .34 : .24) + field * (deck ? .58 : .66) + local * (deck ? .30 : .40)) * swell;
-      var gate = deck ? dot.cut * .105 + .008 : dot.cut * .18 + .018;
-      if (density < gate) continue;
+    var daylight = 0.85 + 0.15 * Math.sin(t * 0.3 + 1.1);
+    ctx.fillStyle = color;
 
-      var px = Math.round(dot.x + ox);
-      var py = Math.round(dot.y + oy);
-      if (px < 0 || px >= width || py < 0 || py >= height) continue;
+    for (var i = 0; i < shadowDots.length; i++) {
+      var dot = shadowDots[i];
 
-      ctx.fillStyle = paper;
-      ctx.globalAlpha = clamp((deck ? .84 : .74) + density * (deck ? .14 : .24), 0, .98);
-      ctx.fillRect(
-        px,
-        py,
-        Math.max(2, Math.round((deck ? 2.25 : 1.9) * dpr)),
-        Math.max(1, Math.round((deck ? 1.25 : 1.1) * dpr))
-      );
+      var wave = ditherWave(dot.x, dot.y, t, 0.0025, 1.0, 60601);
+      var density = dot.weight * (0.15 + wave * 0.85) * daylight;
 
-      if (dot.grain < (deck ? .98 : .96)) {
-        ctx.fillStyle = haze;
-        ctx.globalAlpha = clamp((deck ? .21 : .24) + density * (deck ? .28 : .34), 0, deck ? .46 : .55);
-        ctx.fillRect(px, py, Math.max(1, Math.round((deck ? 1.5 : 1.25) * dpr)), 1);
-      }
+      if (density < dot.bayerCut * 0.48) continue;
+
+      var alpha = clamp((state.dark ? 0.12 : 0.16) + density * 0.18, 0, state.dark ? 0.28 : 0.35);
+      if (alpha < 0.02) continue;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(dot.x, dot.y, 1, 1);
     }
   }
 
   function draw(now) {
     if (!ctx || !state) return;
     ctx.clearRect(0, 0, width, height);
-    drawRidgeCleanup();
-    if (!state.dark) {
-      for (var i = 0; i < banks.length; i++) drawBank(banks[i], now);
-    }
+    drawShadowCouloirs(now);
+    drawSnowCrystals(now);
     ctx.globalAlpha = 1;
   }
+
+  /* ─── loop ──────────────────────────────────────────────────────── */
 
   function tick(now) {
     if (!visible || reduced) {
@@ -319,23 +330,13 @@
     state: function () {
       return {
         ready: !!state,
-        banks: banks.map(function (bank) { return bank.dots.length; }),
-        cleanup: !!ridge,
+        snowCrystals: snowCrystals.length,
+        shadowDots: shadowDots.length,
+        hasRidge: !!ridge,
         reduced: reduced
       };
     }
   };
 
-  fetch(SKYLINE_SOURCE, { cache: "force-cache" })
-    .then(function (response) {
-      if (!response.ok) throw new Error("skyline");
-      return response.json();
-    })
-    .then(function (data) {
-      skylineData = data;
-      build();
-    })
-    .catch(function () {
-      build();
-    });
+  build();
 })();
