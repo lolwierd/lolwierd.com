@@ -1,26 +1,75 @@
 # portfolio design
 
-## the idea
+## the feeling
 
-the page is a quiet engineering landscape: a single mountain range holds the first viewport, while the writing is set like a field notebook below it. the image has enough visual authority to make the opening memorable, and the content earns the rest of the page through facts, systems, and measured scope.
+this should not read as a portfolio template with scenery added to it.
 
-the distinctive detail is the boundary. the mountain is made from one continuous-tone plate, then dithered once at the device-pixel resolution of the browser. the skyline is treated as a hard handoff between sky and land, so the range reads as a range before the eye starts exploring its rock and snow structure.
+the first viewport is a place: sky, weather, a mountain range, a small amount of writing. the scene should feel alive enough to hold attention without turning into an effects demo. nothing on the page explains that intention. there is no copy about craft, calm, mountains, dithering, or "experience." the effect only works if the page simply behaves that way.
 
-## choices
+the work underneath is closer to a field notebook than a résumé. exact technical details are welcome, but lists of technologies and claims of competence are not the point. a few specific things should make the rest believable.
 
-- the hero is left-aligned and oversized because the work is infrastructural but the person is still the subject. a centered résumé column would make the page feel like a document before it feels like a person.
-- the serif display face gives the opening a slower reading rhythm. monospace is reserved for labels, dates, and measured values because those are data rather than voice.
-- rust is the only accent. it marks links and the section index, so color points to something a reader can verify or follow.
-- the lower page is a rule-based ledger rather than a collection of cards. every row has one job and the empty space is part of the hierarchy.
-- the light theme is a warm paper with charcoal land. the dark theme is a near-black field with bone ink. the mountain tone curve and ink are chosen separately for each, because inverting a one-bit picture destroys its hierarchy.
+## composition
+
+desktop and mobile are different crops of the same place.
+
+on desktop, the writing stays compact in the upper-left and the range carries the lower half of the frame. empty sky is part of the composition, but it is no longer inert: the atmosphere gives it time and depth.
+
+on mobile, the text gets its own breathing room above the ridge. it must not become a desktop layout squeezed into a narrow column. navigation remains small, the headline stays compact, and the mountain still arrives as a range rather than a wallpaper crop.
+
+below the hero, the scenery ends cleanly. content sits on an opaque reading ground with thin rules, quiet labels, and generous vertical rhythm. no cards.
+
+## image
+
+the mountain is rendered from the real annapurna photograph in `public/assets/annapurna-circuit.jpg`.
+
+the photograph supplies the terrain geometry and every luminance value used by the dither. `public/assets/annapurna-skyline.json` is a small ridge trace derived directly from that same photograph. keeping the photo-derived ridge explicitly avoids trying to rediscover the rock/sky boundary from jpeg colours on every device, which was fragile around bright snow.
+
+at runtime the ridge trace is mapped through the current desktop or mobile crop, the photographed terrain luminance is transformed separately for light and dark themes, and atkinson error diffusion runs at canvas resolution. the output is one ink colour with alpha, so the page background is the paper between dots.
+
+the skyline stays faithful to the photograph and deliberately crisp. the terrain itself never moves.
+
+## the living boundary
+
+the ridge should look decisive at a glance and alive only when watched.
+
+a very thin band outside the photographed skyline uses a slowly evolving fbm/noise field underneath a fixed ordered-dither threshold pattern. the base mountain never fades or translates. instead, a sparse set of individual pixels just outside the edge can appear, disappear, or lift by roughly a pixel as the field changes.
+
+this is not blur, glow, feathering, or an animated mountain silhouette.
 
 ## motion
 
-the mountain never moves. stars (64 in dark mode, 44 in light) use fixed positions with a layered twinkle: a slow primary oscillation, a faster secondary shimmer, and occasional flare spikes that briefly brighten individual stars. each star also has a slow visibility cycle — it dims slightly for ~20% of a 10-30 second period and returns — so the visible count is always changing. a few stars relocate through long fades. a dithered veil sits in the deepest basin and lets a slow density field move through fixed dot seats; it breathes, drifts, and fades into the ridge instead of forming a second horizon. comets streak across the sky every 25-90 seconds with a bright head and trailing tail, disappearing before the skyline. a supernova occasionally flares — a star flashes bright, then an expanding ring of dithered dots spreads outward and fades over 4-7 seconds. a satellite drifts slowly across the sky every 40-160 seconds, a single dim dot that's easy to miss. reduced motion keeps the same composition at a fixed phase.
+motion belongs to the air, not the mountain. it should be noticeable when someone stays with the first viewport, but it must never become a looping effect pasted over the photograph.
 
-## rejected
+### dark
 
-- the prototype's broad procedural cloud bank was cut. at one-bit density it read as a detached strip of digital noise instead of weather. the retained cloud is narrower, basin-bound, and kept below the empty sky.
-- a milky way band was cut because it turned the empty sky into decoration. the retained star field is sparse enough that the sky still reads as sky, with twinkling and occasional flares providing life without filling the void.
-- glass panels were cut because the page needs a calm reading ground, not a stack of translucent UI objects.
-- the first unsplash photograph was replaced because its cloud bank made the rock/sky boundary ambiguous after reduction. the chosen image has a readable skyline, several distinct peaks, and a central valley, so the range survives the dither at a glance.
+- the sky stays mostly empty, with an irregular set of stars rather than a decorative star pattern.
+- stars breathe and shimmer independently; a small subset fully fades out and returns at another seat.
+- a second faint mist field gives the valley a little more depth without competing with the sky.
+- comets remain rare, randomized at minute-scale intervals, quick, and constrained above the ridge.
+- an occasional dim satellite can cross slowly enough to be missed entirely.
+
+### light
+
+- there are no daytime stars.
+- daylight is weather-led through two complementary systems that both leave the terrain geometry fixed.
+- **thermal shimmer** lives exclusively along the ridge edge: a thin band of sparse individual pixels just above the skyline that appear, disappear, and occasionally lift by ~1px as a warped noise field slowly evolves. the effect reads as high-altitude wind blowing snow off the summit or thermal convection shimmering at the rock/sky boundary. it uses the same ink colour and bayer-threshold gating as the terrain, so it looks native rather than applied.
+- **diurnal shadow breathing** lives in the valley and couloir areas of the terrain: translucent paper-coloured dots that modulate which terrain pixels are partially lightened. two interacting warped-noise fields at different scales and speeds (~25–40s cycles) create the impression that the sun angle is imperceptibly shifting. the mountain "feels different" after ten seconds while its geometry stays fixed. the dots are 1px, sparse, and capped at low alpha so they lighten rather than erase.
+- neither effect translates across the page. both reform in place through noise field evolution.
+
+`prefers-reduced-motion` freezes the same composition at a stable phase.
+
+## voice
+
+lowercase is part of the voice, not a gimmick.
+
+copy should be plain and specific. avoid résumé verbs stacked into bullets. avoid abstract claims such as "building resilient systems at scale." show one failure mode, one strange bug, one concrete implementation detail instead.
+
+project links should not turn every row into an interface. project names are plain text; github is available once, quietly, after the list and in the footer.
+
+## palette
+
+light mode is warm paper, charcoal ink, and a single rust accent.
+
+dark mode is near-black, bone ink, and the same rust made slightly brighter.
+
+the themes are composed separately. mountain tone mapping and weather have theme-specific density/alpha; dark gets the active sky, light gets the heavier weather. neither is an inversion of the other.
