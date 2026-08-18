@@ -17,10 +17,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
 
       <div class="hero-copy">
-        <h1>i build cloud<br />infrastructure.</h1>
+        <h1>i build systems<br />from the machine up.</h1>
         <p>
-          at Excloud, i built compute, block storage, managed Kubernetes, networking,
-          identity, and the SDK, CLI, console, and Terraform provider used to run them.
+          at Excloud, i worked from QEMU/KVM and SPDK through Kubernetes, networking and identity,
+          up to the APIs, CLI, Terraform provider and console people used to run it.
         </p>
         <a class="hero-action" href="#work">selected work ↓</a>
       </div>
@@ -38,7 +38,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <div class="section-body">
           <p class="section-lede">
             i spent three years building and operating Excloud's core platform alongside the
-            engineering lead, with production ownership from day one.
+            engineering lead, from hosts and storage to managed services and the APIs and tools customers used.
           </p>
 
           <article class="experience-entry">
@@ -52,13 +52,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
             <div class="prose">
               <p>
-                i owned systems end to end: VM lifecycle and host setup, SPDK/NVMe-oF storage,
-                Kubernetes bootstrap and CSI, IAM, DNS, managed databases, and the APIs and tools used to run them.
+                i built systems end to end: VM lifecycle and host setup, SPDK/NVMe-oF storage,
+                Kubernetes bootstrap and CSI, IAM, DNS, managed databases, and the APIs and tools around them.
               </p>
               <p>
-                the part i care about is failure behavior. most of the work was making partial
-                transitions recover cleanly: reconciliation, idempotent attach/detach/resize paths,
-                cleanup, retries, and the protocol bugs that only show up in production.
+                a lot of the work was recovery rather than happy-path provisioning: reconciling partial state,
+                making attach/detach/resize idempotent, cleaning up failed transitions, and debugging
+                protocol-level failures in production.
               </p>
             </div>
 
@@ -113,7 +113,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
 
         <div class="section-body">
-          <p class="section-lede">projects i built outside work.</p>
+          <p class="section-lede">a few things i built outside work.</p>
 
           <div class="project-list">
             <article class="project-row">
@@ -162,7 +162,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </div>
 
           <p class="project-note">
-            more projects, experiments, and unfinished stuff <a href="https://github.com/lolwierd" rel="noreferrer">are on github.</a>
+            more projects, experiments, and unfinished stuff <a href="https://github.com/lolwierd" rel="noreferrer">are on GitHub.</a>
           </p>
         </div>
       </section>
