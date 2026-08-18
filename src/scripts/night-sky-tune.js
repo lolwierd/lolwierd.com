@@ -17,6 +17,7 @@
   var comet = {
     active: false,
     start: 0,
+    launchDelay: 0,
     duration: 0,
     next: Infinity,
     x0: 0,
@@ -24,7 +25,9 @@
     x1: 0,
     y1: 0,
     tail: 0,
-    seed: 0
+    seed: 0,
+    originIndex: -1,
+    headSize: 0
   };
 
   function clamp(value, min, max) {
@@ -44,6 +47,10 @@
     value = Math.imul(value ^ (value >>> 16), 2246822507);
     value = Math.imul(value ^ (value >>> 13), 3266489909);
     return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+  }
+
+  function randomBetween(min, max) {
+    return min + Math.random() * (max - min);
   }
 
   function baseState() {
@@ -150,6 +157,26 @@
     }
   }
 
+  function cometHasLaunched(now) {
+    return comet.active && now >= comet.start + comet.launchDelay;
+  }
+
+  function maskOriginStar(now) {
+    if (!cometHasLaunched(now) || comet.originIndex < 0 || !stars[comet.originIndex]) return;
+
+    var star = stars[comet.originIndex];
+    var core = Math.max(1, Math.round(state.dpr));
+    var radius = core * 3;
+    ctx.fillStyle = "#0b0e13";
+    ctx.globalAlpha = 1;
+    ctx.fillRect(
+      Math.round(star.x - radius),
+      Math.round(star.y - radius),
+      radius * 2 + core,
+      radius * 2 + core
+    );
+  }
+
   function drawStars(now) {
     if (!state.dark || !stars.length) return;
 
@@ -158,6 +185,8 @@
     ctx.fillStyle = "#eee6d8";
 
     for (var i = 0; i < stars.length; i++) {
+      if (i === comet.originIndex && cometHasLaunched(now)) continue;
+
       var star = stars[i];
       var primary = 0.5 + 0.5 * Math.sin((now / Math.max(1800, star.period * 0.92)) * Math.PI * 2 + star.phase);
       var secondary = 0.5 + 0.5 * Math.sin((now / Math.max(3000, star.period * 1.55)) * Math.PI * 2 + star.phase * 1.71);
@@ -175,7 +204,6 @@
       ctx.globalAlpha = clamp(alpha, 0, 0.15);
       ctx.fillRect(sx, sy, core, core);
 
-      // Only the brightest stars occasionally get a tiny cross-shaped glint.
       if (star.bright && pulse > 0.955) {
         var wink = smoothstep(0.955, 1, pulse) * 0.18 * horizon;
         ctx.globalAlpha = wink;
@@ -187,43 +215,104 @@
     }
   }
 
-  function scheduleComet(now) {
-    if (!state || !state.dark || reduced) return;
+  function pickOriginStar() {
+    var candidates = [];
+    var dpr = state.dpr;
 
-    var seed = Math.floor(now / 997) + state.width * 7 + state.height * 13;
-    var direction = hash(seed) > 0.5 ? 1 : -1;
+    for (var i = 0; i < stars.length; i++) {
+      var star = stars[i];
+      var x = clamp(Math.round(star.x), 0, state.width - 1);
+      var clearance = state.skyline[x] - star.y;
+      if (clearance < 90 * dpr) continue;
+      if (star.x < state.width * 0.08 || star.x > state.width * 0.92) continue;
+      if (star.magnitude < 0.50) continue;
+      candidates.push(i);
+    }
+
+    if (!candidates.length) {
+      for (i = 0; i < stars.length; i++) candidates.push(i);
+    }
+
+    return candidates[Math.floor(Math.random() * candidates.length)] || 0;
+  }
+
+  function scheduleComet(now) {
+    if (!state || !state.dark || reduced || !stars.length) return;
+
+    var originIndex = pickOriginStar();
+    var origin = stars[originIndex];
+    var direction = Math.random() < 0.5 ? -1 : 1;
+    var travelX = randomBetween(0.20, 0.34) * state.width;
+    var x1 = origin.x + direction * travelX;
+
+    if (x1 < state.width * 0.07 || x1 > state.width * 0.93) {
+      direction *= -1;
+      x1 = origin.x + direction * travelX;
+    }
+    x1 = clamp(x1, state.width * 0.06, state.width * 0.94);
+
     var ridge = Math.max(state.ridgeTop, 1);
+    var desiredY = origin.y + randomBetween(0.075, 0.16) * ridge;
+    var safeY = state.skyline[clamp(Math.round(x1), 0, state.width - 1)] - randomBetween(58, 92) * state.dpr;
+    var y1 = Math.min(desiredY, safeY);
+    if (y1 < origin.y + 18 * state.dpr) y1 = origin.y + 18 * state.dpr;
 
     comet.active = true;
     comet.start = now;
-    comet.duration = 3400 + hash(seed + 1) * 1800;
-    comet.x0 = (0.16 + hash(seed + 2) * 0.66) * state.width;
-    comet.y0 = (0.055 + hash(seed + 3) * 0.20) * ridge;
-    comet.x1 = comet.x0 + direction * (0.15 + hash(seed + 4) * 0.09) * state.width;
-    comet.y1 = comet.y0 + (0.055 + hash(seed + 5) * 0.055) * ridge;
-    comet.tail = (0.10 + hash(seed + 6) * 0.055) * state.width;
-    comet.seed = seed;
-    comet.next = now + comet.duration + 90000 + hash(seed + 7) * 90000;
+    comet.launchDelay = randomBetween(420, 760);
+    comet.duration = randomBetween(5600, 7800);
+    comet.x0 = origin.x;
+    comet.y0 = origin.y;
+    comet.x1 = x1;
+    comet.y1 = y1;
+    comet.tail = randomBetween(0.14, 0.22) * state.width;
+    comet.seed = Math.floor(Math.random() * 2147483647);
+    comet.originIndex = originIndex;
+    comet.headSize = Math.max(3 * state.dpr, randomBetween(3.2, 4.1) * state.dpr);
+
+    // The first one is easy to inspect; after that they are genuinely rare.
+    comet.next = now + comet.launchDelay + comet.duration + randomBetween(120000, 300000);
   }
 
   function armFirstComet(now) {
     comet.active = false;
+    comet.originIndex = -1;
     comet.next = state && state.dark && !reduced
-      ? now + 4200 + hash(state.width + state.height) * 2600
+      ? now + randomBetween(6500, 12000)
       : Infinity;
+  }
+
+  function drawLaunchStar(now) {
+    if (!comet.active || comet.originIndex < 0 || cometHasLaunched(now)) return;
+
+    var progress = clamp((now - comet.start) / comet.launchDelay, 0, 1);
+    var pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 3.2);
+    var size = Math.max(1, Math.round(state.dpr));
+    var glow = 0.22 + smoothstep(0.15, 1, progress) * 0.48 + pulse * 0.12;
+
+    ctx.fillStyle = "#eee6d8";
+    ctx.globalAlpha = clamp(glow, 0, 0.82);
+    ctx.fillRect(Math.round(comet.x0 - size), Math.round(comet.y0 - size), size * 3, size * 3);
   }
 
   function drawComet(now) {
     if (!state.dark || !comet.active) return;
 
-    var progress = (now - comet.start) / comet.duration;
+    if (!cometHasLaunched(now)) {
+      drawLaunchStar(now);
+      return;
+    }
+
+    var motionStart = comet.start + comet.launchDelay;
+    var progress = (now - motionStart) / comet.duration;
     if (progress >= 1) {
       comet.active = false;
+      comet.originIndex = -1;
       return;
     }
     if (progress < 0) return;
 
-    var fade = smoothstep(0, 0.07, progress) * (1 - smoothstep(0.90, 1, progress));
+    var fade = smoothstep(0, 0.035, progress) * (1 - smoothstep(0.94, 1, progress));
     var x = lerp(comet.x0, comet.x1, progress);
     var y = lerp(comet.y0, comet.y1, progress);
     var dx = comet.x1 - comet.x0;
@@ -235,30 +324,42 @@
     var ny = dx;
     var dpr = state.dpr;
     var px = Math.max(1, Math.round(dpr));
+    var tailGrowth = smoothstep(0, 0.16, progress);
+    var visibleTail = comet.tail * tailGrowth;
 
     ctx.fillStyle = "#eee6d8";
 
-    for (var step = 0; step <= comet.tail; step += px) {
-      var t = step / comet.tail;
-      var taper = Math.pow(1 - t, 1.55);
+    for (var step = 0; step <= visibleTail; step += px) {
+      var t = visibleTail ? step / visibleTail : 0;
+      var taper = Math.pow(1 - t, 1.42);
       var tx = Math.round(x - dx * step);
       var ty = Math.round(y - dy * step);
       if (tx < 0 || tx >= state.width || ty < 0 || ty >= state.height) continue;
       if (ty >= state.skyline[tx] - 18 * dpr) continue;
 
-      var alpha = fade * taper * (0.16 + (1 - t) * 0.66);
+      var alpha = fade * taper * (0.18 + (1 - t) * 0.72);
       if (alpha < 0.01) continue;
-      ctx.globalAlpha = clamp(alpha, 0, 0.82);
+      ctx.globalAlpha = clamp(alpha, 0, 0.90);
       ctx.fillRect(tx, ty, px, px);
 
-      // A sparse, slightly frayed tail keeps it comet-like without a fast fizz.
-      if (t < 0.58 && hash(comet.seed + Math.floor(step / px) * 17) > 0.72) {
-        var spread = (0.55 + t * 1.8) * dpr;
+      // Thicken the bright part of the tail instead of making the whole comet
+      // a hairline. It stays pixel-built, just more legible on phone screens.
+      if (t < 0.30) {
+        var widthAlpha = alpha * (0.38 - t * 0.65);
+        if (widthAlpha > 0.02) {
+          ctx.globalAlpha = widthAlpha;
+          ctx.fillRect(Math.round(tx + nx * px), Math.round(ty + ny * px), px, px);
+          ctx.fillRect(Math.round(tx - nx * px), Math.round(ty - ny * px), px, px);
+        }
+      }
+
+      if (t < 0.62 && hash(comet.seed + Math.floor(step / px) * 17) > 0.78) {
+        var spread = (0.7 + t * 2.0) * dpr;
         var side = hash(comet.seed + Math.floor(step) * 23) > 0.5 ? 1 : -1;
         var fx = Math.round(tx + nx * spread * side);
         var fy = Math.round(ty + ny * spread * side);
         if (fx >= 0 && fx < state.width && fy >= 0 && fy < state.skyline[fx] - 18 * dpr) {
-          ctx.globalAlpha = alpha * 0.28;
+          ctx.globalAlpha = alpha * 0.24;
           ctx.fillRect(fx, fy, px, px);
         }
       }
@@ -267,10 +368,16 @@
     var hx = Math.round(x);
     var hy = Math.round(y);
     if (hx >= 0 && hx < state.width && hy >= 0 && hy < state.skyline[hx] - 18 * dpr) {
-      ctx.globalAlpha = 0.94 * fade;
-      ctx.fillRect(hx, hy, px * 2, px * 2);
-      ctx.globalAlpha = 0.38 * fade;
-      ctx.fillRect(Math.round(hx + dx * 2 * dpr), Math.round(hy + dy * 2 * dpr), px, px);
+      var head = Math.max(px * 3, Math.round(comet.headSize));
+      var half = Math.floor(head / 2);
+
+      ctx.globalAlpha = 0.98 * fade;
+      ctx.fillRect(hx - half, hy - half, head, head);
+
+      ctx.globalAlpha = 0.42 * fade;
+      ctx.fillRect(Math.round(hx + dx * head), Math.round(hy + dy * head), px, px);
+      ctx.fillRect(Math.round(hx + nx * head * 0.65), Math.round(hy + ny * head * 0.65), px, px);
+      ctx.fillRect(Math.round(hx - nx * head * 0.65), Math.round(hy - ny * head * 0.65), px, px);
     }
   }
 
@@ -279,6 +386,7 @@
     ctx.clearRect(0, 0, state.width, state.height);
     if (!state.dark) return;
     drawRidgeClean();
+    maskOriginStar(now);
     drawStars(now);
     drawComet(now);
     ctx.globalAlpha = 1;
