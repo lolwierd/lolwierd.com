@@ -6,9 +6,9 @@
   var observer = null;
   var layers = [];
 
-  // Keep every ambient canvas locked together. Twilight, ridge cleanup and
-  // mountain glints all depend on the same skyline, so relative layer parallax
-  // would create visible seams. The parallax is the scene lagging the page.
+  // Move the whole ambient scene together. The mountain renderer, star masks,
+  // twilight and ridge cleanup all share one skyline, so keeping them aligned
+  // avoids the old wobble/seam bugs while the scene itself lags behind content.
   var layerIds = ["sky", "twilight-sky", "night-sky-tune", "sky-life"];
 
   function clamp(value, min, max) {
@@ -53,8 +53,11 @@
 
     var mobile = window.innerWidth < 768;
     var scrollY = window.scrollY || window.pageYOffset || 0;
-    var factor = mobile ? 0.070 : 0.090;
-    var maxShift = mobile ? 30 : 44;
+
+    // Noticeable when you look for it, but still restrained. This moves both
+    // mountain and sky/background, not just the star overlay.
+    var factor = mobile ? 0.11 : 0.14;
+    var maxShift = mobile ? 42 : 64;
     var shift = clamp(scrollY * factor, 0, maxShift);
     var transform = "translate3d(0, " + shift.toFixed(2) + "px, 0)";
 
