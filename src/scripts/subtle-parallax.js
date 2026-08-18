@@ -6,12 +6,10 @@
   var observer = null;
   var layers = [];
 
-  var specs = [
-    { id: "sky", desktop: 0.012, mobile: 0.006 },
-    { id: "twilight-sky", desktop: 0.030, mobile: 0.015 },
-    { id: "night-sky-tune", desktop: 0.024, mobile: 0.012 },
-    { id: "sky-life", desktop: 0.018, mobile: 0.009 }
-  ];
+  // Keep every ambient canvas locked together. Twilight, ridge cleanup and
+  // mountain glints all depend on the same skyline, so relative layer parallax
+  // would create visible seams. The parallax is the scene lagging the page.
+  var layerIds = ["sky", "twilight-sky", "night-sky-tune", "sky-life"];
 
   function clamp(value, min, max) {
     return value < min ? min : value > max ? max : value;
@@ -24,19 +22,15 @@
 
   function collect() {
     var next = [];
-    var mobile = window.innerWidth < 768;
 
-    for (var i = 0; i < specs.length; i++) {
-      var spec = specs[i];
-      var element = document.getElementById(spec.id);
+    for (var i = 0; i < layerIds.length; i++) {
+      var element = document.getElementById(layerIds[i]);
       if (!element) continue;
 
       element.style.willChange = "transform";
       element.style.backfaceVisibility = "hidden";
-      next.push({
-        element: element,
-        factor: mobile ? spec.mobile : spec.desktop
-      });
+      element.style.transformOrigin = "50% 50%";
+      next.push(element);
     }
 
     layers = next;
@@ -44,7 +38,7 @@
 
   function reset() {
     for (var i = 0; i < layers.length; i++) {
-      layers[i].element.style.transform = "translate3d(0, 0, 0)";
+      layers[i].style.transform = "translate3d(0, 0, 0)";
     }
   }
 
@@ -57,13 +51,15 @@
       return;
     }
 
+    var mobile = window.innerWidth < 768;
     var scrollY = window.scrollY || window.pageYOffset || 0;
-    var maxShift = window.innerWidth < 768 ? 9 : 18;
+    var factor = mobile ? 0.070 : 0.090;
+    var maxShift = mobile ? 30 : 44;
+    var shift = clamp(scrollY * factor, 0, maxShift);
+    var transform = "translate3d(0, " + shift.toFixed(2) + "px, 0)";
 
     for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i];
-      var shift = clamp(scrollY * layer.factor, 0, maxShift);
-      layer.element.style.transform = "translate3d(0, " + shift.toFixed(2) + "px, 0)";
+      layers[i].style.transform = transform;
     }
   }
 
