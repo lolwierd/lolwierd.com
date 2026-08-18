@@ -1,0 +1,46 @@
+(function () {
+  "use strict";
+
+  var hero = document.querySelector(".hero");
+  if (!hero) return;
+
+  var root = document.documentElement;
+  var last = null;
+
+  function measure() {
+    var rect = hero.getBoundingClientRect();
+    return {
+      width: Math.max(1, Math.round(rect.width)),
+      height: Math.max(1, Math.round(rect.height)),
+      dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100
+    };
+  }
+
+  function apply(next) {
+    last = next;
+    root.style.setProperty("--hero-scene-height", next.height + "px");
+  }
+
+  apply(measure());
+
+  // Mobile Safari changes window.innerHeight while its browser chrome collapses and
+  // expands during scroll. The sky renderer used to treat those UI-only changes as
+  // real layout resizes, rebuilding the photo crop and making the mountain jump.
+  // The hero uses svh, so its box stays stable through those changes. Only let a
+  // resize reach the renderers when the actual hero geometry (or DPR) changed.
+  window.addEventListener("resize", function (event) {
+    var next = measure();
+    var layoutChanged =
+      !last ||
+      Math.abs(next.width - last.width) > 1 ||
+      Math.abs(next.height - last.height) > 1 ||
+      Math.abs(next.dpr - last.dpr) > 0.01;
+
+    if (!layoutChanged) {
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    apply(next);
+  }, { capture: true, passive: true });
+})();
