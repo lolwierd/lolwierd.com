@@ -17,10 +17,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
 
       <div class="hero-copy">
-        <h1>i build all<br />the way down.</h1>
+        <h1>i build cloud<br />infrastructure.</h1>
         <p>
-          at excloud, i built the core of a public cloud, from qemu hosts and spdk
-          volumes to the console and cli people used to run it.
+          at Excloud, i built compute, block storage, managed Kubernetes, networking,
+          identity, and the SDK, CLI, console, and Terraform surface around them.
         </p>
         <a class="hero-action" href="#work">selected work ↓</a>
       </div>
@@ -37,14 +37,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
         <div class="section-body">
           <p class="section-lede">
-            i spent three years building excloud's core platform with the engineering lead,
-            then operating it for more than 4,000 accounts.
+            i spent three years building and operating Excloud's core platform alongside the
+            engineering lead, with production ownership from day one.
           </p>
 
           <article class="experience-entry">
             <header class="entry-heading">
               <div>
-                <h2>excloud</h2>
+                <h2>Excloud</h2>
                 <p class="entry-role">platform engineer</p>
               </div>
               <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
@@ -52,12 +52,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
             <div class="prose">
               <p>
-                my work crossed the whole machine: qemu/kvm compute, spdk block storage,
-                managed kubernetes, networking, identity, and the tools people used to control them.
+                i owned systems end to end: VM lifecycle and host setup, SPDK/NVMe-oF storage,
+                Kubernetes bootstrap and CSI, IAM, DNS, managed databases, and the developer surface.
               </p>
               <p>
-                it was a small team, so production was part of the design. i handled escalations
-                directly and carried what broke back into the control planes.
+                the part i care about is failure behavior. most of the work was making partial
+                transitions recover cleanly: reconciliation, idempotent attach/detach/resize paths,
+                cleanup, retries, and the protocol bugs that only show up in production.
               </p>
             </div>
 
@@ -65,38 +66,40 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <div>
                 <dt>compute / storage</dt>
                 <dd>
-                  a go control plane over qemu/kvm, and spdk + nvme-of block storage whose
-                  reconciler recovered interrupted provisioning instead of leaving orphaned volumes behind.
+                  built the Go compute control plane over QEMU/KVM and the block storage engine on
+                  SPDK/NVMe-oF, including recovery for interrupted provisioning, attach/detach,
+                  resize, and cleanup.
                 </dd>
               </div>
               <div>
                 <dt>clusters / network</dt>
                 <dd>
-                  managed kubernetes through bootstrap, cilium, csi, and karpenter;
-                  plus identity, authoritative dns, and the arp/ndp machinery under the network.
+                  shipped managed Kubernetes end to end: bootstrap, Cilium, CSI, Karpenter,
+                  and OIDC/JWKS, plus IAM, authoritative DNS, ARP/NDP, and the network plumbing underneath.
                 </dd>
               </div>
               <div>
                 <dt>developer surface</dt>
                 <dd>
-                  a go http layer that derives openapi 3.1 from types, feeding the sdk, cli,
-                  and terraform provider used across more than twenty services.
+                  built the shared Go HTTP/OpenAPI layer and API-to-client pipeline feeding the SDK,
+                  20-group CLI, and Terraform provider across a platform of 20+ internal services.
                 </dd>
               </div>
             </dl>
 
             <aside class="remembered-bug">
-              <p class="aside-label">one bug i remember</p>
+              <p class="aside-label">one production bug</p>
               <p>
-                a borrowed header outlived its buffer in the kubernetes api transport.
-                i traced it through http/2, hpack, and opentelemetry. the fix was about ten lines.
+                a borrowed header outlived its buffer in the Kubernetes API transport. i traced it
+                through HTTP/2 and HPACK, then fixed the lifetime issue without losing OpenTelemetry
+                trace propagation.
               </p>
             </aside>
 
             <p class="measurements" aria-label="Excloud at handover">
               <span>4,000+ accounts</span>
-              <span>380 active vms</span>
-              <span>140 managed postgres clusters</span>
+              <span>380 active VMs</span>
+              <span>140 managed Postgres clusters</span>
               <span>20+ internal services</span>
             </p>
           </article>
@@ -110,56 +113,56 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
 
         <div class="section-body">
-          <p class="section-lede">some things i made because i wanted them to exist.</p>
+          <p class="section-lede">projects i built outside work.</p>
 
           <div class="project-list">
             <article class="project-row">
               <header>
-                <h2>dbconsole</h2>
+                <h2>DBConsole</h2>
                 <p>electron · postgres</p>
               </header>
               <p>
-                a postgres workbench for web and macos, with streaming results, schema graphs,
-                destructive-query warnings, and encrypted query sync.
+                a Postgres workbench for web and macOS with streaming query results, schema graphs,
+                destructive-query checks, history, and encrypted query sync.
               </p>
             </article>
 
             <article class="project-row">
               <header>
-                <h2>cbmanager</h2>
+                <h2>CBManager</h2>
                 <p>swift · appkit · sqlite</p>
               </header>
               <p>
-                a native macos clipboard manager with instant paste-back, ocr for copied images,
-                and local search over a sqlite history.
+                a native macOS clipboard manager with instant paste-back, OCR for copied images,
+                local search, SQLite persistence, and 162 test methods.
               </p>
             </article>
 
             <article class="project-row">
               <header>
-                <h2>rig</h2>
+                <h2>Rig</h2>
                 <p>react · fastify · websockets</p>
               </header>
               <p>
-                a phone-first console for dispatching <code>pi</code> sessions and watching tool calls
-                live while my computer does the work.
+                a mobile-first console for starting and controlling coding-agent sessions on my machines,
+                with live tool-call streaming, resume/stop controls, and WebSockets.
               </p>
             </article>
 
             <article class="project-row">
               <header>
-                <h2>tachyon</h2>
+                <h2>Tachyon</h2>
                 <p>pwa · offline-first</p>
               </header>
               <p>
                 an offline-first manga reader with downloads, auto-scroll, source adapters,
-                and anilist sync.
+                AniList sync, and tests around async state and race conditions.
               </p>
             </article>
           </div>
 
           <p class="project-note">
-            more finished things and unfinished ideas <a href="https://github.com/lolwierd" rel="noreferrer">live on github.</a>
+            more projects, experiments, and unfinished stuff <a href="https://github.com/lolwierd" rel="noreferrer">are on github.</a>
           </p>
         </div>
       </section>
