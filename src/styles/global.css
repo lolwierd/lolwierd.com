@@ -135,7 +135,7 @@ a { -webkit-tap-highlight-color: transparent; }
 .site-name {
   margin: 0;
   color: var(--ink-strong);
-  font-size: 0.67rem;
+  font-size: 0.76rem;
   letter-spacing: 0.05em;
   line-height: 1.4;
   text-transform: lowercase;
@@ -164,7 +164,7 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .hero-copy h1 {
-  max-width: 13ch;
+  max-width: 11ch;
   margin: 0;
   color: var(--ink-strong);
   font: 400 clamp(2.55rem, 4.15vw, 3.75rem) / 0.98 var(--serif);
@@ -173,12 +173,21 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .hero-copy > p {
-  max-width: 35rem;
+  max-width: 31rem;
   margin: clamp(1.25rem, 2.5vh, 1.8rem) 0 0;
   color: var(--ink-dim);
   font-size: clamp(0.94rem, 1.12vw, 1.05rem);
   line-height: 1.65;
   text-wrap: pretty;
+}
+
+.hero-action {
+  display: inline-block;
+  margin-top: 1.35rem;
+  color: var(--ink-strong);
+  font: 0.66rem/1.2 var(--mono);
+  letter-spacing: 0.025em;
+  text-decoration-color: color-mix(in srgb, var(--accent) 68%, transparent);
 }
 
 .reading-ground {
@@ -402,12 +411,14 @@ a { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: no-preference) {
   .site-name,
   .hero-nav,
-  .hero-copy {
+  .hero-copy,
+  .hero-action {
     animation: settle 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   .hero-nav { animation-delay: 80ms; }
   .hero-copy { animation-delay: 120ms; }
+  .hero-action { animation-delay: 190ms; }
 }
 
 @keyframes settle {

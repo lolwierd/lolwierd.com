@@ -8,7 +8,7 @@
   var FIXED_TIME = 1400;
   var FRAME_MS = 1000 / 30;
 
-  // 8x8 Bayer Matrix for smooth 64-level spatial dithering
+  // Keep the summit weather in the same print language as the terrain.
   var BAYER_8 = [
      0, 32,  8, 40,  2, 34, 10, 42,
     48, 16, 56, 24, 50, 18, 58, 26,
@@ -78,7 +78,7 @@
     return BAYER_8[py * 8 + px] / 64.0;
   }
 
-  /* ─── ReactBits Coupled-Sinusoid Dither Wave Field ─────────────── */
+  /* A slow interference field keeps the dots from moving as one sheet. */
   function ditherWave(x, y, time, freq, speed, seed) {
     var u = x * freq + ((seed & 255) * 0.031);
     var v = y * freq + (((seed >> 8) & 255) * 0.047);
@@ -118,10 +118,7 @@
     ctx = canvas.getContext("2d", { alpha: true });
   }
 
-  /* ─── Glacial Snow Crystal Highlights (Inside Mountain Body) ───────
-     Strictly located inside bright snow faces (y >= ridge[x] + 2*dpr).
-     Zero dots in the sky. Zero edge halos.
-     ──────────────────────────────────────────────────────────────── */
+  /* Snow glints stay inside bright faces, never in the sky. */
   function seedSnowCrystals() {
     snowCrystals = [];
     if (!ridge || !luminance) return;
@@ -246,7 +243,7 @@
       var mdist = Math.hypot(dot.x - mouse.x, dot.y - mouse.y);
       var cursorGlint = mdist < 140 * dpr ? (1 - mdist / (140 * dpr)) * mouse.speed * 0.60 : 0;
 
-      // ReactBits coupled wave interference across the snow faces
+      // Slow interference keeps neighbouring snow crystals from flashing together.
       var wave = ditherWave(dot.x, dot.y, t * dot.sparkleSpeed, 0.004, 1.0, 50501);
       var sparkle = 0.5 + 0.5 * Math.sin(dot.phase + t * 2.2 * dot.sparkleSpeed);
 

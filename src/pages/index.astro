@@ -17,11 +17,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
 
       <div class="hero-copy">
-        <h1>i build cloud infrastructure.</h1>
+        <h1>i build all<br />the way down.</h1>
         <p>
-          compute, storage, kubernetes, networking, identity. mostly in go.
-          i like systems that stay understandable after something goes wrong.
+          at excloud, i built the core of a public cloud, from qemu hosts and spdk
+          volumes to the console and cli people used to run it.
         </p>
+        <a class="hero-action" href="#work">selected work ↓</a>
       </div>
     </div>
   </header>
@@ -36,8 +37,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
         <div class="section-body">
           <p class="section-lede">
-            for three years i helped build a public cloud from the control plane
-            down to the edges where machines, disks, packets, and failure meet.
+            i spent three years building excloud's core platform with the engineering lead,
+            then operating it for more than 4,000 accounts.
           </p>
 
           <article class="experience-entry">
@@ -46,20 +47,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <h2>excloud</h2>
                 <p class="entry-role">platform engineer</p>
               </div>
-              <p class="entry-date">jun 2023 — aug 2026<br />remote</p>
+              <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
             </header>
 
             <div class="prose">
               <p>
-                excloud was small enough that abstractions did not protect you for long.
-                if a volume attached twice, a host disappeared halfway through provisioning,
-                or a cluster stalled during bootstrap, the people who designed the path also
-                had to make it recover.
+                my work crossed the whole machine: qemu/kvm compute, spdk block storage,
+                managed kubernetes, networking, identity, and the tools people used to control them.
               </p>
               <p>
-                i worked across most of that path. the interesting part was rarely creating
-                the resource. it was deciding what should happen when reality and the database
-                disagreed, then making retries safe enough that an operator could stop being afraid of them.
+                it was a small team, so production was part of the design. i handled escalations
+                directly and carried what broke back into the control planes.
               </p>
             </div>
 
@@ -67,22 +65,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <div>
                 <dt>compute / storage</dt>
                 <dd>
-                  qemu/kvm control planes and spdk + nvme-of block storage, with reconciliation
-                  around provisioning, attach/detach, resize, cleanup, and recovery after interrupted transitions.
+                  a go control plane over qemu/kvm, and spdk + nvme-of block storage whose
+                  reconciler recovered interrupted provisioning instead of leaving orphaned volumes behind.
                 </dd>
               </div>
               <div>
                 <dt>clusters / network</dt>
                 <dd>
-                  managed kubernetes from bootstrap through cilium, csi, and karpenter;
-                  identity, authoritative dns, and the arp/ndp machinery underneath the network.
+                  managed kubernetes through bootstrap, cilium, csi, and karpenter;
+                  plus identity, authoritative dns, and the arp/ndp machinery under the network.
                 </dd>
               </div>
               <div>
                 <dt>developer surface</dt>
                 <dd>
-                  a shared go http layer that derives openapi 3.1 from types, then the sdk,
-                  cli, terraform provider, console, and telemetry around the services that use it.
+                  a go http layer that derives openapi 3.1 from types, feeding the sdk, cli,
+                  and terraform provider used across more than twenty services.
                 </dd>
               </div>
             </dl>
@@ -90,9 +88,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <aside class="remembered-bug">
               <p class="aside-label">one bug i remember</p>
               <p>
-                a borrowed header survived longer than its buffer in the kubernetes api transport.
-                tracing it meant following the failure through http/2 and hpack without breaking
-                opentelemetry propagation on the way out.
+                a borrowed header outlived its buffer in the kubernetes api transport.
+                i traced it through http/2, hpack, and opentelemetry. the fix was about ten lines.
               </p>
             </aside>
 
@@ -122,8 +119,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p>electron · postgres</p>
               </header>
               <p>
-                a postgres workbench for web and macos: query tabs, destructive-statement checks,
-                streamed results, schema graphs, history, and encrypted named-query sync with conflict resolution.
+                a postgres workbench for web and macos, with streaming results, schema graphs,
+                destructive-query warnings, and encrypted query sync.
               </p>
             </article>
 
@@ -133,8 +130,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p>swift · appkit · sqlite</p>
               </header>
               <p>
-                a native clipboard manager with paste-back, ocr over copied images, fuzzy and semantic search,
-                bounded caching, async persistence, and a test suite large enough to make refactors boring.
+                a native macos clipboard manager with instant paste-back, ocr for copied images,
+                and local search over a sqlite history.
               </p>
             </article>
 
@@ -144,8 +141,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p>react · fastify · websockets</p>
               </header>
               <p>
-                a small dispatch console for the <code>pi</code> coding agent. start work from a phone,
-                watch tool calls arrive live, stop or resume sessions, and leave the machine itself alone.
+                a phone-first console for dispatching <code>pi</code> sessions and watching tool calls
+                live while my computer does the work.
               </p>
             </article>
 
@@ -155,14 +152,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p>pwa · offline-first</p>
               </header>
               <p>
-                a manga reader built around offline reading, source integration, auto-scroll,
-                anilist sync, and the awkward async races that show up when the network disappears.
+                an offline-first manga reader with downloads, auto-scroll, source adapters,
+                and anilist sync.
               </p>
             </article>
           </div>
 
           <p class="project-note">
-            the rest is less curated. <a href="https://github.com/lolwierd" rel="noreferrer">github has it.</a>
+            more finished things and unfinished ideas <a href="https://github.com/lolwierd" rel="noreferrer">live on github.</a>
           </p>
         </div>
       </section>

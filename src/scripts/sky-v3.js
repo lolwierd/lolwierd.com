@@ -1,3 +1,5 @@
+import * as SunCalc from "suncalc";
+
 (function () {
   "use strict";
 
@@ -15,6 +17,8 @@
   var SKYLINE_SOURCE = "/assets/annapurna-skyline.json?v=20260817c";
   var MAX_DPR = 2;
   var FIXED_TIME = 21437;
+  var VADODARA = { latitude: 22.3072, longitude: 73.1812 };
+  var CELESTIAL_REFRESH_MS = 60000;
 
   var BAYER_8 = [
     0,48,12,60,3,51,15,63,32,16,44,28,35,19,47,31,
@@ -35,7 +39,7 @@
     light: {
       ink: "#293039",
       terrainAlpha: 0.87,
-      dustAlpha: 0.12,
+      dustAlpha: 0.18,
       star: "#293039",
       starAlpha: 0,
       satelliteAlpha: 0
@@ -46,6 +50,12 @@
   var state = null;
   var terrainImage = null;
   var edgeDots = [];
+  var dayTexture = [];
+  var daySun = [];
+  var moonPixels = [];
+  var moonAura = [];
+  var celestial = null;
+  var lastCelestialUpdate = 0;
 
   var stars = [];
   var wanderers = [];
@@ -303,20 +313,23 @@
 
   function makeEdgeDots() {
     edgeDots = [];
-    var reach = Math.max(9, Math.round(15 * dpr));
+    var reach = Math.max(9, Math.round((state.dark ? 15 : 38) * dpr));
     var xStep = Math.max(1, Math.round(dpr * 0.70));
     var seed = width * 17 + height * 31 + 811;
 
     for (var x = 0; x < width; x += xStep) {
       var edge = state.skyline[x];
       if (edge >= height) continue;
+      if (!state.dark && edge > state.ridgeTop + height * 0.14) continue;
 
       for (var distance = 1; distance <= reach; distance++) {
         var y = edge - distance;
         if (y < 0) break;
 
         var envelope = 1 - distance / (reach + 1);
-        var keep = 0.014 + envelope * envelope * 0.084;
+        var keep = state.dark
+          ? 0.014 + envelope * envelope * 0.084
+          : 0.045 + envelope * envelope * 0.22;
         if (hash2(x, y, seed) > keep) continue;
 
         edgeDots.push({
@@ -335,6 +348,8 @@
   function drawEdge(now) {
     var activeTheme = theme();
     var t = now * 0.0000095;
+    var gustPhase = ((now % 18000) + 18000) % 18000 / 18000;
+    var gust = state.dark ? 0 : smoothstep(0.14, 0.19, gustPhase) * (1 - smoothstep(0.30, 0.38, gustPhase));
     ctx.fillStyle = activeTheme.ink;
 
     for (var i = 0; i < edgeDots.length; i++) {
@@ -345,7 +360,8 @@
       if (density < dot.threshold * 0.60) continue;
 
       var detach = smoothstep(0.54, 0.84, field) * dot.drift;
-      var lift = Math.round(detach * (1.2 + (1 - dot.envelope) * 2.0) * dpr);
+      var lift = Math.round(detach * (1.2 + (1 - dot.envelope) * (state.dark ? 2.0 : 8.0)) * dpr);
+      var wind = state.dark ? 0 : Math.round(gust * detach * (7 + (1 - dot.envelope) * 18) * dpr);
       var alpha =
         activeTheme.dustAlpha *
         dot.envelope *
@@ -353,8 +369,263 @@
         smoothstep(0.17, 0.78, density);
 
       if (alpha < 0.005) continue;
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.23 : 0.13);
-      ctx.fillRect(dot.x, dot.y - lift, 1, 1);
+      ctx.globalAlpha = clamp(alpha * (state.dark ? 1 : 0.7 + gust * 1.9), 0, state.dark ? 0.23 : 0.26);
+      ctx.fillRect(dot.x + wind, dot.y - lift, Math.max(1, Math.round(dpr)), Math.max(1, Math.round(dpr)));
+    }
+  }
+
+  function projectAltitude(altitude) {
+    return height * (0.50 - (clamp(altitude, 0, 90) / 90) * 0.42);
+  }
+
+  function updateCelestial(date) {
+    var sunPosition = SunCalc.getPosition(date, VADODARA.latitude, VADODARA.longitude);
+    var moonPosition = SunCalc.getMoonPosition(date, VADODARA.latitude, VADODARA.longitude);
+    var moonLight = SunCalc.getMoonIllumination(date);
+    var sunTimes = SunCalc.getTimes(date, VADODARA.latitude, VADODARA.longitude);
+    var sunrise = sunTimes.sunrise && sunTimes.sunrise.getTime();
+    var sunset = sunTimes.sunset && sunTimes.sunset.getTime();
+    var daylightProgress = sunrise && sunset && sunset > sunrise
+      ? clamp((date.getTime() - sunrise) / (sunset - sunrise), 0, 1)
+      : clamp(sunPosition.azimuth / 360, 0, 1);
+
+    celestial = {
+      sun: {
+        altitude: sunPosition.altitude,
+        azimuth: sunPosition.azimuth,
+        visible: sunPosition.altitude > -6,
+        x: width * (0.13 + daylightProgress * 0.74),
+        y: projectAltitude(sunPosition.altitude)
+      },
+      moon: {
+        altitude: moonPosition.altitude,
+        azimuth: moonPosition.azimuth,
+        visible: moonPosition.altitude > -1 && moonLight.fraction > 0.015,
+        x: width * (0.10 + clamp(moonPosition.azimuth / 360, 0, 1) * 0.80),
+        y: projectAltitude(moonPosition.altitude),
+        fraction: moonLight.fraction,
+        phase: moonLight.phase,
+        waxing: moonLight.waxing,
+        limbAngle: (moonLight.angle - moonPosition.parallacticAngle) * Math.PI / 180
+      }
+    };
+
+    lastCelestialUpdate = Date.now();
+    document.documentElement.dataset.vadodaraSky = celestial.sun.altitude > -6 ? "day" : "night";
+    document.documentElement.dataset.moonPhase = celestial.moon.phase.toFixed(3);
+  }
+
+  function keepPortraitBodyClear(body, radius) {
+    if (!state.portrait) return;
+    var copy = document.querySelector(".hero-copy");
+    if (!copy) return;
+    var rect = copy.getBoundingClientRect();
+    var padding = 14 * dpr;
+    var left = rect.left * dpr - padding;
+    var right = rect.right * dpr + padding;
+    var top = rect.top * dpr - padding;
+    var bottom = rect.bottom * dpr + padding;
+    var overlaps = body.x + radius > left && body.x - radius < right && body.y + radius > top && body.y - radius < bottom;
+    if (!overlaps) return;
+
+    var clearY = rect.top * dpr - radius - 18 * dpr;
+    if (clearY > 52 * dpr) body.y = clearY;
+  }
+
+  function makeMoon() {
+    moonPixels = [];
+    moonAura = [];
+    if (!state.dark || !celestial || !celestial.moon.visible) return;
+
+    var moon = celestial.moon;
+    var core = Math.max(1, Math.round(dpr));
+    var radius = Math.round((state.portrait ? 20 : 27) * dpr);
+    keepPortraitBodyClear(moon, radius);
+    var cos = Math.cos(moon.limbAngle);
+    var sin = Math.sin(moon.limbAngle);
+    var seed = width * 47 + height * 61 + 4409;
+
+    for (var dy = -radius; dy <= radius; dy += core) {
+      for (var dx = -radius; dx <= radius; dx += core) {
+        var distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance > radius) continue;
+
+        var rx = dx * cos - dy * sin;
+        var ry = dx * sin + dy * cos;
+        var rowHalf = Math.sqrt(Math.max(0, radius * radius - ry * ry));
+        var terminator = rowHalf * (1 - 2 * moon.fraction);
+        var lit = moon.waxing ? rx >= terminator : rx <= -terminator;
+        if (!lit) continue;
+
+        var edge = smoothstep(radius * 0.84, radius, distance);
+        var threshold = bayerThreshold((moon.x + dx) / core, (moon.y + dy) / core);
+        if (edge > 0 && threshold < edge * 0.76) continue;
+        if (hash2(dx, dy, seed) < 0.035 + edge * 0.08) continue;
+
+        moonPixels.push({
+          x: moon.x + dx,
+          y: moon.y + dy,
+          alpha: 0.66 + (1 - edge) * 0.24,
+          phase: hash2(dx, dy, seed + 5) * Math.PI * 2
+        });
+      }
+    }
+
+    var rayCount = state.portrait ? 68 : 92;
+    for (var ray = 0; ray < rayCount; ray++) {
+      var angle = (ray / rayCount) * Math.PI * 2;
+      var ux = Math.cos(angle);
+      var uy = Math.sin(angle);
+      var edgeX = ux * radius * 0.94;
+      var edgeY = uy * radius * 0.94;
+      var rotatedX = edgeX * cos - edgeY * sin;
+      var rotatedY = edgeX * sin + edgeY * cos;
+      var edgeHalf = Math.sqrt(Math.max(0, radius * radius - rotatedY * rotatedY));
+      var edgeTerminator = edgeHalf * (1 - 2 * moon.fraction);
+      var illuminated = moon.waxing ? rotatedX >= edgeTerminator : rotatedX <= -edgeTerminator;
+      if (hash2(ray, radius, seed + 31) > (illuminated ? 0.66 : 0.38)) continue;
+
+      moonAura.push({
+        x: moon.x + edgeX,
+        y: moon.y + edgeY,
+        ux: ux,
+        uy: uy,
+        reach: (illuminated ? 3 + hash2(ray, radius, seed + 37) * 8 : 2 + hash2(ray, radius, seed + 37) * 5) * dpr,
+        alpha: illuminated
+          ? 0.075 + hash2(ray, radius, seed + 41) * 0.095
+          : 0.035 + hash2(ray, radius, seed + 41) * 0.045,
+        lit: illuminated,
+        phase: hash2(ray, radius, seed + 43) * Math.PI * 2,
+        phase2: hash2(ray, radius, seed + 45) * Math.PI * 2,
+        tangent: (0.25 + hash2(ray, radius, seed + 46) * 0.75) * dpr,
+        period: 4600 + hash2(ray, radius, seed + 47) * 7200
+      });
+    }
+  }
+
+  function makeDaySky() {
+    dayTexture = [];
+    daySun = [];
+    updateCelestial(new Date());
+    makeMoon();
+    if (state.dark) return;
+
+    var seed = width * 19 + height * 43 + 2701;
+    var core = Math.max(1, Math.round(dpr));
+    var textureStep = Math.max(core * 8, Math.round(11 * dpr));
+
+    for (var y = textureStep; y < state.ridgeLow; y += textureStep) {
+      for (var x = textureStep; x < width; x += textureStep) {
+        if (y >= state.skyline[x] || hash2(x, y, seed) > 0.34) continue;
+        dayTexture.push({ x: x, y: y, alpha: 0.018 + hash2(x, y, seed + 3) * 0.018 });
+      }
+    }
+
+    if (celestial.sun.visible) {
+      var sunX = celestial.sun.x;
+      var sunY = celestial.sun.y;
+      var sunR = Math.round((state.portrait ? 34 : 48) * dpr);
+      var coronaR = sunR * 1.48;
+      keepPortraitBodyClear(celestial.sun, sunR);
+      sunY = celestial.sun.y;
+
+      for (y = Math.floor(sunY - coronaR); y <= sunY + coronaR; y += core) {
+        for (x = Math.floor(sunX - coronaR); x <= sunX + coronaR; x += core) {
+          if (x < 0 || x >= width || y < 0 || y >= state.skyline[clamp(x, 0, width - 1)]) continue;
+          var dx = x - sunX;
+          var dy = y - sunY;
+          var distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > coronaR) continue;
+
+          if (distance <= sunR) {
+            var edge = smoothstep(sunR * 0.84, sunR, distance);
+            if (edge > 0 && bayerThreshold(x / core, y / core) < edge * 0.72) continue;
+            daySun.push({
+              x: x,
+              y: y,
+              alpha: 0.25 + (1 - edge) * 0.070,
+              corona: false,
+              phase: hash2(x, y, seed + 13) * Math.PI * 2,
+              ux: 0,
+              uy: 0
+            });
+          } else {
+            var corona = 1 - (distance - sunR) / (coronaR - sunR);
+            if (hash2(x, y, seed + 17) > corona * corona * 0.46) continue;
+            daySun.push({
+              x: x,
+              y: y,
+              alpha: 0.040 + corona * 0.120,
+              corona: true,
+              phase: hash2(x, y, seed + 23) * Math.PI * 2,
+              phase2: hash2(x, y, seed + 25) * Math.PI * 2,
+              reach: (2 + hash2(x, y, seed + 27) * 8) * dpr,
+              tangent: (0.25 + hash2(x, y, seed + 29) * 1.15) * dpr,
+              period: 4800 + hash2(x, y, seed + 31) * 9200,
+              ux: dx / Math.max(1, distance),
+              uy: dy / Math.max(1, distance)
+            });
+          }
+        }
+      }
+
+    }
+  }
+
+  function drawDaySky(now) {
+    if (state.dark) return;
+    var core = Math.max(1, Math.round(dpr));
+
+    ctx.fillStyle = theme().ink;
+    for (var i = 0; i < dayTexture.length; i++) {
+      var grain = dayTexture[i];
+      ctx.globalAlpha = grain.alpha;
+      ctx.fillRect(grain.x, grain.y, core, core);
+    }
+
+    ctx.fillStyle = "#a13f24";
+    var sunPulse = 0.97 + 0.03 * Math.sin(now * 0.00038);
+    for (i = 0; i < daySun.length; i++) {
+      var sun = daySun[i];
+      var convection = sun.corona
+        ? 0.5 + 0.5 * Math.sin((now / sun.period) * Math.PI * 2 + sun.phase)
+        : 0.5 + 0.5 * Math.sin(now * 0.00058 + sun.phase);
+      var vibration = sun.corona
+        ? Math.sin((now / (sun.period * 0.37)) * Math.PI * 2 + sun.phase2) * sun.tangent
+        : 0;
+      var flare = sun.corona ? convection * sun.reach : 0;
+      var sx = Math.round(sun.x + sun.ux * flare - sun.uy * vibration);
+      var sy = Math.round(sun.y + sun.uy * flare + sun.ux * vibration);
+      if (sx < 0 || sx >= width || sy < 0 || sy >= state.skyline[sx]) continue;
+      ctx.globalAlpha = sun.alpha * sunPulse * (sun.corona ? 0.42 + (1 - convection) * 0.58 : 0.96 + convection * 0.08);
+      ctx.fillRect(sx, sy, core, core);
+    }
+  }
+
+  function drawMoon(now) {
+    if (!state.dark || !moonPixels.length) return;
+    var core = Math.max(1, Math.round(dpr));
+    ctx.fillStyle = theme().star;
+
+    for (var auraIndex = 0; auraIndex < moonAura.length; auraIndex++) {
+      var aura = moonAura[auraIndex];
+      var release = 0.5 + 0.5 * Math.sin((now / aura.period) * Math.PI * 2 + aura.phase);
+      var vibration = Math.sin((now / (aura.period * 0.41)) * Math.PI * 2 + aura.phase2) * aura.tangent;
+      var auraX = Math.round(aura.x + aura.ux * aura.reach * release - aura.uy * vibration);
+      var auraY = Math.round(aura.y + aura.uy * aura.reach * release + aura.ux * vibration);
+      if (auraX < 0 || auraX >= width || auraY < 0 || auraY >= state.skyline[auraX]) continue;
+      ctx.globalAlpha = aura.alpha * (0.36 + (1 - release) * 0.64);
+      ctx.fillRect(auraX, auraY, core, core);
+    }
+
+    for (var i = 0; i < moonPixels.length; i++) {
+      var pixel = moonPixels[i];
+      var x = Math.round(pixel.x);
+      var y = Math.round(pixel.y);
+      if (x < 0 || x >= width || y < 0 || y >= state.skyline[x]) continue;
+      var surface = 0.97 + 0.03 * Math.sin(now * 0.00044 + pixel.phase);
+      ctx.globalAlpha = pixel.alpha * surface;
+      ctx.fillRect(x, y, core, core);
     }
   }
 
@@ -365,8 +636,8 @@
     wanderers = [];
     if (!state.dark) return;
 
-    var count = state.portrait ? 28 : 42;
-    var seatCount = count + 12;
+    var count = state.portrait ? 108 : 168;
+    var seatCount = count + 24;
     var seats = [];
     var seed = width * 41 + height * 73 + 1901;
     var minDistance = Math.sqrt((width * Math.max(1, state.ridgeTop)) / seatCount) * 0.33;
@@ -392,29 +663,30 @@
       }
       if (!clear) continue;
 
-      var bright = hash(seed++) > 0.86;
+      var bright = hash(seed++) > 0.78;
       seats.push({
         x: x,
         y: y,
         size: 1,
-        magnitude: bright ? 0.78 + hash(seed++) * 0.20 : 0.28 + hash(seed++) * 0.45,
-        period: 13500 + hash(seed++) * 43000,
+        bright: bright,
+        magnitude: bright ? 0.90 + hash(seed++) * 0.10 : 0.38 + hash(seed++) * 0.50,
+        period: 1700 + hash(seed++) * 6800,
         phase: hash(seed++) * Math.PI * 2,
-        breathePeriod: 33000 + hash(seed++) * 76000,
+        breathePeriod: 9000 + hash(seed++) * 28000,
         breatheOffset: hash(seed++) * 110000,
-        vanishPeriod: 76000 + hash(seed++) * 130000,
+        vanishPeriod: 26000 + hash(seed++) * 70000,
         vanishOffset: hash(seed++) * 170000,
-        sparkle: bright ? 0.15 + hash(seed++) * 0.15 : 0.035 + hash(seed++) * 0.07
+        sparkle: bright ? 0.22 + hash(seed++) * 0.22 : 0.08 + hash(seed++) * 0.12
       });
     }
 
     stars = seats.slice(0, count);
-    for (var w = 0; w < Math.min(3, seats.length - count - 2); w++) {
+    for (var w = 0; w < Math.min(7, seats.length - count - 7); w++) {
       wanderers.push({
         first: seats[count + w],
-        second: seats[count + w + 4],
-        period: 90000 + w * 33000,
-        offset: 19000 + w * 43000
+        second: seats[count + w + 8],
+        period: 34000 + w * 9000,
+        offset: 7000 + w * 11000
       });
     }
   }
@@ -424,7 +696,7 @@
     var secondary = Math.sin((now / (star.period * 1.91)) * Math.PI * 2 + star.phase * 1.7);
     var shimmer = Math.sin((now / Math.max(7000, star.period * 0.34)) * Math.PI * 2 + star.phase * 2.3);
     var twinkle = 0.70 + primary * 0.21 + secondary * 0.10 + shimmer * star.sparkle;
-    var breathe = 0.62 + 0.38 * Math.sin(((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2);
+    var breathe = 0.72 + 0.28 * Math.sin(((now + star.breatheOffset) / star.breathePeriod) * Math.PI * 2);
 
     var vanishPhase = (((now + star.vanishOffset) % star.vanishPeriod) + star.vanishPeriod) % star.vanishPeriod / star.vanishPeriod;
     var visibleFactor = 1;
@@ -437,14 +709,23 @@
 
     var edge = state.skyline[clamp(Math.round(star.x), 0, width - 1)];
     var horizonFade = smoothstep(0, 30 * dpr, edge - star.y);
-    return theme().starAlpha * star.magnitude * twinkle * breathe * visibleFactor * horizonFade;
+    var alpha = theme().starAlpha * star.magnitude * twinkle * breathe * visibleFactor * horizonFade;
+    return star.bright ? Math.max(alpha, theme().starAlpha * star.magnitude * 0.34 * horizonFade) : alpha;
   }
 
   function drawOneStar(star, now, multiplier) {
     var alpha = starAlpha(star, now) * multiplier;
     if (alpha < 0.008) return;
+    var core = Math.max(1, Math.round(dpr));
+    var x = Math.round(star.x - core * 0.5);
+    var y = Math.round(star.y - core * 0.5);
     ctx.globalAlpha = clamp(alpha, 0, 0.96);
-    ctx.fillRect(Math.round(star.x), Math.round(star.y), 1, 1);
+    ctx.fillRect(x, y, core, core);
+    if (star.bright && alpha > 0.72) {
+      ctx.globalAlpha = (alpha - 0.72) * 0.72;
+      ctx.fillRect(x - core, y, core * 3, core);
+      ctx.fillRect(x, y - core, core, core * 3);
+    }
   }
 
   function drawStars(now) {
@@ -488,7 +769,7 @@
     comet.x1 = comet.x0 + direction * (0.09 + hash(seed + 4) * 0.14) * width;
     comet.y1 = comet.y0 + (0.055 + hash(seed + 5) * 0.09) * Math.max(state.ridgeTop, 1);
     comet.tail = (0.013 + hash(seed + 6) * 0.020) * width;
-    comet.next = now + comet.duration + 180000 + hash(seed + 7) * 270000;
+    comet.next = now + comet.duration + 18000 + hash(seed + 7) * 32000;
   }
 
   function drawComet(now) {
@@ -534,7 +815,7 @@
     satellite.y0 = (0.12 + hash(seed + 2) * 0.28) * state.ridgeTop;
     satellite.y1 = satellite.y0 + (hash(seed + 3) - 0.5) * state.ridgeTop * 0.08;
     satellite.magnitude = 0.48 + hash(seed + 4) * 0.32;
-    satellite.next = now + satellite.duration + 210000 + hash(seed + 5) * 300000;
+    satellite.next = now + satellite.duration + 30000 + hash(seed + 5) * 48000;
   }
 
   function drawSatellite(now) {
@@ -563,7 +844,10 @@
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
     ctx.putImageData(terrainImage, 0, 0);
+    drawDaySky(now);
+    drawEdge(now);
     drawStars(now);
+    drawMoon(now);
     drawSatellite(now);
     drawComet(now);
     ctx.globalAlpha = 1;
@@ -587,8 +871,8 @@
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.67));
-    var overscan = Math.round(height * (portrait ? 0.18 : 0.16));
+    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.58));
+    var overscan = Math.round(height * (portrait ? 0.18 : 0.14));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
     var crop = sourceCrop(width, drawH, portrait);
@@ -630,12 +914,13 @@
     makeTerrain(luminance, skyline);
     makeEdgeDots();
     makeStars();
+    makeDaySky();
 
     var now = performance.now();
     comet.active = false;
     satellite.active = false;
-    comet.next = state.dark ? now + 180000 + hash2(width, height, 901) * 240000 : Infinity;
-    satellite.next = state.dark ? now + 150000 + hash2(width, height, 903) * 270000 : Infinity;
+    comet.next = state.dark ? now + 4500 + hash2(width, height, 901) * 3000 : Infinity;
+    satellite.next = state.dark ? now + 9000 + hash2(width, height, 903) * 5000 : Infinity;
     drawFrame(reducedMotion ? FIXED_TIME : now);
   }
 
@@ -643,6 +928,8 @@
     rafId = window.requestAnimationFrame(tick);
     if (!state || reducedMotion || !visible || now - lastDraw < 1000 / 24) return;
     lastDraw = now;
+
+    if (Date.now() - lastCelestialUpdate >= CELESTIAL_REFRESH_MS) makeDaySky();
 
     if (state.dark && !comet.active && now >= comet.next) scheduleComet(now);
     if (state.dark && !satellite.active && now >= satellite.next) scheduleSatellite(now);
@@ -710,6 +997,21 @@
         wanderers: wanderers.length,
         comet: { active: comet.active, next: comet.next },
         satellite: { active: satellite.active, next: satellite.next },
+        celestial: celestial && {
+          sun: {
+            altitude: celestial.sun.altitude,
+            azimuth: celestial.sun.azimuth,
+            visible: celestial.sun.visible
+          },
+          moon: {
+            altitude: celestial.moon.altitude,
+            azimuth: celestial.moon.azimuth,
+            visible: celestial.moon.visible,
+            fraction: celestial.moon.fraction,
+            phase: celestial.moon.phase,
+            waxing: celestial.moon.waxing
+          }
+        },
         motion: { reduced: reducedMotion, visible: visible, rafActive: !!rafId }
       };
     }
