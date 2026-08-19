@@ -1,4 +1,4 @@
-import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
+import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -306,7 +306,8 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
   // talking over it, short enough that most visitors are still here. Five felt
   // like being interrupted mid-sentence.
   window.setTimeout(function () {
-    if (nudged || document.hidden) return;
+    // No nudge on touch: there is no keyboard to press ? on.
+    if (nudged || document.hidden || isCoarse()) return;
     markUsed();
     say("psst — the sky does tricks. press ?", 11000);
   }, 12000);

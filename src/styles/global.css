@@ -756,6 +756,14 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .footer-links a { color: var(--ink-dim); }
 
+/* Section jumps belong in the header on a desktop; on a phone the header does
+   not carry them, so the footer is where the index lives. */
+.footer-jump { display: none; }
+
+@media (max-width: 620px) {
+  .footer-jump { display: inline; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .site-name,
   .hero-nav,
@@ -820,11 +828,14 @@ a { -webkit-tap-highlight-color: transparent; }
   }
 }
 
-/* Four nav items in a wide mono ran past the right edge on any phone narrower
-   than about 420px. Resume steps out of the header first: it is the one item
-   that is also in the footer. */
+/* On a phone the masthead is just the identity line. Four nav items in a wide
+   mono never fit, and a one-page site does not need a menu at the top of it:
+   the hero's own "selected work" is the way in, and everything else -- resume,
+   email, the rest -- is waiting at the end where it always was. Rather than
+   inventing a disclosure widget for four links, the header simply stops
+   carrying them. */
 @media (max-width: 620px) {
-  .nav-resume { display: none; }
+  .hero-nav { display: none; }
 }
 
 @media (max-width: 760px) {

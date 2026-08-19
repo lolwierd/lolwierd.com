@@ -1,4 +1,4 @@
-import { onFrame, motionMedia } from "./sky-shared.js";
+import { onFrame, motionMedia, isCoarse } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -61,8 +61,11 @@ import { onFrame, motionMedia } from "./sky-shared.js";
 
   var stage = null;
 
+  // No parallax on touch. iOS composites a full-screen promoted layer badly
+  // while its own scroll is in flight, and a scene that simply stays put reads
+  // perfectly well on a phone.
   onFrame(function () {
-    if (motionMedia.matches) return;
+    if (motionMedia.matches || isCoarse()) return;
     if (!stage) {
       stage = document.getElementById("sky-stage");
       if (!stage) return;

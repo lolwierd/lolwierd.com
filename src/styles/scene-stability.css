@@ -9,6 +9,12 @@
   height: var(--hero-scene-height, 100svh) !important;
   z-index: 0;
   pointer-events: none;
+}
+
+/* Promoted only where something actually transforms it. On touch the parallax is
+   off, and hinting a full-screen layer there just hands iOS a texture the size of
+   the display to hold for no reason. */
+:root[data-pointer="fine"] #sky-stage {
   will-change: transform;
 }
 

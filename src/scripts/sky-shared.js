@@ -111,6 +111,19 @@ export function listenMedia(media, handler) {
 
 export var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+// Touch devices. Hover affordances, the parallax and the nudge all assume a
+// pointer that can rest somewhere without committing to it. maxTouchPoints is
+// checked as well as the media query, because iPadOS with a trackpad attached
+// reports hover:hover while still being a touch device most of the time.
+export var coarseMedia = window.matchMedia("(hover: none), (pointer: coarse)");
+
+export function isCoarse() {
+  return coarseMedia.matches || (navigator.maxTouchPoints || 0) > 0;
+}
+
+// Published so the stylesheet can key off the same answer the scripts use.
+document.documentElement.dataset.pointer = isCoarse() ? "coarse" : "fine";
+
 // Dither-threshold animation, after the technique on dark.ronacher.eu: nothing
 // moves. Each dithered cell is re-decided against a threshold nudged by slow
 // value noise, so only cells already sitting near their threshold can flip and
@@ -156,6 +169,24 @@ export var budget = {
 var callbacks = [];
 var raf = 0;
 
+// Nothing in the sky needs to redraw while the page is moving past it. On iOS
+// the compositor is already busy with the scroll, and a canvas repainting into a
+// promoted layer at the same time is what the stutter was made of.
+var scrolling = 0;
+var scrollStop = 0;
+
+window.addEventListener("scroll", function () {
+  if (!scrolling) {
+    scrolling = 1;
+    document.documentElement.setAttribute("data-scrolling", "");
+  }
+  window.clearTimeout(scrollStop);
+  scrollStop = window.setTimeout(function () {
+    scrolling = 0;
+    document.documentElement.removeAttribute("data-scrolling");
+  }, 180);
+}, { passive: true });
+
 function pump(now) {
   raf = window.requestAnimationFrame(pump);
 
@@ -167,7 +198,7 @@ function pump(now) {
     budget.since = now;
   }
 
-  if (effects.frozen) return;
+  if (effects.frozen || scrolling) return;
   for (var i = 0; i < callbacks.length; i++) callbacks[i](now);
 }
 

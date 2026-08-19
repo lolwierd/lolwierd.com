@@ -1,4 +1,4 @@
-import { effects, motionMedia } from "./sky-shared.js";
+import { effects, motionMedia, isCoarse } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -175,13 +175,15 @@ import { effects, motionMedia } from "./sky-shared.js";
     var lenA = Math.sqrt(dx * dx + dy * dy);
     var lenB = Math.sqrt(toX * toX + toY * toY);
     if (!lenB) return false;
-    // Within about 55 degrees of straight at it.
-    return (dx * toX + dy * toY) / (lenA * lenB) > 0.57;
+    // Within about 70 degrees of straight at it. The readout is anchored beside
+    // the body rather than under the pointer, so the path to it is rarely a
+    // straight line and the cone has to forgive a wandering hand.
+    return (dx * toX + dy * toY) / (lenA * lenB) > 0.35;
   }
 
   function scheduleHide(x, y) {
     if (hideTimer) return;
-    hideTimer = window.setTimeout(hide, headingForReadout(x, y) ? 600 : 130);
+    hideTimer = window.setTimeout(hide, headingForReadout(x, y) ? 700 : 220);
   }
 
   function insideReadout(x, y) {
@@ -265,8 +267,13 @@ import { effects, motionMedia } from "./sky-shared.js";
       kind === "sun" ? bodies.sun : kind === "moon" ? bodies.moon : null);
   }
 
-  document.addEventListener("pointermove", onPoint, { passive: true });
-  hero.addEventListener("pointerdown", onPoint, { passive: true });
+  // Hover is a mouse idea. On touch there is no resting the pointer somewhere to
+  // ask about it -- every move is a commitment -- so the readout stays out of the
+  // way entirely and only the double tap survives.
+  if (!isCoarse()) {
+    document.addEventListener("pointermove", onPoint, { passive: true });
+    hero.addEventListener("pointerdown", onPoint, { passive: true });
+  }
 
   function bodyAt(clientX, clientY) {
     var bodies = window.__skyBodies;
