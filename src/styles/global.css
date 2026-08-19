@@ -451,8 +451,9 @@ a { -webkit-tap-highlight-color: transparent; }
   letter-spacing: -0.02em;
 }
 
-/* Project titles stay in the serif voice; the link reads as a quiet affordance
-   rather than borrowing the loud accent colour used for inline prose links. */
+/* Entry and project titles stay in the serif voice; the link reads as a quiet
+   affordance rather than borrowing the loud accent colour used for inline prose links. */
+.entry-heading h3 a,
 .project-row h3 a {
   color: inherit;
   text-decoration-color: color-mix(in srgb, var(--ink-faint) 70%, transparent);
@@ -460,6 +461,7 @@ a { -webkit-tap-highlight-color: transparent; }
   text-underline-offset: 0.16em;
 }
 
+.entry-heading h3 a:hover,
 .project-row h3 a:hover {
   color: var(--accent);
   text-decoration-color: var(--accent);
