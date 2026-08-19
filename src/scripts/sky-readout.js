@@ -17,6 +17,8 @@ import { effects, motionMedia } from "./sky-shared.js";
   var current = null;
   var hideTimer = 0;
   var lastPoint = null;
+  var offsetLeft = 0;
+  var offsetTop = 0;
   var hero = document.querySelector(".hero");
   if (!hero) return;
 
@@ -98,7 +100,7 @@ import { effects, motionMedia } from "./sky-shared.js";
     };
   }
 
-  function show(kind, figure, x, y) {
+  function show(kind, figure, x, y, body) {
     var info = describe(kind, figure);
     if (!info) return;
 
@@ -118,15 +120,28 @@ import { effects, motionMedia } from "./sky-shared.js";
     box.setAttribute("data-visible", "");
     box.onpointerenter = keep;
 
-    // Flip it back over the pointer near the right or bottom edge rather than
-    // letting it run off screen.
     var rect = box.getBoundingClientRect();
-    if (rect.right > window.innerWidth - 12) {
-      box.style.left = Math.round(x - rect.width - 32) + "px";
+    var pad = 14;
+
+    // Sit beside the body rather than on it. Covering the thing you are asking
+    // about is the one place this must never land, so the body's own circle
+    // decides the side and the pointer only breaks ties.
+    if (body) {
+      var bx = body.x + offsetLeft;
+      var by = body.y + offsetTop;
+      var gap = body.r + 22;
+      var left = bx + gap;
+      if (left + rect.width > window.innerWidth - pad) left = bx - gap - rect.width;
+      if (left < pad) left = Math.min(window.innerWidth - rect.width - pad, bx + gap);
+      var top = by - rect.height / 2;
+      top = Math.max(pad, Math.min(window.innerHeight - rect.height - pad, top));
+      box.style.left = Math.round(left) + "px";
+      box.style.top = Math.round(top) + "px";
+      return;
     }
-    if (rect.bottom > window.innerHeight - 12) {
-      box.style.top = Math.round(y - rect.height - 32) + "px";
-    }
+
+    if (rect.right > window.innerWidth - pad) box.style.left = Math.round(x - rect.width - 32) + "px";
+    if (rect.bottom > window.innerHeight - pad) box.style.top = Math.round(y - rect.height - 32) + "px";
   }
 
   function hide() {
@@ -134,6 +149,7 @@ import { effects, motionMedia } from "./sky-shared.js";
     hideTimer = 0;
     if (el) el.removeAttribute("data-visible");
     effects.hovered = null;
+    effects.bodyHover = null;
     current = null;
   }
 
@@ -234,12 +250,19 @@ import { effects, motionMedia } from "./sky-shared.js";
 
     keep();
     lastPoint = { x: event.clientX, y: event.clientY };
+    offsetLeft = bodies.left;
+    offsetTop = bodies.top;
+
+    // The bodies lift slightly under the pointer, so they read as things you can
+    // touch rather than as painted scenery.
+    effects.bodyHover = kind === "sun" || kind === "moon" ? kind : null;
 
     var key = kind === "figure" ? figure.id : kind;
     if (key === current) return;
     current = key;
     effects.hovered = kind === "figure" ? figure.id : null;
-    show(kind, figure, event.clientX + 16, event.clientY + 16);
+    show(kind, figure, event.clientX + 16, event.clientY + 16,
+      kind === "sun" ? bodies.sun : kind === "moon" ? bodies.moon : null);
   }
 
   document.addEventListener("pointermove", onPoint, { passive: true });
@@ -247,6 +270,15 @@ import { effects, motionMedia } from "./sky-shared.js";
 
   // Double-click a body and it does the thing that body is for: the sun moves
   // time, the moon moves the month.
+  hero.addEventListener("pointerdown", function (event) {
+    var bodies = window.__skyBodies;
+    if (!bodies) return;
+    var x = event.clientX - bodies.left;
+    var y = event.clientY - bodies.top;
+    if (near(bodies.sun, x, y)) effects.bodyPulse = { kind: "sun", start: performance.now() };
+    else if (near(bodies.moon, x, y)) effects.bodyPulse = { kind: "moon", start: performance.now() };
+  }, { passive: true });
+
   hero.addEventListener("dblclick", function (event) {
     var bodies = window.__skyBodies;
     if (!bodies) return;

@@ -12,6 +12,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
 
   var CHEATS = [
     ["dawn / sunrise", "the sun coming up over vadodara"],
+    ["blue", "the blue hour, before either of them"],
     ["dusk / sunset", "and going back down"],
     ["night", "the small hours"],
     ["moon", "next hour the moon is actually up"],
@@ -22,7 +23,6 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
     ["snow", "weather"],
     ["bug / hpack", "the failure i still think about"],
     ["ridge", "show the skyline the page computed"],
-    ["1024", "everything, four times chunkier"],
     ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
     ["↑↑↓↓←→←→ba", "a whole day in fifteen seconds"],
@@ -31,7 +31,8 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
 
   var POINTER_NOTE =
     "the sun, the moon and the constellations are all where they really are over " +
-    "vadodara right now. point at one.";
+    "vadodara right now. point at one to ask it. double-click the sun to run the " +
+    "day, or the moon to run a month.";
 
   var toast = null;
   var toastTimer = 0;
@@ -44,7 +45,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
     return window.__portfolioSky;
   }
 
-  function say(text) {
+  function say(text, dwell) {
     if (!toast) {
       toast = document.createElement("p");
       toast.className = "sky-toast";
@@ -56,7 +57,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
     window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(function () {
       toast.removeAttribute("data-visible");
-    }, 2400);
+    }, dwell || 2400);
   }
 
   function setClock(moment, message) {
@@ -180,6 +181,8 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
     night: function () { setClock("night", "night over vadodara"); },
     noon: function () { setClock("noon", "noon over vadodara"); },
     day: function () { setClock("noon", "noon over vadodara"); },
+    blue: function () { setClock("blue", "the blue hour, forty minutes before sunrise"); },
+    bluehour: function () { setClock("blue", "the blue hour, forty minutes before sunrise"); },
     now: function () { setClock(null, "back to the real hour"); },
     reset: function () { setClock(null, "back to the real hour"); },
 
@@ -240,21 +243,6 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
     hpack: highlightBug
   };
 
-  // "1024" is not a word, so it never reaches the letter buffer. Its own tiny
-  // matcher, on the digits.
-  var digits = "";
-  var chunkTimer = 0;
-
-  function goChunky() {
-    toTop();
-    window.clearTimeout(chunkTimer);
-    effects.chunk = 4;
-    say("1024, more or less");
-    chunkTimer = window.setTimeout(function () {
-      effects.chunk = 0;
-    }, 6000);
-  }
-
   var budgetPanel = null;
   var budgetTimer = 0;
 
@@ -311,7 +299,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
   window.setTimeout(function () {
     if (nudged || document.hidden) return;
     markUsed();
-    say("press ? if you want to play with the sky");
+    say("press ? if you want to play with the sky", 6000);
   }, 12000);
 
   document.addEventListener("keydown", function (event) {
@@ -350,16 +338,6 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
         runTheDay();
         return;
       }
-    }
-
-    if (/^[0-9]$/.test(event.key)) {
-      digits = (digits + event.key).slice(-4);
-      if (digits === "1024") {
-        digits = "";
-        markUsed();
-        goChunky();
-      }
-      return;
     }
 
     if (event.key.length !== 1 || !/[a-z]/i.test(event.key)) return;

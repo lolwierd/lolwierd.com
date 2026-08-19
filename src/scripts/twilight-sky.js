@@ -11,10 +11,9 @@ import {
   flickerOffset,
   effects,
   budget,
-  pixelate,
   motionMedia
 } from "./sky-shared.js";
-import { drawSnow, drawConstellations, figureHits, drawRidge, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
+import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, drawBodyPulse, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
 
 (function () {
   "use strict";
@@ -440,7 +439,10 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, buildMoon, paintMo
       moon: moonScene && moonScene.centre
         ? { x: moonScene.centre.x / scale, y: moonScene.centre.y / scale, r: moonScene.centre.r / scale }
         : null,
-      figures: figureHits
+      // Only while they are actually drawn. figureHits is rebuilt inside
+      // drawConstellations, which does not run in daylight, so the list from the
+      // last dark frame used to survive and stay hoverable over a sunlit sky.
+      figures: state.dark ? figureHits : []
     };
   }
 
@@ -469,12 +471,25 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, buildMoon, paintMo
     if (!state) return;
     // Always at night now, quietly. "stars" lifts them rather than summoning them.
     if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
+    // Touch feedback sits above the bodies but below the weather.
+    var sunDisc = sunScene && sunScene.disc;
+    var moonDisc = moonScene && moonScene.centre;
+    var accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429";
+
+    if (effects.bodyHover === "sun") drawBodyHalo(ctx, state, sunDisc, accent, 1, now);
+    if (effects.bodyHover === "moon") drawBodyHalo(ctx, state, moonDisc, moonInk(night), 1, now);
+
+    if (effects.bodyPulse) {
+      var disc = effects.bodyPulse.kind === "sun" ? sunDisc : moonDisc;
+      var ink = effects.bodyPulse.kind === "sun" ? accent : moonInk(night);
+      if (!drawBodyPulse(ctx, state, disc, ink, effects.bodyPulse, now)) effects.bodyPulse = null;
+    }
+
     if (effects.snow) drawSnow(ctx, state, now);
     if (effects.ridge) drawRidge(ctx, state);
     publishBodies(state);
     budget.sunCells = sunScene ? sunScene.marginal.length : 0;
     budget.wisps = ridgeScene ? ridgeScene.motes.length : 0;
-    if (effects.chunk) pixelate(ctx, canvas, effects.chunk);
   }
 
   // 24fps is plenty for a shimmer this slow. The loop itself is shared.

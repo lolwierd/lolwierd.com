@@ -117,29 +117,6 @@ export var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 // the texture crawls without the shape shifting.
 export var FLICKER_STEP = 900;
 
-// Down to a quarter size and straight back up with smoothing off. Two blits per
-// layer, which is cheap enough for something that only runs while someone is
-// looking at it on purpose.
-export function pixelate(ctx, canvas, factor) {
-  if (!factor || factor < 2) return;
-  var w = Math.max(1, Math.round(canvas.width / factor));
-  var h = Math.max(1, Math.round(canvas.height / factor));
-  if (!pixelate.buffer) pixelate.buffer = document.createElement("canvas");
-  var buf = pixelate.buffer;
-  buf.width = w;
-  buf.height = h;
-  var bctx = buf.getContext("2d");
-  bctx.clearRect(0, 0, w, h);
-  bctx.imageSmoothingEnabled = false;
-  bctx.drawImage(canvas, 0, 0, w, h);
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(buf, 0, 0, w, h, 0, 0, canvas.width, canvas.height);
-  ctx.restore();
-}
-
 export function flickerOffset(seed, now, amplitude) {
   var t = now / FLICKER_STEP + seed;
   var i = Math.floor(t);
@@ -156,8 +133,9 @@ export var effects = {
   snow: false,
   stars: false,
   hovered: null,
+  bodyHover: null,
+  bodyPulse: null,
   ridge: false,
-  chunk: 0,
   frozen: false
 };
 

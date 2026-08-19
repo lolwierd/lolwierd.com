@@ -15,7 +15,6 @@ import {
   flickerOffset,
   budget,
   effects,
-  pixelate,
   motionMedia
 } from "./sky-shared.js";
 
@@ -760,7 +759,6 @@ import {
     drawComet(now);
     ctx.globalAlpha = 1;
     budget.terrainCells = terrainFlicker ? terrainFlicker.index.length : 0;
-    if (effects.chunk) pixelate(ctx, canvas, effects.chunk);
   }
 
   function layoutPlate() {
@@ -934,6 +932,10 @@ import {
       else if (moment === "dusk") target = times.sunset;
       else if (moment === "night" || moment === "moon") target = bestMoonMoment(base) || times.nadir;
       else if (moment === "noon") target = times.solarNoon;
+      // Sun at about -9 degrees: the nautical palette, cool blue overhead and
+      // warm at the horizon. It is the first frame of the day run and the
+      // best-looking minute of the whole cycle.
+      else if (moment === "blue") target = times.sunrise ? new Date(times.sunrise.getTime() - 40 * 60000) : null;
       else if (moment instanceof Date) target = moment;
 
       clockOverride = target ? target.getTime() : null;

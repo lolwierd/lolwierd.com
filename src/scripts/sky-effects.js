@@ -232,6 +232,64 @@ export function drawConstellations(ctx, state, date, highlight, hovered) {
   ctx.restore();
 }
 
+// ── touch feedback ─────────────────────────────────────────────────────────
+
+export var PULSE_MS = 620;
+
+// A ring of dithered motes just outside the disc. Drawn in the same halftone
+// language as everything else rather than as a CSS glow, because the bodies live
+// on the canvas and a smooth glow would be the only soft edge on the page.
+export function drawBodyHalo(ctx, state, body, ink, strength, now) {
+  if (!body || strength <= 0.01) return;
+  var core = Math.max(1, Math.round(state.dpr));
+  var inner = body.r * 1.05;
+  var outer = body.r * (1.05 + 0.3 * strength);
+  var step = core;
+
+  ctx.save();
+  ctx.fillStyle = ink;
+  for (var y = Math.floor(body.y - outer); y <= body.y + outer; y += step) {
+    for (var x = Math.floor(body.x - outer); x <= body.x + outer; x += step) {
+      if (x < 0 || x >= state.width || y < 0 || y >= state.skyline[clamp(Math.round(x), 0, state.width - 1)]) continue;
+      var dx = x - body.x;
+      var dy = y - body.y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < inner || d > outer) continue;
+      var band = 1 - (d - inner) / Math.max(1, outer - inner);
+      if (hashUnit(x * 0.31 + y * 0.57 + Math.floor(now / 220)) > band * 0.55) continue;
+      ctx.globalAlpha = clamp(band * 0.5 * strength, 0, 0.6);
+      ctx.fillRect(x, y, core, core);
+    }
+  }
+  ctx.restore();
+}
+
+// A single ring travelling outward once, on click.
+export function drawBodyPulse(ctx, state, body, ink, pulse, now) {
+  if (!body || !pulse) return false;
+  var t = (now - pulse.start) / PULSE_MS;
+  if (t < 0 || t > 1) return false;
+
+  var core = Math.max(1, Math.round(state.dpr));
+  var radius = body.r * (1.1 + t * 1.5);
+  var fade = 1 - t;
+
+  ctx.save();
+  ctx.fillStyle = ink;
+  var steps = Math.max(48, Math.round(radius * 1.6));
+  for (var i = 0; i < steps; i++) {
+    var angle = (i / steps) * Math.PI * 2;
+    var x = Math.round(body.x + Math.cos(angle) * radius);
+    var y = Math.round(body.y + Math.sin(angle) * radius);
+    if (x < 0 || x >= state.width || y < 0 || y >= state.skyline[clamp(x, 0, state.width - 1)]) continue;
+    if (hashUnit(i * 1.7 + Math.floor(now / 90)) > 0.72) continue;
+    ctx.globalAlpha = clamp(fade * 0.75, 0, 0.8);
+    ctx.fillRect(x, y, core, core);
+  }
+  ctx.restore();
+  return true;
+}
+
 // ── ridge ──────────────────────────────────────────────────────────────────
 
 // The skyline the renderer extracted from the photograph, drawn back over it.
