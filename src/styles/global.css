@@ -820,6 +820,13 @@ a { -webkit-tap-highlight-color: transparent; }
   }
 }
 
+/* Four nav items in a wide mono ran past the right edge on any phone narrower
+   than about 420px. Resume steps out of the header first: it is the one item
+   that is also in the footer. */
+@media (max-width: 620px) {
+  .nav-resume { display: none; }
+}
+
 @media (max-width: 760px) {
   .hero-frame {
     padding: 1.25rem 1.15rem 1.4rem;

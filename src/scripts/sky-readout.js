@@ -268,25 +268,72 @@ import { effects, motionMedia } from "./sky-shared.js";
   document.addEventListener("pointermove", onPoint, { passive: true });
   hero.addEventListener("pointerdown", onPoint, { passive: true });
 
-  // Double-click a body and it does the thing that body is for: the sun moves
-  // time, the moon moves the month.
-  hero.addEventListener("pointerdown", function (event) {
+  function bodyAt(clientX, clientY) {
     var bodies = window.__skyBodies;
-    if (!bodies) return;
-    var x = event.clientX - bodies.left;
-    var y = event.clientY - bodies.top;
-    if (near(bodies.sun, x, y)) effects.bodyPulse = { kind: "sun", start: performance.now() };
-    else if (near(bodies.moon, x, y)) effects.bodyPulse = { kind: "moon", start: performance.now() };
+    if (!bodies) return null;
+    var x = clientX - bodies.left;
+    var y = clientY - bodies.top;
+    if (near(bodies.sun, x, y)) return "sun";
+    if (near(bodies.moon, x, y)) return "moon";
+    return null;
+  }
+
+  function activate(kind) {
+    if (kind === "sun") window.dispatchEvent(new Event("skyrunday"));
+    else if (kind === "moon") window.dispatchEvent(new Event("skyrunmonth"));
+  }
+
+  hero.addEventListener("pointerdown", function (event) {
+    var kind = bodyAt(event.clientX, event.clientY);
+    if (kind) effects.bodyPulse = { kind: kind, start: performance.now() };
   }, { passive: true });
 
-  hero.addEventListener("dblclick", function (event) {
-    var bodies = window.__skyBodies;
-    if (!bodies) return;
-    var x = event.clientX - bodies.left;
-    var y = event.clientY - bodies.top;
-    if (near(bodies.sun, x, y)) window.dispatchEvent(new Event("skyrunday"));
-    else if (near(bodies.moon, x, y)) window.dispatchEvent(new Event("skyrunmonth"));
+  // Double-click a body and it does the thing that body is for: the sun moves
+  // time, the moon moves the month.
+  //
+  // A second click normally selects the word beneath it, and since the canvases
+  // take no pointer events that word was whatever hero copy happened to sit
+  // behind the sky. Suppressed on the bodies only, so selecting text anywhere
+  // else still works.
+  hero.addEventListener("mousedown", function (event) {
+    if (event.detail > 1 && bodyAt(event.clientX, event.clientY)) event.preventDefault();
   });
+
+  hero.addEventListener("dblclick", function (event) {
+    var kind = bodyAt(event.clientX, event.clientY);
+    if (!kind) return;
+    event.preventDefault();
+    var selection = window.getSelection();
+    if (selection) selection.removeAllRanges();
+    activate(kind);
+  });
+
+  // Touch never fires dblclick reliably, so recognise a double tap: two on the
+  // same body, close together in time and place.
+  var tapAt = 0;
+  var tapKind = null;
+  var tapX = 0;
+  var tapY = 0;
+
+  hero.addEventListener("pointerup", function (event) {
+    if (event.pointerType === "mouse") return;
+    var kind = bodyAt(event.clientX, event.clientY);
+    if (!kind) {
+      tapKind = null;
+      return;
+    }
+    var now = performance.now();
+    var close = Math.abs(event.clientX - tapX) < 40 && Math.abs(event.clientY - tapY) < 40;
+    if (kind === tapKind && close && now - tapAt < 420) {
+      tapKind = null;
+      activate(kind);
+      return;
+    }
+    tapAt = now;
+    tapKind = kind;
+    tapX = event.clientX;
+    tapY = event.clientY;
+  }, { passive: true });
   window.addEventListener("scroll", hide, { passive: true });
 
   if (el) el.addEventListener("pointerenter", keep);

@@ -31,8 +31,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
 
   var POINTER_NOTE =
     "the sun, the moon and the constellations are all where they really are over " +
-    "vadodara right now. point at one to ask it. double-click the sun to run the " +
-    "day, or the moon to run a month.";
+    "vadodara right now.";
 
   var toast = null;
   var toastTimer = 0;

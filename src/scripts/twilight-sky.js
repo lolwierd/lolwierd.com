@@ -311,8 +311,21 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     if (x + radius <= left || x - radius >= right) return y;
     if (y + radius <= top || y - radius >= bottom) return y;
 
+    // Above the copy, but never into the masthead. The old floor was a flat
+    // 46px, which on a phone is inside the topbar -- a high sun got lifted clear
+    // of the paragraph and straight behind the nav.
+    var bar = document.querySelector(".topbar");
+    var floor = (bar ? bar.getBoundingClientRect().bottom * dpr : 0) + radius + 14 * dpr;
     var lifted = Math.round(rect.top * dpr - radius - 18 * dpr);
-    return lifted > 46 * dpr ? lifted : y;
+    if (lifted >= floor) return lifted;
+
+    // No room above: drop it below the copy instead, as long as it stays clear
+    // of the ridge. Better low in the sky than hidden behind the navigation.
+    var dropped = Math.round(rect.bottom * dpr + radius + 18 * dpr);
+    var ridge = state.skyline[clamp(Math.round(x), 0, state.width - 1)];
+    if (dropped + radius < ridge) return dropped;
+
+    return Math.max(floor, y);
   }
 
   function buildSun(state, altitude, valleyX) {
