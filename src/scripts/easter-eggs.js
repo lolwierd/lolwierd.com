@@ -18,14 +18,17 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     ["noon / day", "overhead"],
     ["now / reset", "back to the real hour"],
     ["comet", "throw one, if it is dark enough"],
-    ["stars", "constellations, truly placed"],
+    ["stars", "light up the constellations"],
     ["snow", "weather"],
-    ["eclipse", "stage one"],
     ["bug / hpack", "the failure i still think about"],
     ["still", "stop every moving thing"],
     ["↑↑↓↓←→←→ba", "a whole day in fifteen seconds"],
     ["?", "this list"]
   ];
+
+  var POINTER_NOTE =
+    "the sun, the moon and the constellations are all where they really are over " +
+    "vadodara right now. point at one.";
 
   var toast = null;
   var toastTimer = 0;
@@ -72,6 +75,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
       }).join("");
       sheet.innerHTML =
         '<p class="sky-sheet-label">type anywhere</p><dl>' + rows + "</dl>" +
+        '<p class="sky-sheet-note">' + POINTER_NOTE + "</p>" +
         '<p class="sky-sheet-foot">? or esc to close</p>';
       document.body.appendChild(sheet);
     }
@@ -173,23 +177,13 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
         return;
       }
       effects.stars = !effects.stars;
-      say(effects.stars ? "the sky over vadodara, right now" : "constellations off");
+      say(effects.stars ? "the figures, lit" : "figures dimmed");
     },
 
     snow: function () {
       toTop();
       effects.snow = !effects.snow;
       say(effects.snow ? "snow" : "snow stopped");
-    },
-
-    eclipse: function () {
-      toTop();
-      if (isNight()) {
-        say("nothing to eclipse at night. try 'noon'");
-        return;
-      }
-      effects.eclipseStart = performance.now();
-      say("look up");
     },
 
     still: function () {
@@ -206,6 +200,24 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
   var ORDER = Object.keys(WORDS).sort(function (a, b) { return b.length - a.length; });
   var LONGEST = ORDER[0].length;
 
+  // The eggs are worth finding but not worth advertising. If someone has been
+  // on the page a while and touched nothing, the toast mentions the key once --
+  // in its own quiet register, in the corner, never again this session.
+  var nudged = false;
+
+  function markUsed() {
+    nudged = true;
+    try { window.sessionStorage.setItem("sky-nudged", "1"); } catch (error) {}
+  }
+
+  try { nudged = window.sessionStorage.getItem("sky-nudged") === "1"; } catch (error) {}
+
+  window.setTimeout(function () {
+    if (nudged || document.hidden) return;
+    markUsed();
+    say("press ? if you want to play with the sky");
+  }, 32000);
+
   document.addEventListener("keydown", function (event) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
 
@@ -218,6 +230,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
       return;
     }
     if (event.key === "?") {
+      markUsed();
       toggleSheet();
       return;
     }

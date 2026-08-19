@@ -880,6 +880,7 @@ import {
     // back to the real hour over Vadodara.
     // Reports whether the moon is actually up at the override, so callers can
     // say so rather than silently showing an empty sky.
+    clock: skyNow,
     moonUp: function () {
       return !!(celestial && celestial.moon && celestial.moon.visible);
     },

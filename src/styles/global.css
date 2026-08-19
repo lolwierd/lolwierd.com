@@ -141,6 +141,59 @@ a { -webkit-tap-highlight-color: transparent; }
   transform: translateY(0);
 }
 
+/* Shared by the sun, the moon and the figures. Same register as the toast and
+   the cheatsheet: mono, bordered, page-coloured. */
+.sky-readout {
+  position: fixed;
+  z-index: 32;
+  max-width: 17rem;
+  padding: 0.6rem 0.75rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  font-family: var(--mono);
+  opacity: 0;
+  transform: translateY(0.25rem);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+}
+
+.sky-readout[data-visible] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.sky-readout-title {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+}
+
+.sky-readout-facts {
+  margin: 0.4rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.58rem;
+  line-height: 1.65;
+}
+
+.sky-readout-facts span { display: block; }
+
+.sky-readout-ref {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--accent);
+  font-size: 0.56rem;
+  text-decoration: none;
+}
+
+.sky-readout-ref:hover { text-decoration: underline; }
+
+/* The bodies are the affordance, so say so on the way past. */
+@media (hover: hover) and (pointer: fine) {
+  #sky-stage { pointer-events: none; }
+}
+
 .sky-sheet {
   position: fixed;
   bottom: 1.25rem;
@@ -170,8 +223,16 @@ a { -webkit-tap-highlight-color: transparent; }
   letter-spacing: 0.05em;
 }
 
+.sky-sheet-note {
+  max-width: 20rem;
+  margin: 0.9rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.56rem;
+  line-height: 1.6;
+}
+
 .sky-sheet-foot {
-  margin-top: 0.9rem;
+  margin-top: 0.7rem;
   color: var(--ink-faint);
 }
 

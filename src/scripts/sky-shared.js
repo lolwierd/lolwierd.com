@@ -132,7 +132,7 @@ export function flickerOffset(seed, now, amplitude) {
 export var effects = {
   snow: false,
   stars: false,
-  eclipseStart: 0,
+  hovered: null,
   frozen: false
 };
 

@@ -12,7 +12,7 @@ import {
   effects,
   motionMedia
 } from "./sky-shared.js";
-import { drawSnow, drawConstellations, drawEclipse, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
+import { drawSnow, drawConstellations, figureHits, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
 
 (function () {
   "use strict";
@@ -425,6 +425,28 @@ import { drawSnow, drawConstellations, drawEclipse, buildMoon, paintMoonSolids, 
     ctx.globalAlpha = 1;
   }
 
+  // What the readout points at. CSS pixels, because that is what a pointer uses.
+  function publishBodies(state) {
+    var scale = state.dpr;
+    var rect = canvas.getBoundingClientRect();
+    window.__skyBodies = {
+      top: rect.top,
+      left: rect.left,
+      sun: sunScene && sunScene.disc
+        ? { x: sunScene.disc.x / scale, y: sunScene.disc.y / scale, r: sunScene.disc.radius / scale }
+        : null,
+      moon: moonScene && moonScene.centre
+        ? { x: moonScene.centre.x / scale, y: moonScene.centre.y / scale, r: moonScene.centre.r / scale }
+        : null,
+      figures: figureHits
+    };
+  }
+
+  function skyDate() {
+    var api = window.__portfolioSky;
+    return api && api.clock ? api.clock() : new Date();
+  }
+
   function moonInk(night) {
     // Bone against a dark sky; the page's own ink when the sky is bright, so a
     // daytime moon reads as a pale disc rather than a glowing one.
@@ -443,9 +465,10 @@ import { drawSnow, drawConstellations, drawEclipse, buildMoon, paintMoonSolids, 
 
     var state = baseState();
     if (!state) return;
-    if (effects.stars && state.dark) drawConstellations(ctx, state, new Date());
-    if (effects.eclipseStart && sunScene) drawEclipse(ctx, state, sunScene.disc, now);
+    // Always at night now, quietly. "stars" lifts them rather than summoning them.
+    if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
     if (effects.snow) drawSnow(ctx, state, now);
+    publishBodies(state);
   }
 
   // 24fps is plenty for a shimmer this slow. The loop itself is shared.

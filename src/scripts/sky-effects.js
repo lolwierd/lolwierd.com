@@ -74,15 +74,40 @@ var STARS = {
   zosma: [11.235, 20.52], adhafera: [10.278, 23.42]
 };
 
+// Grouped by constellation rather than kept as loose polylines, so a figure can
+// name itself when you point at it.
 var FIGURES = [
-  ["dubhe", "merak", "phecda", "megrez", "dubhe"],
-  ["megrez", "alioth", "mizar", "alkaid"],
-  ["betelgeuse", "bellatrix", "mintaka", "alnilam", "alnitak", "betelgeuse"],
-  ["alnitak", "saiph"], ["mintaka", "rigel"],
-  ["caph", "schedar", "gamcas", "ruchbah", "segin"],
-  ["graffias", "dschubba", "antares", "sargas", "shaula", "lesath", "girtab"],
-  ["deneb", "sadr", "albireo"], ["delcyg", "sadr", "gienah"],
-  ["regulus", "algieba", "adhafera", "zosma", "denebola", "regulus"]
+  {
+    id: "ursa-major", name: "ursa major", gloss: "the great bear",
+    ref: "https://en.wikipedia.org/wiki/Ursa_Major",
+    lines: [["dubhe", "merak", "phecda", "megrez", "dubhe"], ["megrez", "alioth", "mizar", "alkaid"]]
+  },
+  {
+    id: "orion", name: "orion", gloss: "the hunter",
+    ref: "https://en.wikipedia.org/wiki/Orion_(constellation)",
+    lines: [["betelgeuse", "bellatrix", "mintaka", "alnilam", "alnitak", "betelgeuse"],
+            ["alnitak", "saiph"], ["mintaka", "rigel"]]
+  },
+  {
+    id: "cassiopeia", name: "cassiopeia", gloss: "the seated queen",
+    ref: "https://en.wikipedia.org/wiki/Cassiopeia_(constellation)",
+    lines: [["caph", "schedar", "gamcas", "ruchbah", "segin"]]
+  },
+  {
+    id: "scorpius", name: "scorpius", gloss: "the scorpion",
+    ref: "https://en.wikipedia.org/wiki/Scorpius",
+    lines: [["graffias", "dschubba", "antares", "sargas", "shaula", "lesath", "girtab"]]
+  },
+  {
+    id: "cygnus", name: "cygnus", gloss: "the swan",
+    ref: "https://en.wikipedia.org/wiki/Cygnus_(constellation)",
+    lines: [["deneb", "sadr", "albireo"], ["delcyg", "sadr", "gienah"]]
+  },
+  {
+    id: "leo", name: "leo", gloss: "the lion",
+    ref: "https://en.wikipedia.org/wiki/Leo_(constellation)",
+    lines: [["regulus", "algieba", "adhafera", "zosma", "denebola", "regulus"]]
+  }
 ];
 
 var RAD = Math.PI / 180;
@@ -136,7 +161,10 @@ function project(pos, state) {
   };
 }
 
-export function drawConstellations(ctx, state, date) {
+// Published in CSS pixels so the readout can work out what you are pointing at.
+export var figureHits = [];
+
+export function drawConstellations(ctx, state, date, highlight, hovered) {
   var lst = localSiderealDegrees(date);
   var points = {};
   for (var name in STARS) {
@@ -144,84 +172,65 @@ export function drawConstellations(ctx, state, date) {
   }
 
   var core = Math.max(1, Math.round(state.dpr));
+  var scale = state.dpr;
+  figureHits = [];
   ctx.save();
-  ctx.strokeStyle = "#8f9bb3";
-  ctx.lineWidth = Math.max(1, state.dpr * 0.75);
-  ctx.globalAlpha = 0.34;
 
   for (var f = 0; f < FIGURES.length; f++) {
     var figure = FIGURES[f];
-    for (var i = 0; i < figure.length - 1; i++) {
-      var a = points[figure[i]];
-      var b = points[figure[i + 1]];
-      if (!a || !b || !a.up || !b.up) continue;
-      // Wrapping the azimuth seam would draw a line straight across the sky.
-      if (Math.abs(a.x - b.x) > state.width * 0.5) continue;
-      if (a.y >= state.skyline[clamp(Math.round(a.x), 0, state.width - 1)]) continue;
-      if (b.y >= state.skyline[clamp(Math.round(b.x), 0, state.width - 1)]) continue;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
+    var isHovered = hovered === figure.id;
+    // Drawn at every dark hour now, but barely: the figures should be something
+    // you notice after a while, not a diagram laid over the photograph. Typing
+    // "stars" lifts them, and pointing at one lifts it further.
+    var lineAlpha = isHovered ? 0.5 : highlight ? 0.26 : 0.1;
+    var starAlpha = isHovered ? 1 : highlight ? 0.8 : 0.5;
+
+    ctx.strokeStyle = "#8f9bb3";
+    ctx.lineWidth = Math.max(1, state.dpr * (isHovered ? 0.9 : 0.7));
+    ctx.globalAlpha = lineAlpha;
+
+    var seen = {};
+    var pts = [];
+
+    for (var g = 0; g < figure.lines.length; g++) {
+      var run = figure.lines[g];
+      for (var i = 0; i < run.length - 1; i++) {
+        var a = points[run[i]];
+        var b = points[run[i + 1]];
+        if (!a || !b || !a.up || !b.up) continue;
+        if (a.y >= state.skyline[clamp(Math.round(a.x), 0, state.width - 1)]) continue;
+        if (b.y >= state.skyline[clamp(Math.round(b.x), 0, state.width - 1)]) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        seen[run[i]] = a; seen[run[i + 1]] = b;
+      }
+    }
+
+    ctx.globalAlpha = starAlpha;
+    ctx.fillStyle = "#eee6d8";
+    for (var key in seen) {
+      var p = seen[key];
+      var sx = Math.round(p.x), sy = Math.round(p.y);
+      if (sx < 0 || sx >= state.width) continue;
+      ctx.fillRect(sx - core, sy, core * 3, core);
+      ctx.fillRect(sx, sy - core, core, core * 3);
+      pts.push(sx / scale, sy / scale);
+    }
+
+    // The stars themselves, not a bounding box round them. Scorpius sprawls
+    // across a third of the sky and its box swallowed the moon and a great deal
+    // of empty air with it.
+    if (pts.length) {
+      figureHits.push({
+        id: figure.id, name: figure.name, gloss: figure.gloss, ref: figure.ref, pts: pts
+      });
     }
   }
 
-  ctx.globalAlpha = 0.95;
-  ctx.fillStyle = "#eee6d8";
-  for (var star in points) {
-    var p = points[star];
-    if (!p.up) continue;
-    var sx = Math.round(p.x);
-    var sy = Math.round(p.y);
-    if (sx < 0 || sx >= state.width) continue;
-    if (sy >= state.skyline[clamp(sx, 0, state.width - 1)]) continue;
-    ctx.fillRect(sx - core, sy, core * 3, core);
-    ctx.fillRect(sx, sy - core, core, core * 3);
-  }
   ctx.restore();
 }
-
-// ── eclipse ─────────────────────────────────────────────────────────────────
-
-export var ECLIPSE_MS = 14000;
-
-// A dark disc walks across the sun and the sky loses its light with it. The
-// moon's real position is nowhere near the sun today, so this is staged: the
-// one effect here that is a picture rather than a measurement.
-export function drawEclipse(ctx, state, sun, now) {
-  if (!effects.eclipseStart) return 0;
-  var t = (now - effects.eclipseStart) / ECLIPSE_MS;
-  if (t < 0 || t > 1) {
-    effects.eclipseStart = 0;
-    return 0;
-  }
-
-  var travel = sun.radius * 7;
-  var mx = sun.x - travel / 2 + travel * t;
-  var my = sun.y - sun.radius * 0.22;
-  var moonR = sun.radius * 1.04;
-
-  var page = getComputedStyle(document.documentElement).getPropertyValue("--page").trim() || "#eee9df";
-  ctx.save();
-  ctx.fillStyle = page;
-  ctx.beginPath();
-  ctx.arc(mx, my, moonR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // A thin rim of light left along the leading edge reads as the corona.
-  var coverage = 1 - clamp(Math.abs(mx - sun.x) / (sun.radius * 1.6), 0, 1);
-  if (coverage > 0.72) {
-    ctx.globalAlpha = (coverage - 0.72) / 0.28 * 0.5;
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429";
-    ctx.lineWidth = Math.max(1, state.dpr);
-    ctx.beginPath();
-    ctx.arc(sun.x, sun.y, sun.radius * 1.08, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.restore();
-  return coverage;
-}
-
 
 // ── moon ────────────────────────────────────────────────────────────────────
 
@@ -326,7 +335,7 @@ export function buildMoon(state, clearOfCopy) {
     });
   }
 
-  return { solid: solid, marginal: marginal, aura: aura, core: core, width: state.width, skyline: state.skyline };
+  return { solid: solid, marginal: marginal, aura: aura, core: core, width: state.width, skyline: state.skyline, centre: { x: x, y: y, r: radius } };
 }
 
 export function paintMoonSolids(ctx, scene, ink) {
