@@ -15,6 +15,8 @@ import { effects, motionMedia } from "./sky-shared.js";
   var HIT_PAD = 26;
   var el = null;
   var current = null;
+  var hideTimer = 0;
+  var lastPoint = null;
   var hero = document.querySelector(".hero");
   if (!hero) return;
 
@@ -114,14 +116,62 @@ import { effects, motionMedia } from "./sky-shared.js";
     box.style.left = Math.round(x) + "px";
     box.style.top = Math.round(y) + "px";
     box.setAttribute("data-visible", "");
+    box.onpointerenter = keep;
+
+    // Flip it back over the pointer near the right or bottom edge rather than
+    // letting it run off screen.
+    var rect = box.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 12) {
+      box.style.left = Math.round(x - rect.width - 32) + "px";
+    }
+    if (rect.bottom > window.innerHeight - 12) {
+      box.style.top = Math.round(y - rect.height - 32) + "px";
+    }
   }
 
   function hide() {
+    window.clearTimeout(hideTimer);
+    hideTimer = 0;
     if (el) el.removeAttribute("data-visible");
-    if (effects.hovered) {
-      effects.hovered = null;
-    }
+    effects.hovered = null;
     current = null;
+  }
+
+  function keep() {
+    window.clearTimeout(hideTimer);
+    hideTimer = 0;
+  }
+
+  // The "safe triangle": leaving a body toward the readout should not dismiss it,
+  // because the whole point is to be able to reach the link inside. If the
+  // pointer is travelling into the triangle between where it left and the
+  // readout's near edge, it is on its way there -- give it time. Anywhere else
+  // and it has moved on.
+  function headingForReadout(x, y) {
+    if (!el || !el.hasAttribute("data-visible") || !lastPoint) return false;
+    var box = el.getBoundingClientRect();
+    var dx = x - lastPoint.x;
+    var dy = y - lastPoint.y;
+    if (dx === 0 && dy === 0) return false;
+
+    var toX = (box.left + box.right) / 2 - lastPoint.x;
+    var toY = (box.top + box.bottom) / 2 - lastPoint.y;
+    var lenA = Math.sqrt(dx * dx + dy * dy);
+    var lenB = Math.sqrt(toX * toX + toY * toY);
+    if (!lenB) return false;
+    // Within about 55 degrees of straight at it.
+    return (dx * toX + dy * toY) / (lenA * lenB) > 0.57;
+  }
+
+  function scheduleHide(x, y) {
+    if (hideTimer) return;
+    hideTimer = window.setTimeout(hide, headingForReadout(x, y) ? 600 : 130);
+  }
+
+  function insideReadout(x, y) {
+    if (!el || !el.hasAttribute("data-visible")) return false;
+    var box = el.getBoundingClientRect();
+    return x >= box.left && x <= box.right && y >= box.top && y <= box.bottom;
   }
 
   function near(body, x, y) {
@@ -159,6 +209,11 @@ import { effects, motionMedia } from "./sky-shared.js";
     var bodies = window.__skyBodies;
     if (!bodies) return;
 
+    if (insideReadout(event.clientX, event.clientY)) {
+      keep();
+      return;
+    }
+
     var x = event.clientX - bodies.left;
     var y = event.clientY - bodies.top;
 
@@ -171,26 +226,42 @@ import { effects, motionMedia } from "./sky-shared.js";
       if (figure) kind = "figure";
     }
 
+    if (!kind) {
+      scheduleHide(event.clientX, event.clientY);
+      lastPoint = { x: event.clientX, y: event.clientY };
+      return;
+    }
+
+    keep();
+    lastPoint = { x: event.clientX, y: event.clientY };
+
     var key = kind === "figure" ? figure.id : kind;
     if (key === current) return;
     current = key;
-
     effects.hovered = kind === "figure" ? figure.id : null;
-
-    if (!kind) {
-      hide();
-      return;
-    }
     show(kind, figure, event.clientX + 16, event.clientY + 16);
   }
 
-  hero.addEventListener("pointermove", onPoint, { passive: true });
+  document.addEventListener("pointermove", onPoint, { passive: true });
   hero.addEventListener("pointerdown", onPoint, { passive: true });
-  hero.addEventListener("pointerleave", hide, { passive: true });
+
+  // Double-click a body and it does the thing that body is for: the sun moves
+  // time, the moon moves the month.
+  hero.addEventListener("dblclick", function (event) {
+    var bodies = window.__skyBodies;
+    if (!bodies) return;
+    var x = event.clientX - bodies.left;
+    var y = event.clientY - bodies.top;
+    if (near(bodies.sun, x, y)) window.dispatchEvent(new Event("skyrunday"));
+    else if (near(bodies.moon, x, y)) window.dispatchEvent(new Event("skyrunmonth"));
+  });
   window.addEventListener("scroll", hide, { passive: true });
 
-  // Touch has no hover, so a tap anywhere else dismisses it.
+  if (el) el.addEventListener("pointerenter", keep);
+
+  // Touch has no hover, so a tap outside both the sky and the readout dismisses.
   document.addEventListener("pointerdown", function (event) {
+    if (el && el.contains(event.target)) return;
     if (!hero.contains(event.target)) hide();
   }, { passive: true });
 

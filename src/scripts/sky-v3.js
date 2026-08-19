@@ -13,6 +13,9 @@ import {
   listenMedia,
   onFrame,
   flickerOffset,
+  budget,
+  effects,
+  pixelate,
   motionMedia
 } from "./sky-shared.js";
 
@@ -756,6 +759,8 @@ import {
     drawSatellite(now);
     drawComet(now);
     ctx.globalAlpha = 1;
+    budget.terrainCells = terrainFlicker ? terrainFlicker.index.length : 0;
+    if (effects.chunk) pixelate(ctx, canvas, effects.chunk);
   }
 
   function layoutPlate() {

@@ -84,6 +84,13 @@ const ogImage = new URL("/og.jpg", SITE).href;
     )}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      href="/DepartureMono-Regular.woff2"
+      crossorigin
+    />
     {ambient && (
       <link
         rel="preload"

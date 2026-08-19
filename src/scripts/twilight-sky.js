@@ -10,9 +10,11 @@ import {
   onFrame,
   flickerOffset,
   effects,
+  budget,
+  pixelate,
   motionMedia
 } from "./sky-shared.js";
-import { drawSnow, drawConstellations, figureHits, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
+import { drawSnow, drawConstellations, figureHits, drawRidge, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
 
 (function () {
   "use strict";
@@ -468,7 +470,11 @@ import { drawSnow, drawConstellations, figureHits, buildMoon, paintMoonSolids, d
     // Always at night now, quietly. "stars" lifts them rather than summoning them.
     if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
     if (effects.snow) drawSnow(ctx, state, now);
+    if (effects.ridge) drawRidge(ctx, state);
     publishBodies(state);
+    budget.sunCells = sunScene ? sunScene.marginal.length : 0;
+    budget.wisps = ridgeScene ? ridgeScene.motes.length : 0;
+    if (effects.chunk) pixelate(ctx, canvas, effects.chunk);
   }
 
   // 24fps is plenty for a shimmer this slow. The loop itself is shared.

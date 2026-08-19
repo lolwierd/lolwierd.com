@@ -1,4 +1,4 @@
-import { isNight, effects, motionMedia } from "./sky-shared.js";
+import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -21,6 +21,9 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     ["stars", "light up the constellations"],
     ["snow", "weather"],
     ["bug / hpack", "the failure i still think about"],
+    ["ridge", "show the skyline the page computed"],
+    ["1024", "everything, four times chunkier"],
+    ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
     ["↑↑↓↓←→←→ba", "a whole day in fifteen seconds"],
     ["?", "this list"]
@@ -137,6 +140,38 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     }, STEP_MS);
   }
 
+  // A lunar month in about eight seconds. Stepping a whole day at a time keeps
+  // the hour of the night roughly where it was, so the sky stays dark and only
+  // the moon changes -- which is the entire point of watching it.
+  var monthRun = 0;
+  var MONTH_STEPS = 30;
+  var MONTH_MS = 8000;
+
+  function runTheMonth() {
+    var api = sky();
+    if (!api || !api.stepClock || !api.clock) return;
+    if (monthRun) window.clearInterval(monthRun);
+
+    var from = api.clock().getTime();
+    var step = 0;
+    say("a lunar month, eight seconds");
+
+    monthRun = window.setInterval(function () {
+      step++;
+      if (step > MONTH_STEPS) {
+        window.clearInterval(monthRun);
+        monthRun = 0;
+        api.setClock(null);
+        say("back to the real hour");
+        return;
+      }
+      api.stepClock(new Date(from + step * 86400000));
+    }, MONTH_MS / MONTH_STEPS);
+  }
+
+  window.addEventListener("skyrunday", function () { markUsed(); runTheDay(); });
+  window.addEventListener("skyrunmonth", function () { markUsed(); runTheMonth(); });
+
   var WORDS = {
     dawn: function () { setClock("dawn", "dawn over vadodara"); },
     sunrise: function () { setClock("dawn", "dawn over vadodara"); },
@@ -191,9 +226,67 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
       say(effects.frozen ? "everything holds still" : "moving again");
     },
 
+    ridge: function () {
+      toTop();
+      effects.ridge = !effects.ridge;
+      say(effects.ridge ? "the line everything else is measured from" : "ridge hidden");
+    },
+
+    budget: function () {
+      toggleBudget();
+    },
+
     bug: highlightBug,
     hpack: highlightBug
   };
+
+  // "1024" is not a word, so it never reaches the letter buffer. Its own tiny
+  // matcher, on the digits.
+  var digits = "";
+  var chunkTimer = 0;
+
+  function goChunky() {
+    toTop();
+    window.clearTimeout(chunkTimer);
+    effects.chunk = 4;
+    say("1024, more or less");
+    chunkTimer = window.setTimeout(function () {
+      effects.chunk = 0;
+    }, 6000);
+  }
+
+  var budgetPanel = null;
+  var budgetTimer = 0;
+
+  function toggleBudget() {
+    if (budgetPanel) {
+      window.clearInterval(budgetTimer);
+      budgetPanel.remove();
+      budgetPanel = null;
+      say("meter off");
+      return;
+    }
+    budgetPanel = document.createElement("div");
+    budgetPanel.className = "sky-budget";
+    document.body.appendChild(budgetPanel);
+    say("what the sky costs");
+
+    var tick = function () {
+      var layers = document.querySelectorAll("#sky-stage canvas").length;
+      budgetPanel.innerHTML =
+        '<p class="sky-budget-label">this scene</p>' +
+        "<dl>" +
+        "<dt>frame rate</dt><dd>" + budget.fps + " fps</dd>" +
+        "<dt>canvas layers</dt><dd>" + layers + "</dd>" +
+        "<dt>animation loops</dt><dd>1</dd>" +
+        "<dt>terrain cells lit</dt><dd>" + budget.terrainCells + "</dd>" +
+        "<dt>corona cells</dt><dd>" + budget.sunCells + "</dd>" +
+        "<dt>ridge wisps</dt><dd>" + budget.wisps + "</dd>" +
+        "</dl>";
+    };
+    tick();
+    budgetTimer = window.setInterval(tick, 500);
+  }
 
   // Longest first: "snow" ends with "now", and matching shortest-first reset the
   // clock instead of starting the weather.
@@ -212,11 +305,14 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
 
   try { nudged = window.sessionStorage.getItem("sky-nudged") === "1"; } catch (error) {}
 
+  // Twelve seconds: long enough that the hero has been read and the nudge is not
+  // talking over it, short enough that most visitors are still here. Five felt
+  // like being interrupted mid-sentence.
   window.setTimeout(function () {
     if (nudged || document.hidden) return;
     markUsed();
     say("press ? if you want to play with the sky");
-  }, 32000);
+  }, 12000);
 
   document.addEventListener("keydown", function (event) {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -256,11 +352,22 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
       }
     }
 
+    if (/^[0-9]$/.test(event.key)) {
+      digits = (digits + event.key).slice(-4);
+      if (digits === "1024") {
+        digits = "";
+        markUsed();
+        goChunky();
+      }
+      return;
+    }
+
     if (event.key.length !== 1 || !/[a-z]/i.test(event.key)) return;
 
     buffer = (buffer + event.key.toLowerCase()).slice(-LONGEST);
     for (var i = 0; i < ORDER.length; i++) {
       if (buffer.endsWith(ORDER[i])) {
+        markUsed();
         WORDS[ORDER[i]]();
         buffer = "";
         return;

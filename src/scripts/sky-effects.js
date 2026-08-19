@@ -232,6 +232,33 @@ export function drawConstellations(ctx, state, date, highlight, hovered) {
   ctx.restore();
 }
 
+// ── ridge ──────────────────────────────────────────────────────────────────
+
+// The skyline the renderer extracted from the photograph, drawn back over it.
+// Everything else on this page depends on that one array -- where the sun is
+// allowed to sit, where stars get culled, how high the copy is lifted -- and it
+// is otherwise completely invisible.
+export function drawRidge(ctx, state) {
+  var skyline = state.skyline;
+  if (!skyline) return;
+  var accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429";
+
+  ctx.save();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(1, state.dpr);
+  ctx.globalAlpha = 0.85;
+  ctx.beginPath();
+  var started = false;
+  for (var x = 0; x < state.width; x++) {
+    var y = skyline[x];
+    if (y <= 0 || y >= state.height) continue;
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 // ── moon ────────────────────────────────────────────────────────────────────
 
 // The moon used to be drawn by sky-v3, underneath the layer that paints the
