@@ -242,8 +242,11 @@ export var PULSE_MS = 620;
 export function drawBodyHalo(ctx, state, body, ink, strength, now) {
   if (!body || strength <= 0.01) return;
   var core = Math.max(1, Math.round(state.dpr));
-  var inner = body.r * 1.05;
-  var outer = body.r * (1.05 + 0.3 * strength);
+  // A tight, dense rim rather than a soft bloom. The sun already has a corona
+  // filling everything out to three radii, so a faint ring in the same accent
+  // had nothing to read against -- this cuts a bright edge instead.
+  var inner = body.r * 1.02;
+  var outer = body.r * (1.02 + 0.16 * strength);
   var step = core;
 
   ctx.save();
@@ -256,8 +259,8 @@ export function drawBodyHalo(ctx, state, body, ink, strength, now) {
       var d = Math.sqrt(dx * dx + dy * dy);
       if (d < inner || d > outer) continue;
       var band = 1 - (d - inner) / Math.max(1, outer - inner);
-      if (hashUnit(x * 0.31 + y * 0.57 + Math.floor(now / 220)) > band * 0.55) continue;
-      ctx.globalAlpha = clamp(band * 0.5 * strength, 0, 0.6);
+      if (hashUnit(x * 0.31 + y * 0.57 + Math.floor(now / 220)) > 0.35 + band * 0.55) continue;
+      ctx.globalAlpha = clamp((0.45 + band * 0.5) * strength, 0, 0.95);
       ctx.fillRect(x, y, core, core);
     }
   }

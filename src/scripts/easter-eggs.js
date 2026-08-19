@@ -171,7 +171,16 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
   }
 
   window.addEventListener("skyrunday", function () { markUsed(); runTheDay(); });
-  window.addEventListener("skyrunmonth", function () { markUsed(); runTheMonth(); });
+  window.addEventListener("skyrunmonth", function () {
+    markUsed();
+    // Watching the phase change only means anything against a dark sky; in
+    // daylight the moon is a pale disc and the month is invisible.
+    if (!isNight()) {
+      say("the month only shows in the dark. try 'night'");
+      return;
+    }
+    runTheMonth();
+  });
 
   var WORDS = {
     dawn: function () { setClock("dawn", "dawn over vadodara"); },
@@ -281,9 +290,10 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
   var ORDER = Object.keys(WORDS).sort(function (a, b) { return b.length - a.length; });
   var LONGEST = ORDER[0].length;
 
-  // The eggs are worth finding but not worth advertising. If someone has been
-  // on the page a while and touched nothing, the toast mentions the key once --
-  // in its own quiet register, in the corner, never again this session.
+  // The eggs are worth finding but not worth advertising. If someone has been on
+  // the page a while and touched nothing, the toast mentions the key once, in
+  // its own quiet corner, and never again this session. It holds for eleven
+  // seconds because it is the only message here that asks for anything.
   var nudged = false;
 
   function markUsed() {
@@ -299,7 +309,7 @@ import { isNight, effects, budget, motionMedia } from "./sky-shared.js";
   window.setTimeout(function () {
     if (nudged || document.hidden) return;
     markUsed();
-    say("press ? if you want to play with the sky", 6000);
+    say("psst — the sky does tricks. press ?", 11000);
   }, 12000);
 
   document.addEventListener("keydown", function (event) {

@@ -451,6 +451,22 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     return api && api.clock ? api.clock() : new Date();
   }
 
+  var accentCache = "";
+  var accentPhase = null;
+
+  function pageInk() {
+    return getComputedStyle(document.documentElement).getPropertyValue("--page").trim() || "#eee9df";
+  }
+
+  function accentInk() {
+    var phase = document.documentElement.dataset.sky;
+    if (phase !== accentPhase || !accentCache) {
+      accentPhase = phase;
+      accentCache = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429";
+    }
+    return accentCache;
+  }
+
   function moonInk(night) {
     // Bone against a dark sky; the page's own ink when the sky is bright, so a
     // daytime moon reads as a pale disc rather than a glowing one.
@@ -471,18 +487,24 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     if (!state) return;
     // Always at night now, quietly. "stars" lifts them rather than summoning them.
     if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
-    // Touch feedback sits above the bodies but below the weather.
+    // Touch feedback sits above the bodies but below the weather. `night` is
+    // local to draw(); reaching for it here threw on every frame that had a
+    // pulse running, which killed the rest of this function -- including
+    // publishBodies, so the moon quietly stopped being hoverable.
     var sunDisc = sunScene && sunScene.disc;
     var moonDisc = moonScene && moonScene.centre;
-    var accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429";
+    var moonTone = moonInk(state.dark);
+    var accent = accentInk();
 
-    if (effects.bodyHover === "sun") drawBodyHalo(ctx, state, sunDisc, accent, 1, now);
-    if (effects.bodyHover === "moon") drawBodyHalo(ctx, state, moonDisc, moonInk(night), 1, now);
+    // The sun's rim is drawn in the page colour so it cuts through its own
+    // corona; the moon's is bone, because it sits on empty sky.
+    if (effects.bodyHover === "sun") drawBodyHalo(ctx, state, sunDisc, pageInk(), 1, now);
+    if (effects.bodyHover === "moon") drawBodyHalo(ctx, state, moonDisc, moonTone, 1, now);
 
     if (effects.bodyPulse) {
       var disc = effects.bodyPulse.kind === "sun" ? sunDisc : moonDisc;
-      var ink = effects.bodyPulse.kind === "sun" ? accent : moonInk(night);
-      if (!drawBodyPulse(ctx, state, disc, ink, effects.bodyPulse, now)) effects.bodyPulse = null;
+      var ink = effects.bodyPulse.kind === "sun" ? accent : moonTone;
+      if (!disc || !drawBodyPulse(ctx, state, disc, ink, effects.bodyPulse, now)) effects.bodyPulse = null;
     }
 
     if (effects.snow) drawSnow(ctx, state, now);
