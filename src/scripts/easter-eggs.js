@@ -23,7 +23,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     ["eclipse", "stage one"],
     ["bug / hpack", "the failure i still think about"],
     ["still", "stop every moving thing"],
-    ["↑↑↓↓←→←→ba", "a whole day in ten seconds"],
+    ["↑↑↓↓←→←→ba", "a whole day in fifteen seconds"],
     ["?", "this list"]
   ];
 
@@ -102,8 +102,9 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
   // Walk the clock continuously rather than cutting between four hours. Stepping
   // at ~7fps: each step repaints the sky palette and rebuilds the sun, which is
   // too much to ask sixty times a second, and the sun's own travel is slow
-  // enough that this still reads as motion rather than as frames.
-  var DAY_MS = 13000;
+  // enough that this still reads as motion rather than as frames. Fifteen
+  // seconds at 140ms is about 107 steps, roughly a degree of sun per step.
+  var DAY_MS = 15000;
   var STEP_MS = 140;
 
   function runTheDay() {
@@ -114,7 +115,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     toTop();
     var arc = api.dayArc();
     var started = performance.now();
-    say("a whole day, thirteen seconds");
+    say("a whole day, fifteen seconds");
 
     dayRun = window.setInterval(function () {
       var t = (performance.now() - started) / DAY_MS;
