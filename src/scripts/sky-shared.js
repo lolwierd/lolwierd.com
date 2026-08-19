@@ -198,8 +198,13 @@ function pump(now) {
     budget.since = now;
   }
 
-  if (effects.frozen || scrolling) return;
-  for (var i = 0; i < callbacks.length; i++) callbacks[i](now);
+  if (effects.frozen) return;
+  for (var i = 0; i < callbacks.length; i++) {
+    // Painters stand down while the page is moving; anything that follows the
+    // scroll has to keep up with it, or it is the jank.
+    if (scrolling && !callbacks[i].whileScrolling) continue;
+    callbacks[i](now);
+  }
 }
 
 function resume() {
@@ -213,7 +218,8 @@ function halt() {
   raf = 0;
 }
 
-export function onFrame(callback) {
+export function onFrame(callback, whileScrolling) {
+  callback.whileScrolling = !!whileScrolling;
   callbacks.push(callback);
   resume();
 }

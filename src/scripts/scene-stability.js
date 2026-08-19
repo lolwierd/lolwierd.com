@@ -77,5 +77,5 @@ import { onFrame, motionMedia, isCoarse } from "./sky-shared.js";
     // Straight onto the element. Setting a custom property on :root made every
     // scroll frame invalidate style for the whole document.
     stage.style.transform = "translate3d(0," + shift + "px,0)";
-  });
+  }, true);
 })();
