@@ -141,6 +141,67 @@ a { -webkit-tap-highlight-color: transparent; }
   transform: translateY(0);
 }
 
+.sky-sheet {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 31;
+  width: min(24rem, calc(100vw - 2.5rem));
+  padding: 1.1rem 1.25rem 0.95rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  font-family: var(--mono);
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.sky-sheet[data-open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sky-sheet-label,
+.sky-sheet-foot {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+}
+
+.sky-sheet-foot {
+  margin-top: 0.9rem;
+  color: var(--ink-faint);
+}
+
+.sky-sheet dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem 1rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.58rem;
+  line-height: 1.5;
+}
+
+.sky-sheet dt { color: var(--ink-strong); }
+.sky-sheet dd { margin: 0; color: var(--ink-dim); }
+
+/* "bug" scrolls here; the rule brightens so you can see where you landed. */
+.remembered-bug {
+  transition: border-color 400ms ease;
+}
+
+.remembered-bug[data-flash] {
+  border-left-color: var(--accent);
+  animation: bug-flash 2.4s ease;
+}
+
+@keyframes bug-flash {
+  0%, 100% { border-left-width: 1px; }
+  12%, 60% { border-left-width: 4px; }
+}
+
 /* The scene fades up once the plate has actually painted; the hero copy is held
    until just after, so the mountain lands first and the words settle onto it. */
 #sky,
@@ -365,13 +426,15 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 /* Who and when stays put while the ten areas of work scroll past it, so the
-   reader never loses the frame the list belongs to. */
+   reader never loses the entry the list belongs to. Only the heading row: the
+   framing paragraph is read once and would otherwise hold a quarter of the
+   viewport for the rest of the section. */
 .entry-sticky {
   position: sticky;
   top: 0;
   z-index: 2;
   padding-top: clamp(1rem, 3.5vh, 2rem);
-  padding-bottom: 1.4rem;
+  padding-bottom: 1rem;
   background: var(--page);
 }
 

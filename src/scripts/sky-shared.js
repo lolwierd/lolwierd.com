@@ -106,6 +106,16 @@ export function flickerOffset(seed, now, amplitude) {
   return (n1 + (n2 - n1) * (f * f * (3 - 2 * f)) - 0.5) * amplitude;
 }
 
+// Optional scene effects, toggled by the typed commands in easter-eggs.js and
+// read by the layers that draw them. Kept here rather than on window so the
+// layers import it like anything else.
+export var effects = {
+  snow: false,
+  stars: false,
+  eclipseStart: 0,
+  frozen: false
+};
+
 // One animation loop for every layer. Each layer keeps its own frame budget and
 // its own guards; this just stops four independent rAF chains from running the
 // same scheduling logic four times over.
@@ -114,6 +124,7 @@ var raf = 0;
 
 function pump(now) {
   raf = window.requestAnimationFrame(pump);
+  if (effects.frozen) return;
   for (var i = 0; i < callbacks.length; i++) callbacks[i](now);
 }
 

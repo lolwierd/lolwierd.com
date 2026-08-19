@@ -9,8 +9,10 @@ import {
   onSkyPhase,
   onFrame,
   flickerOffset,
+  effects,
   motionMedia
 } from "./sky-shared.js";
+import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
 
 (function () {
   "use strict";
@@ -379,6 +381,7 @@ import {
     sunScene = {
       solid: solid,
       marginal: marginal,
+      disc: { x: sunX, y: sunY, radius: radius },
       core: core,
       accent: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429"
     };
@@ -421,11 +424,17 @@ import {
     ctx.drawImage(base, 0, 0);
     renderRidge(now);
     renderSun(now);
+
+    var state = baseState();
+    if (!state) return;
+    if (effects.stars && state.dark) drawConstellations(ctx, state, new Date());
+    if (effects.eclipseStart && sunScene) drawEclipse(ctx, state, sunScene.disc, now);
+    if (effects.snow) drawSnow(ctx, state, now);
   }
 
   // 24fps is plenty for a shimmer this slow. The loop itself is shared.
   function sunFrame(now) {
-    if (sunPaused || (!sunScene && !ridgeScene)) return;
+    if (sunPaused) return;
     if (now - lastSunFrame < 1000 / 24) return;
     lastSunFrame = now;
     renderScene(now);

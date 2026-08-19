@@ -314,10 +314,10 @@ import {
     }
 
     var mobile = state.cssWidth < 768;
-    // At the old 50-70 px/s a "comet" took ~16 seconds to cross the sky, which the
-    // eye reads as a faint static hairline rather than as motion. These speeds put
-    // a full crossing at roughly 3-4 seconds: still unhurried, but unmistakably moving.
-    var speed = randomBetween(mobile ? 170 : 240, mobile ? 230 : 330) * state.dpr;
+    // 50-70 px/s was a crawl the eye read as a static hairline; 240-330 darted
+    // past before you could look up. This lands a crossing at roughly 7-9
+    // seconds: slow enough to follow, fast enough to register as motion.
+    var speed = randomBetween(mobile ? 75 : 105, mobile ? 105 : 145) * state.dpr;
 
     comet.active = true;
     comet.start = now;

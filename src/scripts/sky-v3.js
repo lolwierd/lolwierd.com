@@ -546,6 +546,24 @@ import {
     return clockOverride == null ? new Date() : new Date(clockOverride);
   }
 
+  // Solar nadir is not when you can see the moon -- tonight the moon is 26
+  // degrees below the horizon at that hour. Find the moment in the next day
+  // when the moon is highest while the sky is genuinely dark.
+  function bestMoonMoment(from) {
+    var best = null;
+    var bestAlt = -90;
+    for (var minutes = 0; minutes < 1440; minutes += 10) {
+      var when = new Date(from.getTime() + minutes * 60000);
+      if (SunCalc.getPosition(when, VADODARA.latitude, VADODARA.longitude).altitude > -6) continue;
+      var moon = SunCalc.getMoonPosition(when, VADODARA.latitude, VADODARA.longitude);
+      if (moon.altitude > bestAlt) {
+        bestAlt = moon.altitude;
+        best = when;
+      }
+    }
+    return bestAlt > 3 ? best : null;
+  }
+
   function updateSky() {
     updateCelestial(skyNow());
     makeMoon();
@@ -921,6 +939,11 @@ import {
     },
     // Move the sky to a moment: "dawn", "dusk", "night", "noon", or null to go
     // back to the real hour over Vadodara.
+    // Reports whether the moon is actually up at the override, so callers can
+    // say so rather than silently showing an empty sky.
+    moonUp: function () {
+      return !!(celestial && celestial.moon && celestial.moon.visible);
+    },
     setClock: function (moment) {
       var base = new Date();
       var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
@@ -930,6 +953,7 @@ import {
       else if (moment === "dusk") target = times.sunset;
       else if (moment === "night") target = times.nadir;
       else if (moment === "noon") target = times.solarNoon;
+      else if (moment === "moon") target = bestMoonMoment(base);
       else if (moment instanceof Date) target = moment;
 
       clockOverride = target ? target.getTime() : null;
