@@ -296,36 +296,15 @@ a { -webkit-tap-highlight-color: transparent; }
   margin-top: max(0px, calc(var(--hero-copy-top) - var(--hero-copy-lift, 0px)));
 }
 
-/* Belongs in the masthead's microtype band, not stacked on the headline: mono
-   set directly above the serif read as a caption glued to it. Here it sits on
-   the same baseline as the name, in the same register. */
-.topbar-lead {
-  display: flex;
-  align-items: baseline;
-  gap: clamp(1rem, 3vw, 2.4rem);
-  min-width: 0;
-}
-
-.hero-status {
-  display: flex;
-  align-items: center;
-  gap: 0.42rem;
-  margin: 0;
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.015em;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.hero-status::before {
-  width: 0.3rem;
-  height: 0.3rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  content: "";
-  flex: none;
+/* One line, one rhythm. The availability used to be a second mono phrase in the
+   masthead with its own bullet and its own separators -- longer than the name it
+   sat beside, and a filled status dot is dashboard vocabulary this page does not
+   otherwise speak. It is now a third clause on the name's own separator, marked
+   by colour instead. The specifics live in the footer. */
+/* Scoped through .site-name, which also colours its spans and would otherwise
+   win on specificity regardless of order. */
+.site-name .site-open {
+  color: var(--accent);
 }
 
 .hero-copy h1 {
@@ -737,10 +716,6 @@ a { -webkit-tap-highlight-color: transparent; }
   }
 }
 
-@media (max-width: 900px) {
-  .hero-status { display: none; }
-}
-
 @media (max-width: 860px) {
   .section-label,
   .entry-sticky {
@@ -763,7 +738,7 @@ a { -webkit-tap-highlight-color: transparent; }
     white-space: nowrap;
   }
 
-  .site-name span { display: none; }
+  .site-role { display: none; }
 
   .hero-nav {
     gap: 0.85rem;
