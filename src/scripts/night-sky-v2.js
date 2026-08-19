@@ -142,6 +142,14 @@ import {
   function maskSpentStars(now) {
     if (!state.dark) return;
 
+    // This paints the page's night colour over stars a comet has consumed. It is
+    // invisible against a genuinely dark sky and obvious against a lit one: with
+    // twilight still painted overhead it showed up as black boxes where the
+    // stars had been. If the sky is not dark yet, the stars are not visible to
+    // need hiding.
+    var veil = typeof state.veil === "number" ? state.veil : 0;
+    if (veil > 0.04) return;
+
     var dpr = state.dpr;
     ctx.fillStyle = "#0b0e13";
 

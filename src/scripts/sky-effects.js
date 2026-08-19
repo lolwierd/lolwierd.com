@@ -16,7 +16,7 @@ export function drawSnow(ctx, state, now) {
   if (!flakes || flakeKey !== key) {
     flakeKey = key;
     flakes = [];
-    var count = state.portrait ? 90 : 170;
+    var count = state.portrait ? 190 : 380;
     for (var i = 0; i < count; i++) {
       flakes.push({
         x: hashUnit(i * 3.7) * state.width,
@@ -35,12 +35,12 @@ export function drawSnow(ctx, state, now) {
 
   for (var f = 0; f < flakes.length; f++) {
     var flake = flakes[f];
-    var fall = (flake.y + now * 0.018 * flake.depth * state.dpr) % state.height;
+    var fall = (flake.y + now * 0.034 * flake.depth * state.dpr) % state.height;
     var x = Math.round(flake.x + Math.sin(now / flake.period + flake.phase) * flake.sway);
     var y = Math.round(fall);
     if (x < 0 || x >= state.width) continue;
 
-    ctx.globalAlpha = 0.10 + flake.depth * 0.30;
+    ctx.globalAlpha = 0.12 + flake.depth * 0.34;
     var size = flake.depth > 0.8 ? core * 2 : core;
     ctx.fillRect(x, y, size, size);
   }

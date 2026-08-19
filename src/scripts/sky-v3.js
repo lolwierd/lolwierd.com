@@ -9,6 +9,7 @@ import {
   isNight,
   onSkyPhase,
   setSkyPhase,
+  markThemeShift,
   listenMedia,
   onFrame,
   flickerOffset,
@@ -462,9 +463,11 @@ import {
     // daylight inks or its text is light-on-light.
     // Three bands, because the sky passes through every luminance on the way
     // down and the page's two ink sets only cover the ends of that range.
-    if (value > 0.55) root.setAttribute("data-sky-veil", "lit");
-    else if (value > 0.04) root.setAttribute("data-sky-veil", "dim");
+    var band = value > 0.55 ? "lit" : value > 0.04 ? "dim" : "";
+    if (root.getAttribute("data-sky-veil") === (band || null)) return;
+    if (band) root.setAttribute("data-sky-veil", band);
     else root.removeAttribute("data-sky-veil");
+    markThemeShift();
   }
 
   function skyNow() {
@@ -474,12 +477,19 @@ import {
   // Solar nadir is not when you can see the moon -- tonight the moon is 26
   // degrees below the horizon at that hour. Find the moment in the next day
   // when the moon is highest while the sky is genuinely dark.
+  // Ask for proper astronomical night first. At -6 the sky is still bright civil
+  // twilight and the moon egg was landing there and calling it night. Loosen only
+  // if the moon is genuinely never up once it is dark.
   function bestMoonMoment(from) {
+    return searchMoon(from, -18) || searchMoon(from, -12) || searchMoon(from, -6);
+  }
+
+  function searchMoon(from, sunBelow) {
     var best = null;
     var bestAlt = -90;
     for (var minutes = 0; minutes < 1440; minutes += 10) {
       var when = new Date(from.getTime() + minutes * 60000);
-      if (SunCalc.getPosition(when, VADODARA.latitude, VADODARA.longitude).altitude > -6) continue;
+      if (SunCalc.getPosition(when, VADODARA.latitude, VADODARA.longitude).altitude > sunBelow) continue;
       var moon = SunCalc.getMoonPosition(when, VADODARA.latitude, VADODARA.longitude);
       if (moon.altitude > bestAlt) {
         bestAlt = moon.altitude;

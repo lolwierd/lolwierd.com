@@ -81,7 +81,27 @@ export function setSkyPhase(phase) {
   var themeColor = document.querySelector('meta[name="theme-color"]');
   if (themeColor) themeColor.setAttribute("content", phase === "night" ? "#0b0e13" : "#eee9df");
 
-  if (changed) window.dispatchEvent(new Event("skyphasechange"));
+  if (changed) {
+    markThemeShift();
+    window.dispatchEvent(new Event("skyphasechange"));
+  }
+}
+
+// Interpolating the page from cream to black is not an option: at the midpoint
+// the background sits at mid grey, where the best contrast any ink can manage
+// is about 1.5:1. There is no readable colour there, so the page keeps its two
+// designed ends and cross-fades between them instead. The steady states stay
+// legible; only the half-second of change passes through the bad zone, and
+// nobody is reading during it.
+var shiftTimer = 0;
+
+export function markThemeShift() {
+  var root = document.documentElement;
+  root.setAttribute("data-theme-shift", "");
+  window.clearTimeout(shiftTimer);
+  shiftTimer = window.setTimeout(function () {
+    root.removeAttribute("data-theme-shift");
+  }, 900);
 }
 
 export function listenMedia(media, handler) {
