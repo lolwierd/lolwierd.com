@@ -59,12 +59,20 @@ import { onFrame, motionMedia } from "./sky-shared.js";
     scrolled = window.scrollY || window.pageYOffset || 0;
   }, { passive: true });
 
+  var stage = null;
+
   onFrame(function () {
     if (motionMedia.matches) return;
+    if (!stage) {
+      stage = document.getElementById("sky-stage");
+      if (!stage) return;
+    }
     var limit = (last ? last.height : window.innerHeight) * 0.42;
     var shift = Math.round(Math.min(scrolled * DRIFT, limit));
     if (shift === applied) return;
     applied = shift;
-    root.style.setProperty("--scene-shift", shift + "px");
+    // Straight onto the element. Setting a custom property on :root made every
+    // scroll frame invalidate style for the whole document.
+    stage.style.transform = "translate3d(0," + shift + "px,0)";
   });
 })();

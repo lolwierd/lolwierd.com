@@ -101,7 +101,7 @@ import {
       pointerEvents: "none",
       display: "block"
     });
-    document.body.appendChild(canvas);
+    (document.getElementById("sky-stage") || document.body).appendChild(canvas);
     ctx = canvas.getContext("2d", { alpha: true });
   }
 

@@ -1,3 +1,18 @@
+/* One stage for every sky canvas. The parallax used to transform each canvas
+   separately, which promoted four full-viewport layers -- about 20MB of GPU
+   texture each at 2x -- and Safari stuttered under the weight. The stage is the
+   only promoted layer now; the canvases inside it are plain. */
+#sky-stage {
+  position: absolute !important;
+  inset: 0 auto auto 0 !important;
+  width: 100% !important;
+  height: var(--hero-scene-height, 100svh) !important;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+#sky-stage canvas,
 #sky,
 #sky-life {
   position: absolute !important;

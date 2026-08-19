@@ -94,7 +94,11 @@ const ogImage = new URL("/og.jpg", SITE).href;
     )}
   </head>
   <body>
-    {ambient && <canvas id="sky" aria-hidden="true"></canvas>}
+    {ambient && (
+      <div id="sky-stage" aria-hidden="true">
+        <canvas id="sky"></canvas>
+      </div>
+    )}
     <slot />
     {ambient && (
       <script>

@@ -65,6 +65,14 @@ import {
   var state = null;
   var terrainImage = null;
 
+  // The terrain is baked into an offscreen canvas once per layout and blitted
+  // each frame. It used to be re-uploaded with putImageData on every frame --
+  // 20MB at 2x, twenty-four times a second -- which is the single most expensive
+  // thing the page did, and which Safari handles far worse than Chrome.
+  var terrainCanvas = null;
+  var terrainInk = "#000000";
+  var terrainFlickerAlpha = 1;
+
   // Mid-tone terrain cells, the only ones whose dither decision can realistically
   // flip. Re-deciding these against a noise-nudged threshold each frame is what
   // makes the whole mountain breathe rather than just the sun.
@@ -311,29 +319,55 @@ import {
     var kept = Math.floor(pairs / step);
     terrainFlicker = kept ? {
       index: new Int32Array(kept),
-      alpha: new Uint8Array(kept),
       tone: new Float32Array(kept)
     } : null;
 
+    var alphaSum = 0;
     for (var k = 0, c = 0; k < kept; k++, c += step) {
       var src = c * 2;
-      terrainFlicker.index[k] = candidates[src];
-      terrainFlicker.alpha[k] = candidates[src + 1];
-      terrainFlicker.tone[k] = paper[candidates[src]];
+      var cell = candidates[src];
+      terrainFlicker.index[k] = cell;
+      terrainFlicker.tone[k] = paper[cell];
+      alphaSum += candidates[src + 1];
+      // Baked with the flicker cells off, so each frame only has to add the ones
+      // currently lit rather than rewrite the whole bitmap.
+      output[cell * 4 + 3] = 0;
     }
+
+    // One alpha for the whole flickering set. They span 0.78 to 1.0 of the
+    // terrain alpha, and a single value lets every cell go down in one fill
+    // instead of thousands of state changes.
+    terrainFlickerAlpha = kept ? (alphaSum / kept) / 255 : 1;
+    terrainInk = activeTheme.ink;
+
+    if (!terrainCanvas) terrainCanvas = document.createElement("canvas");
+    terrainCanvas.width = width;
+    terrainCanvas.height = height;
+    terrainCanvas.getContext("2d").putImageData(terrainImage, 0, 0);
   }
 
+  // Every lit cell goes into one Path2D and down in a single fill, so the cost
+  // is one draw call rather than one per cell.
   function flickerTerrain(now) {
-    if (!terrainFlicker || reducedMotion || !terrainImage) return;
-    var output = terrainImage.data;
+    if (!terrainFlicker) return;
     var idx = terrainFlicker.index;
-    var base = terrainFlicker.alpha;
     var tone = terrainFlicker.tone;
+    var path = new Path2D();
+    var drew = false;
 
     for (var i = 0; i < idx.length; i++) {
-      var lit = tone[i] < 0.5 + flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP);
-      output[idx[i] * 4 + 3] = lit ? base[i] : 0;
+      if (!reducedMotion && tone[i] >= 0.5 + flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP)) continue;
+      var cell = idx[i];
+      var y = (cell / width) | 0;
+      path.rect(cell - y * width, y, 1, 1);
+      drew = true;
     }
+
+    if (!drew) return;
+    ctx.globalAlpha = terrainFlickerAlpha;
+    ctx.fillStyle = terrainInk;
+    ctx.fill(path);
+    ctx.globalAlpha = 1;
   }
 
 
@@ -712,11 +746,11 @@ import {
   }
 
   function drawFrame(now) {
-    if (!state || !terrainImage) return;
+    if (!state || !terrainCanvas) return;
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    if (terrainCanvas) ctx.drawImage(terrainCanvas, 0, 0);
     flickerTerrain(now);
-    ctx.putImageData(terrainImage, 0, 0);
     drawEdge(now);
     drawStars(now);
     drawSatellite(now);
