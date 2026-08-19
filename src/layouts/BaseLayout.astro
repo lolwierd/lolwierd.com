@@ -34,7 +34,6 @@ const ogImage = new URL("/og.jpg", SITE).href;
     <link rel="canonical" href={canonical} />
     <title>{title}</title>
     <script is:inline>
-      {`
       // Day or night is decided by the sun over Vadodara, not by the visitor's OS
       // theme -- the whole scene is a real view of one place at the current hour.
       // This has to run before first paint, so it carries its own compact solar
@@ -70,19 +69,17 @@ const ogImage = new URL("/og.jpg", SITE).href;
       window.__isNight = function () {
         return document.documentElement.dataset.sky === "night";
       };
-      `}
     </script>
     {ambient && (
       <script is:inline>
-        {`
         // Hold the hero entrance until hero-clearance.js has placed the copy clear
         // of the ridge, so that correction never reads as a layout shift. Releases
         // itself if the measurement never arrives, and is inert without JS.
         document.documentElement.setAttribute("data-hero-hold", "");
+        document.documentElement.setAttribute("data-ambient", "");
         setTimeout(function () {
           document.documentElement.removeAttribute("data-hero-hold");
         }, 1200);
-        `}
       </script>
     )}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />

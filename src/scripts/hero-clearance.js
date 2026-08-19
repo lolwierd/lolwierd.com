@@ -119,8 +119,24 @@ import { baseState } from "./sky-shared.js";
     document.documentElement.removeAttribute("data-hero-hold");
   }
 
-  // Never leave the hero invisible because a measurement stalled.
-  window.setTimeout(release, 900);
+  // Let the scene start fading up before the words settle onto it, so the order
+  // reads mountain-then-text. Capped hard: the copy must never wait on a 1.8MB
+  // plate over a slow connection, so it appears at 1s regardless.
+  function releaseAfterScene() {
+    if (document.documentElement.hasAttribute("data-scene-ready")) {
+      window.setTimeout(release, 260);
+      return true;
+    }
+    return false;
+  }
+
+  if (!releaseAfterScene()) {
+    var sceneWatch = window.setInterval(function () {
+      if (releaseAfterScene()) window.clearInterval(sceneWatch);
+    }, 60);
+  }
+
+  window.setTimeout(release, 1000);
 
   function schedule() {
     if (scheduled) return;

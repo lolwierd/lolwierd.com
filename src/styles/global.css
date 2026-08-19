@@ -117,6 +117,34 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .skip-link:focus { top: 1rem; }
 
+/* The scene fades up once the plate has actually painted; the hero copy is held
+   until just after, so the mountain lands first and the words settle onto it. */
+#sky,
+#sky-life,
+#twilight-sky,
+#night-sky-tune {
+  opacity: 1;
+  transform: translate3d(0, var(--scene-shift, 0px), 0);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ambient] #sky,
+  :root[data-ambient] #sky-life,
+  :root[data-ambient] #twilight-sky,
+  :root[data-ambient] #night-sky-tune {
+    opacity: 0;
+    transition: opacity 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :root[data-scene-ready] #sky,
+  :root[data-scene-ready] #sky-life,
+  :root[data-scene-ready] #twilight-sky,
+  :root[data-scene-ready] #night-sky-tune {
+    opacity: 1;
+  }
+}
+
 #sky {
   position: fixed;
   inset: 0;
@@ -391,15 +419,18 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.72;
 }
 
+/* Evidence for the "protocol-level failures" claim above it, not a pull quote
+   on the wall. Styled as a worked example inside the entry: quieter than a
+   testimonial, still given its own air. */
 .remembered-bug {
-  max-width: 43rem;
-  margin: clamp(3.2rem, 6vw, 5.6rem) 0 0;
-  padding-left: clamp(1.1rem, 3vw, 2.2rem);
-  border-left: 2px solid var(--accent);
+  max-width: 41rem;
+  margin: clamp(2.6rem, 5vw, 4.2rem) 0 0;
+  padding-left: clamp(1rem, 2.6vw, 1.8rem);
+  border-left: 1px solid var(--accent);
 }
 
 .aside-label {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.7rem;
   color: var(--accent);
   font-size: 0.6rem;
   letter-spacing: 0.05em;
@@ -407,9 +438,37 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .remembered-bug > p:last-child {
   margin: 0;
-  color: var(--ink-strong);
-  font: 400 clamp(1.18rem, 1.7vw, 1.42rem) / 1.5 var(--serif);
-  letter-spacing: -0.018em;
+  color: var(--ink);
+  font: 400 1.06rem/1.62 var(--serif);
+  letter-spacing: -0.012em;
+}
+
+/* Scannable stack list. Everything here is already named in the notes above, but
+   a recruiter skimming for a keyword should not have to read prose to find it. */
+.stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.85rem;
+  max-width: 46rem;
+  margin: clamp(2.6rem, 5vw, 4rem) 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  line-height: 1.6;
+}
+
+.stack span::after {
+  content: "·";
+  padding-left: 0.85rem;
+  color: var(--rule);
+}
+
+.stack span:last-child::after { content: ""; padding: 0; }
+
+.footer-note {
+  margin-top: 0.35rem !important;
 }
 
 .measurements {
@@ -509,9 +568,9 @@ a { -webkit-tap-highlight-color: transparent; }
     animation: settle 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .hero-nav { animation-delay: 80ms; }
-  .hero-copy { animation-delay: 120ms; }
-  .hero-action { animation-delay: 190ms; }
+  .hero-nav { animation-delay: 90ms; }
+  .hero-copy { animation-delay: 150ms; }
+  .hero-action { animation-delay: 260ms; }
 }
 
 /* Paired with the inline hold script: the hero stays down until hero-clearance.js
@@ -542,39 +601,7 @@ a { -webkit-tap-highlight-color: transparent; }
     width: min(100%, 35rem);
   }
 
-  /* Belongs in the masthead's microtype band, not stacked on the headline: mono
-   set directly above the serif read as a caption glued to it. Here it sits on
-   the same baseline as the name, in the same register. */
-.topbar-lead {
-  display: flex;
-  align-items: baseline;
-  gap: clamp(1rem, 3vw, 2.4rem);
-  min-width: 0;
-}
-
-.hero-status {
-  display: flex;
-  align-items: center;
-  gap: 0.42rem;
-  margin: 0;
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.015em;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.hero-status::before {
-  width: 0.3rem;
-  height: 0.3rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  content: "";
-  flex: none;
-}
-
-.hero-copy h1 {
+  .hero-copy h1 {
     font-size: clamp(2.7rem, 3.55vw, 3.55rem);
   }
 }
@@ -609,39 +636,7 @@ a { -webkit-tap-highlight-color: transparent; }
     margin-top: clamp(4.5rem, 13vh, 7rem);
   }
 
-  /* Belongs in the masthead's microtype band, not stacked on the headline: mono
-   set directly above the serif read as a caption glued to it. Here it sits on
-   the same baseline as the name, in the same register. */
-.topbar-lead {
-  display: flex;
-  align-items: baseline;
-  gap: clamp(1rem, 3vw, 2.4rem);
-  min-width: 0;
-}
-
-.hero-status {
-  display: flex;
-  align-items: center;
-  gap: 0.42rem;
-  margin: 0;
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.015em;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-.hero-status::before {
-  width: 0.3rem;
-  height: 0.3rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 78%, transparent);
-  content: "";
-  flex: none;
-}
-
-.hero-copy h1 {
+  .hero-copy h1 {
     max-width: 12ch;
     font-size: clamp(2.45rem, 11vw, 3.25rem);
     line-height: 0.98;

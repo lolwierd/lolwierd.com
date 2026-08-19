@@ -299,6 +299,25 @@ import {
     return (n1 + (n2 - n1) * (f * f * (3 - 2 * f)) - 0.5) * FLICKER_AMP;
   }
 
+  function clearOfCopy(state, x, y, radius) {
+    if (!state.portrait) return y;
+    var copy = document.querySelector(".hero-copy");
+    if (!copy) return y;
+
+    var rect = copy.getBoundingClientRect();
+    var dpr = state.dpr;
+    var pad = 16 * dpr;
+    var left = rect.left * dpr - pad;
+    var right = rect.right * dpr + pad;
+    var top = rect.top * dpr - pad;
+    var bottom = rect.bottom * dpr + pad;
+    if (x + radius <= left || x - radius >= right) return y;
+    if (y + radius <= top || y - radius >= bottom) return y;
+
+    var lifted = Math.round(rect.top * dpr - radius - 18 * dpr);
+    return lifted > 46 * dpr ? lifted : y;
+  }
+
   function buildSun(state, altitude, valleyX) {
     sunScene = null;
     if (altitude <= -0.83) return;
@@ -317,6 +336,11 @@ import {
     var sunX = Math.round(lerp(state.celestial.sun.x, valleyX, lowBlend * 0.55));
     var ridgeY = state.skyline[clamp(sunX, 0, state.width - 1)];
     var sunY = Math.round(lerp(state.celestial.sun.y, ridgeY - radius * 0.55, lowBlend));
+
+    // In portrait the copy fills most of the sky, and a sun placed purely by
+    // altitude lands on top of the headline. sky-v3 used to do this for its own
+    // disc; the sun lives here now, so the clearance does too.
+    sunY = clearOfCopy(state, sunX, sunY, coronaR * 0.72);
 
     var solid = [];
     var marginal = [];

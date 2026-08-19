@@ -812,6 +812,11 @@ import {
     comet.next = state.dark ? now + 4500 + hash2(width, height, 901) * 3000 : Infinity;
     satellite.next = state.dark ? now + 9000 + hash2(width, height, 903) * 5000 : Infinity;
     drawFrame(reducedMotion ? FIXED_TIME : now);
+
+    // First real frame is on the canvas: let the scene fade up. The hero copy
+    // waits on this so the mountain arrives before the words, rather than the
+    // text sitting on an empty page while a 1.8MB plate decodes.
+    document.documentElement.setAttribute("data-scene-ready", "");
   }
 
   function tick(now) {
@@ -875,6 +880,10 @@ import {
         cssHeight: state.cssHeight,
         dpr: state.dpr,
         dark: state.dark,
+        // Layers above size themselves off this. It was missing from the public
+        // state, so twilight-sky read `undefined` and used landscape values on
+        // every phone.
+        portrait: state.portrait,
         skyline: state.skyline,
         luminance: state.luminance,
         ridgeTop: state.ridgeTop,
