@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
   var reduced = motionMedia.matches;
   var visible = !document.hidden;
@@ -330,7 +329,10 @@
     }
 
     var mobile = state.cssWidth < 768;
-    var speed = randomBetween(mobile ? 32 : 50, mobile ? 44 : 70) * state.dpr;
+    // At the old 50-70 px/s a "comet" took ~16 seconds to cross the sky, which the
+    // eye reads as a faint static hairline rather than as motion. These speeds put
+    // a full crossing at roughly 3-4 seconds: still unhurried, but unmistakably moving.
+    var speed = randomBetween(mobile ? 170 : 240, mobile ? 230 : 330) * state.dpr;
 
     comet.active = true;
     comet.start = now;
@@ -557,7 +559,7 @@
     if (!reduced && visible) raf = window.requestAnimationFrame(tick);
   }
 
-  listen(themeMedia, build);
+  window.addEventListener("skyphasechange", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
     build();

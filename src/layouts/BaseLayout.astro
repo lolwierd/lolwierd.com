@@ -7,6 +7,10 @@ const {
   description = "Ayaan Retiwala builds cloud infrastructure: compute, storage, Kubernetes, networking, identity, and the systems around them.",
   ambient = false
 } = Astro.props;
+
+const SITE = "https://lolwierd.com";
+const canonical = new URL(Astro.url.pathname, SITE).href;
+const ogImage = new URL("/og.jpg", SITE).href;
 ---
 <!doctype html>
 <html lang="en">
@@ -20,8 +24,72 @@ const {
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Ayaan Retiwala — i build systems from the machine up." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="canonical" href={canonical} />
     <title>{title}</title>
+    <script is:inline>
+      {`
+      // Day or night is decided by the sun over Vadodara, not by the visitor's OS
+      // theme -- the whole scene is a real view of one place at the current hour.
+      // This has to run before first paint, so it carries its own compact solar
+      // position calc rather than waiting for the suncalc bundle. It agrees with
+      // suncalc to within half a degree; sky-v3 overwrites it with the exact value
+      // once loaded, and again every minute.
+      (function () {
+        var LAT = 22.3072;
+        var LON = 73.1812;
+        try {
+          var rad = Math.PI / 180;
+          var d = Date.now() / 86400000 - 10957.5;
+          var g = (357.529 + 0.98560028 * d) * rad;
+          var q = 280.459 + 0.98564736 * d;
+          var L = (q + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad;
+          var e = (23.439 - 0.00000036 * d) * rad;
+          var dec = Math.asin(Math.sin(e) * Math.sin(L));
+          var ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L));
+          var lst = (((18.697374558 + 24.06570982441908 * d) % 24) * 15 + LON) * rad;
+          var la = LAT * rad;
+          var alt = Math.asin(
+            Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(lst - ra)
+          ) / rad;
+          document.documentElement.dataset.sky = alt > -6 ? "day" : "night";
+        } catch (error) {
+          // Leave the attribute off: the stylesheet then falls back to the OS theme.
+        }
+      })();
+
+      window.__isNight = function () {
+        return document.documentElement.dataset.sky === "night";
+      };
+      `}
+    </script>
+    {ambient && (
+      <script is:inline>
+        {`
+        // Hold the hero entrance until hero-clearance.js has placed the copy clear
+        // of the ridge, so that correction never reads as a layout shift. Releases
+        // itself if the measurement never arrives, and is inert without JS.
+        document.documentElement.setAttribute("data-hero-hold", "");
+        setTimeout(function () {
+          document.documentElement.removeAttribute("data-hero-hold");
+        }, 1200);
+        `}
+      </script>
+    )}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {ambient && (
+      <link
+        rel="preload"
+        as="image"
+        href="/assets/annapurna-circuit.jpg"
+        fetchpriority="high"
+      />
+    )}
   </head>
   <body>
     {ambient && <canvas id="sky" aria-hidden="true"></canvas>}
@@ -34,6 +102,7 @@ const {
         import "../scripts/twilight-sky.js";
         import "../scripts/night-sky-v2.js";
         import "../scripts/comet-cadence.js";
+        import "../scripts/hero-clearance.js";
       </script>
     )}
   </body>

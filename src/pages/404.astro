@@ -1,0 +1,50 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Not found · Ayaan Retiwala"
+  description="That page does not exist on lolwierd.com."
+>
+  <main class="notfound">
+    <p class="label">404</p>
+    <h1>this page failed to provision.</h1>
+    <p class="note">
+      nothing is here, and nothing is going to reconcile it.
+      <a href="/">go back to the start</a>.
+    </p>
+  </main>
+
+  <style>
+    .notfound {
+      width: min(100%, 44rem);
+      min-height: 100svh;
+      margin: 0 auto;
+      padding: clamp(2rem, 6vw, 5rem) 1.25rem 4rem;
+    }
+
+    .label {
+      margin: clamp(6rem, 18vh, 10rem) 0 1.5rem;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.64rem;
+      letter-spacing: 0.06em;
+    }
+
+    h1 {
+      max-width: 14ch;
+      margin: 0;
+      color: var(--ink-strong);
+      font: 400 clamp(2.1rem, 4vw, 3.1rem) / 1.02 var(--serif);
+      letter-spacing: -0.04em;
+    }
+
+    .note {
+      max-width: 32rem;
+      margin: 1.6rem 0 0;
+      color: var(--ink-dim);
+      font-size: 0.96rem;
+      line-height: 1.7;
+    }
+  </style>
+</BaseLayout>

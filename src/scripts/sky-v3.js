@@ -10,9 +10,23 @@ import * as SunCalc from "suncalc";
   var plate = new Image();
   var buffer = document.createElement("canvas");
   var bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
-  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+  // Day/night follows the sun over Vadodara (see BaseLayout's inline script), not
+  // the visitor's OS theme. `skyphasechange` fires when that flips.
+  function isNight() {
+    return document.documentElement.dataset.sky === "night";
+  }
+
+  function onSkyPhase(handler) {
+    window.addEventListener("skyphasechange", handler);
+  }
+
+  // Full-resolution colour JPEG on purpose. The plate is dithered to 1-bit, so it
+  // looks like it should compress hard -- it does not. Measured alternatives:
+  // 2000px AVIF (306KB) rendered the terrain almost black, exact Rec.709 greyscale
+  // at 3000px only reached 1.34MB and softened the dither. The photograph is the
+  // site, so it ships whole and is preloaded instead.
   var SOURCE = "/assets/annapurna-circuit.jpg";
   var SKYLINE_SOURCE = "/assets/annapurna-skyline.json?v=20260817c";
   var MAX_DPR = 2;
@@ -167,7 +181,7 @@ import * as SunCalc from "suncalc";
   }
 
   function theme() {
-    return themeMedia.matches ? THEMES.dark : THEMES.light;
+    return isNight() ? THEMES.dark : THEMES.light;
   }
 
   function listenMedia(media, callback) {
@@ -411,7 +425,13 @@ import * as SunCalc from "suncalc";
     };
 
     lastCelestialUpdate = Date.now();
-    document.documentElement.dataset.vadodaraSky = celestial.sun.altitude > -6 ? "day" : "night";
+
+    // Authoritative phase, from real ephemeris rather than the inline estimate.
+    var phase = celestial.sun.altitude > -6 ? "day" : "night";
+    if (document.documentElement.dataset.sky !== phase) {
+      document.documentElement.dataset.sky = phase;
+      window.dispatchEvent(new Event("skyphasechange"));
+    }
     document.documentElement.dataset.moonPhase = celestial.moon.phase.toFixed(3);
   }
 
@@ -524,6 +544,8 @@ import * as SunCalc from "suncalc";
     if (celestial.sun.visible) {
       var sunX = celestial.sun.x;
       var sunY = celestial.sun.y;
+      // Fallback disc only: twilight-sky.js paints an opaque sky over this canvas
+      // and draws the sun the visitor actually sees. This stays modest and cheap.
       var sunR = Math.round((state.portrait ? 34 : 48) * dpr);
       var coronaR = sunR * 1.48;
       keepPortraitBodyClear(celestial.sun, sunR);
@@ -900,7 +922,7 @@ import * as SunCalc from "suncalc";
       cssWidth: cssW,
       cssHeight: cssH,
       dpr: dpr,
-      dark: themeMedia.matches,
+      dark: isNight(),
       portrait: portrait,
       skyline: skyline,
       luminance: luminance,
@@ -949,7 +971,7 @@ import * as SunCalc from "suncalc";
     resizeTimer = window.setTimeout(build, 180);
   }
 
-  listenMedia(themeMedia, function () {
+  onSkyPhase(function () {
     window.setTimeout(build, 0);
   });
 
@@ -1001,7 +1023,9 @@ import * as SunCalc from "suncalc";
           sun: {
             altitude: celestial.sun.altitude,
             azimuth: celestial.sun.azimuth,
-            visible: celestial.sun.visible
+            visible: celestial.sun.visible,
+            x: celestial.sun.x,
+            y: celestial.sun.y
           },
           moon: {
             altitude: celestial.moon.altitude,
@@ -1020,6 +1044,7 @@ import * as SunCalc from "suncalc";
   Promise.all([
     new Promise(function (resolve, reject) {
       plate.decoding = "async";
+      plate.fetchPriority = "high";
       plate.onload = resolve;
       plate.onerror = reject;
       plate.src = SOURCE;

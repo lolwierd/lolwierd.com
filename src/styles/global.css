@@ -4,8 +4,8 @@
   --page-deep: #e7e0d4;
   --ink: #2b2d31;
   --ink-strong: #181a1e;
-  --ink-dim: #686762;
-  --ink-faint: #929087;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
   --rule: rgba(35, 35, 34, 0.16);
   --accent: #9d4429;
   --canvas-ink: #293039;
@@ -15,17 +15,35 @@
   --frame: 88rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Night follows the sun over Vadodara, not the visitor's OS theme: the scene is a
+   real view of one place, so the page is dark when it is dark there. The inline
+   head script sets data-sky before first paint. */
+:root[data-sky="night"] {
     color-scheme: dark;
     --page: #0b0e13;
     --page-deep: #10141b;
     --ink: #d0c9bb;
     --ink-strong: #ece4d5;
     --ink-dim: #99958c;
-    --ink-faint: #646159;
+    --ink-faint: #7e7a70;
     --rule: rgba(224, 216, 201, 0.16);
-    --accent: #c15a35;
+    --accent: #c45b36;
+    --canvas-ink: #e2d8c7;
+}
+
+/* Without JS the attribute is never set, so fall back to the OS preference.
+   Same tokens as above -- keep the two in step. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-sky]) {
+    color-scheme: dark;
+    --page: #0b0e13;
+    --page-deep: #10141b;
+    --ink: #d0c9bb;
+    --ink-strong: #ece4d5;
+    --ink-dim: #99958c;
+    --ink-faint: #7e7a70;
+    --rule: rgba(224, 216, 201, 0.16);
+    --accent: #c45b36;
     --canvas-ink: #e2d8c7;
   }
 }
@@ -158,9 +176,43 @@ a { -webkit-tap-highlight-color: transparent; }
 .hero-nav a:hover { color: var(--accent); }
 
 .hero-copy {
+  --hero-copy-top: clamp(5.5rem, 14vh, 9.5rem);
   align-self: start;
   width: min(100%, 37rem);
-  margin-top: clamp(5.5rem, 14vh, 9.5rem);
+  /* hero-clearance.js sets --hero-copy-lift so the copy clears the ridge. */
+  margin-top: max(0px, calc(var(--hero-copy-top) - var(--hero-copy-lift, 0px)));
+}
+
+/* Belongs in the masthead's microtype band, not stacked on the headline: mono
+   set directly above the serif read as a caption glued to it. Here it sits on
+   the same baseline as the name, in the same register. */
+.topbar-lead {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1rem, 3vw, 2.4rem);
+  min-width: 0;
+}
+
+.hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.015em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.hero-status::before {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  content: "";
+  flex: none;
 }
 
 .hero-copy h1 {
@@ -181,13 +233,25 @@ a { -webkit-tap-highlight-color: transparent; }
   text-wrap: pretty;
 }
 
+/* The hero copy is placed by CSS, the ridge by the canvas. On short laptop
+   viewports the ridge climbs into the CTA and swallowed it whole.
+   hero-clearance.js lifts the block clear of the terrain; when the masthead caps
+   that lift it also marks the overlap, and only then does the link get a
+   feathered paper backing. No backing in the common case, so no stray box. */
 .hero-action {
   display: inline-block;
   margin-top: 1.35rem;
+  margin-left: -0.65rem;
+  padding: 0.45rem 0.65rem;
   color: var(--ink-strong);
   font: 0.66rem/1.2 var(--mono);
   letter-spacing: 0.025em;
   text-decoration-color: color-mix(in srgb, var(--accent) 68%, transparent);
+}
+
+.hero-copy[data-ridge-overlap] .hero-action {
+  background: color-mix(in srgb, var(--page) 90%, transparent);
+  box-shadow: 0 0 0.9rem 0.55rem color-mix(in srgb, var(--page) 90%, transparent);
 }
 
 .reading-ground {
@@ -213,6 +277,8 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .section-label {
   display: flex;
+  margin: 0;
+  font-weight: 400;
   gap: 0.75rem;
   align-self: start;
   padding-top: 0.25rem;
@@ -247,12 +313,26 @@ a { -webkit-tap-highlight-color: transparent; }
   border-top: 1px solid var(--rule);
 }
 
-.entry-heading h2,
-.project-row h2 {
+.entry-heading h3,
+.project-row h3 {
   margin: 0;
   color: var(--ink-strong);
   font: 400 1.36rem/1.08 var(--serif);
   letter-spacing: -0.02em;
+}
+
+/* Project titles stay in the serif voice; the link reads as a quiet affordance
+   rather than borrowing the loud accent colour used for inline prose links. */
+.project-row h3 a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, var(--ink-faint) 70%, transparent);
+  text-decoration-thickness: 0.045em;
+  text-underline-offset: 0.16em;
+}
+
+.project-row h3 a:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
 }
 
 .entry-role,
@@ -310,8 +390,10 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .remembered-bug {
-  max-width: 39rem;
-  margin: clamp(3.2rem, 6vw, 5.6rem) 0 0 clamp(0rem, 4vw, 3.5rem);
+  max-width: 43rem;
+  margin: clamp(3.2rem, 6vw, 5.6rem) 0 0;
+  padding-left: clamp(1.1rem, 3vw, 2.2rem);
+  border-left: 2px solid var(--accent);
 }
 
 .aside-label {
@@ -323,9 +405,9 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .remembered-bug > p:last-child {
   margin: 0;
-  color: var(--ink-dim);
-  font: 400 1.08rem/1.65 var(--serif);
-  letter-spacing: -0.01em;
+  color: var(--ink-strong);
+  font: 400 clamp(1.18rem, 1.7vw, 1.42rem) / 1.5 var(--serif);
+  letter-spacing: -0.018em;
 }
 
 .measurements {
@@ -347,6 +429,10 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .measurements span:last-child::after { content: ""; padding: 0; }
+
+.measurements-label {
+  color: var(--ink-dim);
+}
 
 .project-list {
   margin-top: 0;
@@ -399,6 +485,11 @@ a { -webkit-tap-highlight-color: transparent; }
   color: var(--ink-strong);
 }
 
+.footer-status {
+  margin-top: 0.55rem !important;
+  color: var(--accent);
+}
+
 .footer-links {
   display: flex;
   flex-wrap: wrap;
@@ -421,6 +512,17 @@ a { -webkit-tap-highlight-color: transparent; }
   .hero-action { animation-delay: 190ms; }
 }
 
+/* Paired with the inline hold script: the hero stays down until hero-clearance.js
+   has finished placing it, so the ridge correction is never visible as a jump. */
+:root[data-hero-hold] .hero-copy {
+  opacity: 0;
+}
+
+:root[data-hero-hold] .hero-copy,
+:root[data-hero-hold] .hero-action {
+  animation-play-state: paused;
+}
+
 @keyframes settle {
   from {
     opacity: 0;
@@ -434,13 +536,49 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (min-width: 1100px) and (min-aspect-ratio: 16/10) {
   .hero-copy {
+    --hero-copy-top: clamp(4.6rem, 11vh, 7.5rem);
     width: min(100%, 35rem);
-    margin-top: clamp(4.6rem, 11vh, 7.5rem);
   }
 
-  .hero-copy h1 {
+  /* Belongs in the masthead's microtype band, not stacked on the headline: mono
+   set directly above the serif read as a caption glued to it. Here it sits on
+   the same baseline as the name, in the same register. */
+.topbar-lead {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1rem, 3vw, 2.4rem);
+  min-width: 0;
+}
+
+.hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.015em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.hero-status::before {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  content: "";
+  flex: none;
+}
+
+.hero-copy h1 {
     font-size: clamp(2.7rem, 3.55vw, 3.55rem);
   }
+}
+
+@media (max-width: 900px) {
+  .hero-status { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -469,7 +607,39 @@ a { -webkit-tap-highlight-color: transparent; }
     margin-top: clamp(4.5rem, 13vh, 7rem);
   }
 
-  .hero-copy h1 {
+  /* Belongs in the masthead's microtype band, not stacked on the headline: mono
+   set directly above the serif read as a caption glued to it. Here it sits on
+   the same baseline as the name, in the same register. */
+.topbar-lead {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1rem, 3vw, 2.4rem);
+  min-width: 0;
+}
+
+.hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.015em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.hero-status::before {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  content: "";
+  flex: none;
+}
+
+.hero-copy h1 {
     max-width: 12ch;
     font-size: clamp(2.45rem, 11vw, 3.25rem);
     line-height: 0.98;

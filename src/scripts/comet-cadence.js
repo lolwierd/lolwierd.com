@@ -1,8 +1,18 @@
 (function () {
   "use strict";
 
-  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // Day/night follows the sun over Vadodara (see BaseLayout's inline script), not
+  // the visitor's OS theme. `skyphasechange` fires when that flips.
+  function isNight() {
+    return document.documentElement.dataset.sky === "night";
+  }
+
+  function onSkyPhase(handler) {
+    window.addEventListener("skyphasechange", handler);
+  }
+
   var timer = 0;
 
   function randomBetween(min, max) {
@@ -23,7 +33,7 @@
   function run() {
     timer = 0;
 
-    if (motionMedia.matches || document.hidden || !themeMedia.matches) {
+    if (motionMedia.matches || document.hidden || !isNight()) {
       arm(randomBetween(10000, 20000));
       return;
     }
@@ -48,13 +58,12 @@
 
   function resetForTheme() {
     clear();
-    if (!motionMedia.matches && themeMedia.matches) {
+    if (!motionMedia.matches && isNight()) {
       arm(randomBetween(5000, 12000));
     }
   }
 
-  if (themeMedia.addEventListener) themeMedia.addEventListener("change", resetForTheme);
-  else themeMedia.addListener(resetForTheme);
+  onSkyPhase(resetForTheme);
 
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", resetForTheme);
   else motionMedia.addListener(resetForTheme);

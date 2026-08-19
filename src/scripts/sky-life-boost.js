@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  var themeMedia = matchMedia("(prefers-color-scheme: dark)");
   var motionMedia = matchMedia("(prefers-reduced-motion: reduce)");
   var reduced = motionMedia.matches;
   var visible = !document.hidden;
@@ -307,7 +306,7 @@
     raf = requestAnimationFrame(tick);
   }
 
-  listen(themeMedia, build);
+  window.addEventListener("skyphasechange", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
     build();
