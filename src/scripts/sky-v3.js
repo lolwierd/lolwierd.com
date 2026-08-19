@@ -494,12 +494,12 @@ import {
   function root_veil(value) {
     var root = document.documentElement;
     root.style.setProperty("--sky-veil", value.toFixed(3));
-    // The page switches to night ink at -6, but the sky behind the hero stays
-    // bright for another few degrees. While it is still lit, the hero needs the
-    // daylight inks or its text is light-on-light.
-    // Three bands, because the sky passes through every luminance on the way
-    // down and the page's two ink sets only cover the ends of that range.
-    var band = value > 0.55 ? "lit" : value > 0.04 ? "dim" : "";
+    // The page switches to night ink at -6, but the sky behind the hero keeps
+    // fading for another twelve degrees, passing through every luminance on the
+    // way. The page's two ink sets only cover the ends of that range, so the
+    // hero follows the ground it is actually sitting on: four bands, each with
+    // its own accent and its own quiet tones.
+    var band = value > 0.62 ? "lit" : value > 0.30 ? "edge" : value > 0.04 ? "dim" : "";
     if (root.getAttribute("data-sky-veil") === (band || null)) return;
     if (band) root.setAttribute("data-sky-veil", band);
     else root.removeAttribute("data-sky-veil");

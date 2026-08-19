@@ -422,10 +422,27 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-faint: #6b6961;
 }
 
-/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+/* The accent has to move with the sky too. Measured behind the masthead across
+   an evening, the ground under that line runs from 233 down to 11, and a single
+   orange cannot survive it: the night accent falls to 1.06:1 against the middle
+   of that range. Each band gets the accent that actually reads on it -- deep
+   while the sky is bright, pale once it is dark. */
+:root[data-sky-veil="lit"] .hero {
+  --accent: #4f2012;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has much
    contrast. The night inks are right in kind, just too quiet -- lift the
-   secondary tones until the sky finishes going dark. */
+   secondary tones, and take the accent almost to bone, which is the best any
+   warm tone manages against that ground. */
+:root[data-sky-veil="edge"] .hero {
+  --accent: #fadfd0;
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
 :root[data-sky-veil="dim"] .hero {
+  --accent: #e08a5f;
   --ink-dim: #d4cdbf;
   --ink-faint: #b8b2a6;
 }
@@ -880,10 +897,27 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-faint: #6b6961;
 }
 
-/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+/* The accent has to move with the sky too. Measured behind the masthead across
+   an evening, the ground under that line runs from 233 down to 11, and a single
+   orange cannot survive it: the night accent falls to 1.06:1 against the middle
+   of that range. Each band gets the accent that actually reads on it -- deep
+   while the sky is bright, pale once it is dark. */
+:root[data-sky-veil="lit"] .hero {
+  --accent: #4f2012;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has much
    contrast. The night inks are right in kind, just too quiet -- lift the
-   secondary tones until the sky finishes going dark. */
+   secondary tones, and take the accent almost to bone, which is the best any
+   warm tone manages against that ground. */
+:root[data-sky-veil="edge"] .hero {
+  --accent: #fadfd0;
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
 :root[data-sky-veil="dim"] .hero {
+  --accent: #e08a5f;
   --ink-dim: #d4cdbf;
   --ink-faint: #b8b2a6;
 }
@@ -983,10 +1017,27 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-faint: #6b6961;
 }
 
-/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+/* The accent has to move with the sky too. Measured behind the masthead across
+   an evening, the ground under that line runs from 233 down to 11, and a single
+   orange cannot survive it: the night accent falls to 1.06:1 against the middle
+   of that range. Each band gets the accent that actually reads on it -- deep
+   while the sky is bright, pale once it is dark. */
+:root[data-sky-veil="lit"] .hero {
+  --accent: #4f2012;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has much
    contrast. The night inks are right in kind, just too quiet -- lift the
-   secondary tones until the sky finishes going dark. */
+   secondary tones, and take the accent almost to bone, which is the best any
+   warm tone manages against that ground. */
+:root[data-sky-veil="edge"] .hero {
+  --accent: #fadfd0;
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
 :root[data-sky-veil="dim"] .hero {
+  --accent: #e08a5f;
   --ink-dim: #d4cdbf;
   --ink-faint: #b8b2a6;
 }
