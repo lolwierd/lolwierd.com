@@ -11,6 +11,7 @@ import {
   setSkyPhase,
   listenMedia,
   onFrame,
+  flickerOffset,
   motionMedia
 } from "./sky-shared.js";
 
@@ -62,6 +63,14 @@ import {
   var skylineData = null;
   var state = null;
   var terrainImage = null;
+
+  // Mid-tone terrain cells, the only ones whose dither decision can realistically
+  // flip. Re-deciding these against a noise-nudged threshold each frame is what
+  // makes the whole mountain breathe rather than just the sun.
+  var terrainFlicker = null;
+  var TERRAIN_BAND = 0.14;
+  var TERRAIN_AMP = 0.15;
+  var TERRAIN_BUDGET = 7000;
   var edgeDots = [];
   var moonPixels = [];
   var moonAura = [];
@@ -271,6 +280,8 @@ import {
     var edgeDepth = Math.max(3, Math.round(4 * dpr));
     var seed = width * 13 + height * 29 + 701;
 
+    var candidates = [];
+
     for (var index = 0; index < dots.length; index++) {
       if (!dots[index]) continue;
 
@@ -282,10 +293,47 @@ import {
       if (distance < edgeDepth && hash2(px, py, seed) < (1 - edgeMix) * 0.10) continue;
 
       var p = index * 4;
+      var alpha = Math.round(activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22));
       output[p] = red;
       output[p + 1] = green;
       output[p + 2] = blue;
-      output[p + 3] = Math.round(activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22));
+      output[p + 3] = alpha;
+
+      // Only mid-tones can flip. Anything solidly lit or solidly dark stays put,
+      // which is what keeps the ridge line and the snow fields stable.
+      var tone = paper[index];
+      if (tone > 0.5 - TERRAIN_BAND && tone < 0.5 + TERRAIN_BAND) candidates.push(index, alpha);
+    }
+
+    // Sample down to a fixed budget so the per-frame cost does not scale with
+    // resolution: on a 2x display the raw candidate set is tens of thousands.
+    var pairs = candidates.length / 2;
+    var step = Math.max(1, Math.ceil(pairs / TERRAIN_BUDGET));
+    var kept = Math.floor(pairs / step);
+    terrainFlicker = kept ? {
+      index: new Int32Array(kept),
+      alpha: new Uint8Array(kept),
+      tone: new Float32Array(kept)
+    } : null;
+
+    for (var k = 0, c = 0; k < kept; k++, c += step) {
+      var src = c * 2;
+      terrainFlicker.index[k] = candidates[src];
+      terrainFlicker.alpha[k] = candidates[src + 1];
+      terrainFlicker.tone[k] = paper[candidates[src]];
+    }
+  }
+
+  function flickerTerrain(now) {
+    if (!terrainFlicker || reducedMotion || !terrainImage) return;
+    var output = terrainImage.data;
+    var idx = terrainFlicker.index;
+    var base = terrainFlicker.alpha;
+    var tone = terrainFlicker.tone;
+
+    for (var i = 0; i < idx.length; i++) {
+      var lit = tone[i] < 0.5 + flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP);
+      output[idx[i] * 4 + 3] = lit ? base[i] : 0;
     }
   }
 
@@ -489,8 +537,17 @@ import {
   // of it could ever be seen -- and drawing it first made the sun appear pale for
   // a beat before the real disc landed on it. Daytime sky and sun belong to
   // twilight-sky.js; this file owns the terrain, stars, moon and night.
+  // An override lets the easter eggs walk the scene to a chosen hour without
+  // touching the wall clock. Null means "follow Vadodara", which is the default
+  // and what every normal visit uses.
+  var clockOverride = null;
+
+  function skyNow() {
+    return clockOverride == null ? new Date() : new Date(clockOverride);
+  }
+
   function updateSky() {
-    updateCelestial(new Date());
+    updateCelestial(skyNow());
     makeMoon();
   }
   function drawMoon(now) {
@@ -734,6 +791,7 @@ import {
     if (!state || !terrainImage) return;
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    flickerTerrain(now);
     ctx.putImageData(terrainImage, 0, 0);
     drawEdge(now);
     drawStars(now);
@@ -860,6 +918,28 @@ import {
     build: build,
     step: function (now) {
       drawFrame(reducedMotion ? FIXED_TIME : now == null ? performance.now() : now);
+    },
+    // Move the sky to a moment: "dawn", "dusk", "night", "noon", or null to go
+    // back to the real hour over Vadodara.
+    setClock: function (moment) {
+      var base = new Date();
+      var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
+      var target = null;
+
+      if (moment === "dawn") target = times.sunrise;
+      else if (moment === "dusk") target = times.sunset;
+      else if (moment === "night") target = times.nadir;
+      else if (moment === "noon") target = times.solarNoon;
+      else if (moment instanceof Date) target = moment;
+
+      clockOverride = target ? target.getTime() : null;
+      updateSky();
+      layoutPlate();
+      // Layers above cache geometry per phase, so make them all rebuild even when
+      // the day/night label itself has not changed (noon -> dusk is still "day").
+      window.dispatchEvent(new Event("skyphasechange"));
+      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      return clockOverride;
     },
     cometNow: function (now) {
       var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;

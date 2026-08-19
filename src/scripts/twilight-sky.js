@@ -8,6 +8,7 @@ import {
   isNight,
   onSkyPhase,
   onFrame,
+  flickerOffset,
   motionMedia
 } from "./sky-shared.js";
 
@@ -288,16 +289,7 @@ import {
   // of thousands.
   var FLICKER_BAND = 0.13;
   var FLICKER_AMP = 0.15;
-  var FLICKER_STEP = 900;
 
-  function flickerOffset(seed, now) {
-    var t = now / FLICKER_STEP + seed;
-    var i = Math.floor(t);
-    var f = t - i;
-    var n1 = hash(seed * 13.7 + i);
-    var n2 = hash(seed * 13.7 + i + 1);
-    return (n1 + (n2 - n1) * (f * f * (3 - 2 * f)) - 0.5) * FLICKER_AMP;
-  }
 
   function clearOfCopy(state, x, y, radius) {
     if (!state.portrait) return y;
@@ -413,7 +405,7 @@ import {
 
     for (var i = 0; i < sunScene.marginal.length; i++) {
       var m = sunScene.marginal[i];
-      var threshold = still ? m.b : m.b + flickerOffset(m.s, now);
+      var threshold = still ? m.b : m.b + flickerOffset(m.s, now, FLICKER_AMP);
       if (m.d <= threshold) continue;
       ctx.globalAlpha = m.a;
       ctx.fillRect(m.x, m.y, core, core);

@@ -91,6 +91,21 @@ export function listenMedia(media, handler) {
 
 export var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+// Dither-threshold animation, after the technique on dark.ronacher.eu: nothing
+// moves. Each dithered cell is re-decided against a threshold nudged by slow
+// value noise, so only cells already sitting near their threshold can flip and
+// the texture crawls without the shape shifting.
+export var FLICKER_STEP = 900;
+
+export function flickerOffset(seed, now, amplitude) {
+  var t = now / FLICKER_STEP + seed;
+  var i = Math.floor(t);
+  var f = t - i;
+  var n1 = hashUnit(seed * 13.7 + i);
+  var n2 = hashUnit(seed * 13.7 + i + 1);
+  return (n1 + (n2 - n1) * (f * f * (3 - 2 * f)) - 0.5) * amplitude;
+}
+
 // One animation loop for every layer. Each layer keeps its own frame budget and
 // its own guards; this just stops four independent rAF chains from running the
 // same scheduling logic four times over.

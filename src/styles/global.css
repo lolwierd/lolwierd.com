@@ -117,6 +117,30 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .skip-link:focus { top: 1rem; }
 
+/* Feedback for the typed sky commands. Without it the eggs are invisible and
+   read as the page glitching. */
+.sky-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 30;
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-dim);
+  font: 0.62rem/1 var(--mono);
+  opacity: 0;
+  transform: translateY(0.4rem);
+  transition: opacity 260ms ease, transform 260ms ease;
+  pointer-events: none;
+}
+
+.sky-toast[data-visible] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* The scene fades up once the plate has actually painted; the hero copy is held
    until just after, so the mountain lands first and the words settle onto it. */
 #sky,
@@ -307,6 +331,11 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .section-label {
   display: flex;
+  /* Rides down the section it names. The grid area spans the whole row, so it
+     releases naturally at the section's end. */
+  position: sticky;
+  top: clamp(1.2rem, 4vh, 2.4rem);
+  z-index: 1;
   margin: 0;
   font-weight: 400;
   gap: 0.75rem;
@@ -333,6 +362,17 @@ a { -webkit-tap-highlight-color: transparent; }
   font: 400 clamp(1.45rem, 2.25vw, 2rem) / 1.18 var(--serif);
   letter-spacing: -0.028em;
   text-wrap: balance;
+}
+
+/* Who and when stays put while the ten areas of work scroll past it, so the
+   reader never loses the frame the list belongs to. */
+.entry-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-top: clamp(1rem, 3.5vh, 2rem);
+  padding-bottom: 1.4rem;
+  background: var(--page);
 }
 
 .entry-heading {
@@ -608,6 +648,14 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 900px) {
   .hero-status { display: none; }
+}
+
+@media (max-width: 860px) {
+  .section-label,
+  .entry-sticky {
+    position: static;
+    padding-top: 0;
+  }
 }
 
 @media (max-width: 760px) {

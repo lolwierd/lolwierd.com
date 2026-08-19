@@ -45,20 +45,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </p>
 
           <article class="experience-entry">
-            <header class="entry-heading">
-              <div>
-                <h3>Excloud</h3>
-                <p class="entry-role">platform engineer</p>
-              </div>
-              <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
-            </header>
+            <div class="entry-sticky">
+              <header class="entry-heading">
+                <div>
+                  <h3>Excloud</h3>
+                  <p class="entry-role">platform engineer</p>
+                </div>
+                <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
+              </header>
 
-            <div class="prose">
-              <p>
-                most of it was not happy-path provisioning. it was recovery: reconciling partial state,
-                making attach/detach/resize idempotent, cleaning up failed transitions, and debugging
-                protocol-level failures in production.
-              </p>
+              <div class="prose">
+                <p>
+                  most of it was not happy-path provisioning. it was recovery: reconciling partial state,
+                  making attach/detach/resize idempotent, cleaning up failed transitions, and debugging
+                  protocol-level failures in production.
+                </p>
+              </div>
             </div>
 
             <dl class="work-notes">
@@ -142,7 +144,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             </dl>
 
             <aside class="remembered-bug">
-              <p class="aside-label">one protocol-level failure</p>
+              <p class="aside-label">the kind of thing that broke</p>
               <p>
                 a borrowed header outlived its buffer in the Kubernetes API transport. i traced it
                 through HTTP/2 and HPACK, then fixed the lifetime issue without losing OpenTelemetry
