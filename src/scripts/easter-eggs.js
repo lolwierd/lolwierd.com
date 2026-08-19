@@ -56,6 +56,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
   function setClock(moment, message) {
     var api = sky();
     if (!api || !api.setClock) return;
+    toTop();
     api.setClock(moment);
     say(message);
   }
@@ -79,6 +80,12 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     else sheet.removeAttribute("data-open");
   }
 
+  // Sky commands are pointless if the sky is off screen.
+  function toTop() {
+    if (window.scrollY <= 4) return;
+    window.scrollTo({ top: 0, behavior: motionMedia.matches ? "auto" : "smooth" });
+  }
+
   function highlightBug() {
     var bug = document.querySelector(".remembered-bug");
     if (!bug) return;
@@ -90,22 +97,39 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     }, 2600);
   }
 
+  var dayRun = 0;
+
+  // Walk the clock continuously rather than cutting between four hours. Stepping
+  // at ~7fps: each step repaints the sky palette and rebuilds the sun, which is
+  // too much to ask sixty times a second, and the sun's own travel is slow
+  // enough that this still reads as motion rather than as frames.
+  var DAY_MS = 13000;
+  var STEP_MS = 140;
+
   function runTheDay() {
-    var steps = [
-      ["dawn", "dawn"], ["noon", "noon"], ["dusk", "dusk"], ["night", "night"]
-    ];
-    say("a whole day, ten seconds");
-    steps.forEach(function (step, i) {
-      window.setTimeout(function () {
-        var api = sky();
-        if (api && api.setClock) api.setClock(step[0]);
-      }, 400 + i * 2400);
-    });
-    window.setTimeout(function () {
-      var api = sky();
-      if (api && api.setClock) api.setClock(null);
-      say("back to the real hour");
-    }, 400 + steps.length * 2400);
+    var api = sky();
+    if (!api || !api.stepClock || !api.dayArc) return;
+    if (dayRun) window.clearInterval(dayRun);
+
+    toTop();
+    var arc = api.dayArc();
+    var started = performance.now();
+    say("a whole day, thirteen seconds");
+
+    dayRun = window.setInterval(function () {
+      var t = (performance.now() - started) / DAY_MS;
+      if (t >= 1) {
+        window.clearInterval(dayRun);
+        dayRun = 0;
+        api.setClock(null);
+        say("back to the real hour");
+        return;
+      }
+      // Ease the ends so the run settles into dawn and out at night instead of
+      // starting and stopping at full speed.
+      var eased = t * t * (3 - 2 * t);
+      api.stepClock(new Date(arc.from + (arc.to - arc.from) * eased));
+    }, STEP_MS);
   }
 
   var WORDS = {
@@ -122,6 +146,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     moon: function () {
       var api = sky();
       if (!api || !api.setClock) return;
+      toTop();
       api.setClock("moon");
       // The moon is below the horizon all night for much of the month, and an
       // empty sky with a "moon" toast just looks broken.
@@ -129,6 +154,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     },
 
     comet: function () {
+      toTop();
       if (!isNight()) {
         say("comets want a dark sky. try 'night'");
         return;
@@ -140,6 +166,7 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     },
 
     stars: function () {
+      toTop();
       if (!isNight()) {
         say("stars want a dark sky. try 'night'");
         return;
@@ -149,11 +176,13 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     },
 
     snow: function () {
+      toTop();
       effects.snow = !effects.snow;
       say(effects.snow ? "snow" : "snow stopped");
     },
 
     eclipse: function () {
+      toTop();
       if (isNight()) {
         say("nothing to eclipse at night. try 'noon'");
         return;
@@ -197,7 +226,15 @@ import { isNight, effects, motionMedia } from "./sky-shared.js";
     if (arrow || event.key === "b" || event.key === "a") {
       arrows.push(arrow || event.key);
       if (arrows.length > KONAMI.length) arrows.shift();
-      if (arrows.join("") === KONAMI) {
+
+      // Swallow the arrow only once the sequence is clearly under way, so plain
+      // arrow-key scrolling keeps working for anyone not entering the code.
+      var typed = arrows.join("");
+      var progress = 0;
+      while (progress < typed.length && KONAMI.startsWith(typed.slice(typed.length - progress - 1))) progress++;
+      if (arrow && progress >= 3) event.preventDefault();
+
+      if (typed === KONAMI) {
         arrows = [];
         buffer = "";
         runTheDay();

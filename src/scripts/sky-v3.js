@@ -944,6 +944,42 @@ import {
     moonUp: function () {
       return !!(celestial && celestial.moon && celestial.moon.visible);
     },
+    // Animation path. setClock relayouts the plate, which re-dithers the whole
+    // terrain -- far too heavy to run per frame. Stepping only recomputes the
+    // ephemeris and repaints, and pays for a relayout only when day flips to
+    // night and the terrain palette genuinely changes.
+    stepClock: function (date) {
+      clockOverride = date.getTime();
+      var wasDark = state && state.dark;
+      updateSky();
+
+      // updateSky publishes the phase, and the layers above rebuild from
+      // baseState() the moment it does -- before the relayout below has produced
+      // the state that matches it. On a day/night flip they would cache the old
+      // one and, in night-sky-v2's case, paint its night ridge mask over a
+      // daylit mountain. Relayout first, then tell them again.
+      if (state && state.dark !== isNight()) {
+        layoutPlate();
+        if (state.dark !== wasDark) window.dispatchEvent(new Event("skyphasechange"));
+      }
+
+      window.dispatchEvent(new Event("skyclockstep"));
+      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+    },
+
+    // The span a full-day run walks: first light through to the small hours.
+    dayArc: function () {
+      var base = new Date();
+      var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
+      var from = times.sunrise ? times.sunrise.getTime() - 40 * 60000 : base.getTime();
+      // Run on past the moon's high point so the day ends in real darkness
+      // rather than stopping at -6 degrees, which still reads as late twilight.
+      var moon = bestMoonMoment(base);
+      var to = (moon || times.nadir || base).getTime() + 75 * 60000;
+      if (to <= from) to = from + 18 * 3600000;
+      return { from: from, to: to };
+    },
+
     setClock: function (moment) {
       var base = new Date();
       var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
@@ -951,9 +987,8 @@ import {
 
       if (moment === "dawn") target = times.sunrise;
       else if (moment === "dusk") target = times.sunset;
-      else if (moment === "night") target = times.nadir;
+      else if (moment === "night" || moment === "moon") target = bestMoonMoment(base) || times.nadir;
       else if (moment === "noon") target = times.solarNoon;
-      else if (moment === "moon") target = bestMoonMoment(base);
       else if (moment instanceof Date) target = moment;
 
       clockOverride = target ? target.getTime() : null;

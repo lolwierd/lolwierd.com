@@ -248,9 +248,10 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
         sway: (4 + hash(i * 9.1) * 13) * dpr,
         period: 9000 + hash(i * 4.4) * 11000,
         phase: hash(i * 1.9),
-        // Barely there at night: the point is a hint of movement over the ridge,
-        // not visible smoke against a near-black sky.
-        alpha: night ? 0.05 + hash(i * 6.6) * 0.09 : 0.12 + hash(i * 6.6) * 0.18
+        // At noon the wisp tint matches the page and they are invisible; against
+        // a warm dusk sky the same alpha made them the busiest thing on screen.
+        // Trimmed so golden hour is not more restless than midday.
+        alpha: night ? 0.05 + hash(i * 6.6) * 0.09 : 0.085 + hash(i * 6.6) * 0.13
       });
     }
 
@@ -325,6 +326,12 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
     var blaze = 1 - smoothstep(2, 55, altitude);
     var coronaR = radius * (1.85 + blaze * 1.35);
     var spread = 0.5 + blaze * 0.42;
+    // The low sun's corona covers ~3x the area of the noon one, so constant
+    // settings would treble the motion exactly when the sky is at its most
+    // dramatic and most worth looking at. The band is scaled by the inverse of
+    // that area so the amount of flicker stays roughly flat across the day.
+    var band = FLICKER_BAND * (1 - blaze * 0.66);
+    var amp = FLICKER_AMP * (1 - blaze * 0.5);
 
     var lowBlend = 1 - smoothstep(4, 15, altitude);
     var sunX = Math.round(lerp(state.celestial.sun.x, valleyX, lowBlend * 0.55));
@@ -373,14 +380,15 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
         // Bayer threshold happens to sit above 0.8 fall inside the flicker band and
         // punch holes through the nucleus.
         var margin = density >= 0.98 ? 1 : density - bayer;
-        if (margin > FLICKER_BAND) solid.push(cx, cy, alpha);
-        else if (margin > -FLICKER_BAND) marginal.push({ x: cx, y: cy, a: alpha, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
+        if (margin > band) solid.push(cx, cy, alpha);
+        else if (margin > -band) marginal.push({ x: cx, y: cy, a: alpha, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
       }
     }
 
     sunScene = {
       solid: solid,
       marginal: marginal,
+      amp: amp,
       disc: { x: sunX, y: sunY, radius: radius },
       core: core,
       accent: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#9d4429"
@@ -408,7 +416,7 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
 
     for (var i = 0; i < sunScene.marginal.length; i++) {
       var m = sunScene.marginal[i];
-      var threshold = still ? m.b : m.b + flickerOffset(m.s, now, FLICKER_AMP);
+      var threshold = still ? m.b : m.b + flickerOffset(m.s, now, sunScene.amp);
       if (m.d <= threshold) continue;
       ctx.globalAlpha = m.a;
       ctx.fillRect(m.x, m.y, core, core);
@@ -521,6 +529,8 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
 
   onFrame(sunFrame);
   onSkyPhase(redrawSoon);
+  // A clock step moves the sun and repaints the palette, so this layer is stale.
+  window.addEventListener("skyclockstep", draw);
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", redrawSoon);
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
