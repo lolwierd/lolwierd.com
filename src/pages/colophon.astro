@@ -2,16 +2,20 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
-<BaseLayout title="Colophon · Ayaan Retiwala">
+<BaseLayout
+  title="Colophon · Ayaan Retiwala"
+  description="Credits for the photography, typography, and sky rendering on lolwierd.com."
+>
   <main class="colophon">
     <a class="back" href="/">← back</a>
     <p class="label">colophon</p>
     <p class="note">
       the mountain photograph is by Alexis Rodriguez, captured at Annapurna I
-      in Nepal. it is used from
-      <a href="https://unsplash.com/photos/a-mountain-range-with-snow-covered-mountains-in-the-background-8eo8PsNIrNs">Unsplash</a>
-      under the
-      <a href="https://unsplash.com/license">Unsplash License</a>.
+      in Nepal. it is used from <a href="https://unsplash.com/photos/a-mountain-range-with-snow-covered-mountains-in-the-background-8eo8PsNIrNs" rel="noreferrer">Unsplash</a> under the <a href="https://unsplash.com/license" rel="noreferrer">Unsplash License</a>.
+    </p>
+    <p class="note note-secondary">
+      the sky is drawn to the real sun, moon, and star positions over Vadodara,
+      then dithered to match the photograph. type is Iowan Old Style.
     </p>
   </main>
 
@@ -46,6 +50,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       color: var(--ink-dim);
       font: 400 clamp(1.15rem, 2.2vw, 1.45rem) / 1.65 var(--serif);
       letter-spacing: -0.012em;
+    }
+
+    .note-secondary {
+      margin-top: 1.5rem;
+      color: var(--ink-faint);
+      font-size: clamp(1rem, 1.8vw, 1.2rem);
     }
   </style>
 </BaseLayout>

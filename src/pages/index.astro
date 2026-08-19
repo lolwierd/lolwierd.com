@@ -8,10 +8,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   <header class="hero" id="top">
     <div class="hero-frame">
       <div class="topbar">
-        <p class="site-name">ayaan retiwala <span>· platform engineer</span></p>
+        <div class="topbar-lead">
+          <p class="site-name">ayaan retiwala <span>· platform engineer</span></p>
+          <p class="hero-status">open to platform / infra roles · remote</p>
+        </div>
         <nav class="hero-nav" aria-label="Page">
           <a href="#work">work</a>
-          <a href="#made">made</a>
+          <a href="#projects">projects</a>
           <a href="#contact">contact</a>
         </nav>
       </div>
@@ -19,8 +22,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="hero-copy">
         <h1>i build systems<br />from the machine up.</h1>
         <p>
-          at Excloud, i worked from QEMU/KVM and SPDK through Kubernetes, networking and identity,
-          up to the APIs, CLI, Terraform provider and console people used to run it.
+          for three years i built a public cloud from the hypervisor up — QEMU/KVM, SPDK,
+          Kubernetes, identity, DNS — and spent most of that time on the parts that fail.
         </p>
         <a class="hero-action" href="#work">selected work ↓</a>
       </div>
@@ -29,34 +32,32 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <main class="reading-ground">
     <div class="reading-inner">
-      <section class="content-section" id="work">
-        <div class="section-label" aria-hidden="true">
-          <span>01</span>
+      <section class="content-section" id="work" aria-labelledby="work-title">
+        <h2 class="section-label" id="work-title">
+          <span aria-hidden="true">01</span>
           <span>work</span>
-        </div>
+        </h2>
 
         <div class="section-body">
           <p class="section-lede">
-            i spent three years building and operating Excloud's core platform alongside the
-            engineering lead, from hosts and storage to managed services and the APIs and tools customers used.
+            three years building and running Excloud's core platform with <a href="https://www.linkedin.com/in/arjun-hemrajani-416581ab/" rel="noreferrer">Arjun</a>, its
+            founder — from hosts and storage up to the APIs and tools customers used.
           </p>
 
           <article class="experience-entry">
-            <header class="entry-heading">
-              <div>
-                <h2>Excloud</h2>
-                <p class="entry-role">platform engineer</p>
-              </div>
-              <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
-            </header>
+            <div class="entry-sticky">
+              <header class="entry-heading">
+                <div>
+                  <h3>Excloud</h3>
+                  <p class="entry-role">platform engineer</p>
+                </div>
+                <p class="entry-date">jun 2023 to aug 2026<br />remote</p>
+              </header>
+            </div>
 
             <div class="prose">
               <p>
-                i built systems end to end: VM lifecycle and host setup, SPDK/NVMe-oF storage,
-                Kubernetes bootstrap and CSI, IAM, DNS, managed databases, and the APIs and tools around them.
-              </p>
-              <p>
-                a lot of the work was recovery rather than happy-path provisioning: reconciling partial state,
+                most of it was not happy-path provisioning. it was recovery: reconciling partial state,
                 making attach/detach/resize idempotent, cleaning up failed transitions, and debugging
                 protocol-level failures in production.
               </p>
@@ -64,31 +65,86 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
             <dl class="work-notes">
               <div>
-                <dt>compute / storage</dt>
+                <dt>compute</dt>
                 <dd>
-                  built the Go compute control plane over QEMU/KVM and the block storage engine on
-                  SPDK/NVMe-oF, including recovery for interrupted provisioning, attach/detach,
-                  resize, and cleanup.
+                  the Go control plane over QEMU/KVM: VM lifecycle APIs, rescue boot, volume attach
+                  and reap, subnet operations, bare-metal host setup, and reconciliation after failed
+                  transitions.
                 </dd>
               </div>
               <div>
-                <dt>clusters / network</dt>
+                <dt>block storage</dt>
                 <dd>
-                  shipped managed Kubernetes end to end: bootstrap, Cilium, CSI, Karpenter,
-                  and OIDC/JWKS, plus IAM, authoritative DNS, ARP/NDP, and the network plumbing underneath.
+                  the storage engine on SPDK and NVMe-oF with the VFIO-user path into QEMU guests.
+                  A reconciler converges database intent against live bdev, lvol and RAID state, so a
+                  crash mid-provision recovers instead of orphaning volumes.
                 </dd>
               </div>
               <div>
-                <dt>api / tooling</dt>
+                <dt>kubernetes</dt>
                 <dd>
-                  built the shared Go HTTP/OpenAPI layer and API-to-client pipeline feeding the SDK,
-                  20-group CLI, and Terraform provider across a platform of 20+ internal services.
+                  managed clusters end to end: control-plane and worker bootstrap, OIDC and JWKS,
+                  short-lived join credentials, Cilium and CoreDNS, a CSI driver with attach, mount,
+                  resize and failover, and a Karpenter cloud provider.
+                </dd>
+              </div>
+              <div>
+                <dt>identity / objects</dt>
+                <dd>
+                  the identity and account plane — IMDS tokens, Valkey-backed caching, IAM
+                  authorization, encrypted secrets — and the S3-compatible object storage API with
+                  multipart uploads, presigned URLs and SigV4 checksums.
+                </dd>
+              </div>
+              <div>
+                <dt>managed data</dt>
+                <dd>
+                  Postgres and Kafka/Streams orchestrated on the compute and DNS control planes: node
+                  lifecycle, replicas, broker provisioning, topics, users and ACLs.
+                </dd>
+              </div>
+              <div>
+                <dt>networking</dt>
+                <dd>
+                  an AF_PACKET ARP/NDP proxy with BPF filtering, VLAN handling, rate limits, GARP and
+                  IPv6 DAD, plus authoritative DNS with AXFR, IXFR, TSIG and weighted records.
+                </dd>
+              </div>
+              <div>
+                <dt>the shared layer</dt>
+                <dd>
+                  the Go foundation the services are built on: an HTTP framework deriving OpenAPI 3.1
+                  from Go types by reflection, a typed error taxonomy, domain types and OpenTelemetry
+                  middleware — used by every service on the platform.
+                </dd>
+              </div>
+              <div>
+                <dt>api to client</dt>
+                <dd>
+                  a generation pipeline from OpenAPI 3.1 across eight services, feeding the SDK, a
+                  20-group CLI, and a Terraform provider with 30 resources and 13 data sources.
+                </dd>
+              </div>
+              <div>
+                <dt>console / delivery</dt>
+                <dd>
+                  the Next.js console for compute, buckets, Streams, secrets, billing and security
+                  groups, with an authenticated instance terminal over Xterm and WebSockets. Plus
+                  Firecracker-based ephemeral CI runners on owned hardware, usage-based billing, and
+                  the docs site.
+                </dd>
+              </div>
+              <div>
+                <dt>live migration</dt>
+                <dd>
+                  the disk migration tool rebuilt around resumable sender and receiver sessions with
+                  checkpointing, pinned per-session TLS, heartbeats and idempotent thaw recovery.
                 </dd>
               </div>
             </dl>
 
             <aside class="remembered-bug">
-              <p class="aside-label">one production bug</p>
+              <p class="aside-label">the kind of thing that broke</p>
               <p>
                 a borrowed header outlived its buffer in the Kubernetes API transport. i traced it
                 through HTTP/2 and HPACK, then fixed the lifetime issue without losing OpenTelemetry
@@ -96,7 +152,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               </p>
             </aside>
 
-            <p class="measurements" aria-label="Excloud at handover">
+            <p class="stack">
+              <span>Go</span><span>C</span><span>TypeScript</span><span>Swift</span><span>Python</span>
+              <span>Kubernetes</span><span>QEMU/KVM</span><span>Firecracker</span><span>SPDK</span>
+              <span>NVMe-oF</span><span>VFIO-user</span><span>CSI</span><span>Karpenter</span>
+              <span>Linux</span><span>PostgreSQL</span><span>Valkey</span><span>ClickHouse</span>
+              <span>Kafka</span><span>OpenTelemetry</span><span>OpenAPI 3.1</span><span>Terraform</span>
+              <span>Next.js</span><span>React</span><span>Electron</span><span>DNS</span>
+              <span>HTTP/2</span><span>TLS</span>
+            </p>
+
+            <p class="measurements">
+              <span class="measurements-label">at handover, aug 2026</span>
               <span>4,000+ accounts</span>
               <span>380 active VMs</span>
               <span>140 managed Postgres clusters</span>
@@ -106,11 +173,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
       </section>
 
-      <section class="content-section" id="made">
-        <div class="section-label" aria-hidden="true">
-          <span>02</span>
-          <span>made</span>
-        </div>
+      <section class="content-section" id="projects" aria-labelledby="projects-title">
+        <h2 class="section-label" id="projects-title">
+          <span aria-hidden="true">02</span>
+          <span>projects</span>
+        </h2>
 
         <div class="section-body">
           <p class="section-lede">a few things i built outside work.</p>
@@ -118,8 +185,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <div class="project-list">
             <article class="project-row">
               <header>
-                <h2>DBConsole</h2>
-                <p>electron · postgres</p>
+                <h3><a href="https://github.com/excloud-dev/dbconsole" rel="noreferrer">DBConsole</a></h3>
+                <p>electron · postgres · 19 releases</p>
               </header>
               <p>
                 a Postgres workbench for web and macOS with streaming query results, schema graphs,
@@ -129,8 +196,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
             <article class="project-row">
               <header>
-                <h2>CBManager</h2>
-                <p>swift · appkit · sqlite</p>
+                <h3><a href="https://github.com/lolwierd/cb-manager" rel="noreferrer">CBManager</a></h3>
+                <p>swift · appkit · sqlite · vision</p>
               </header>
               <p>
                 a native macOS clipboard manager with instant paste-back, OCR for copied images,
@@ -140,18 +207,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
             <article class="project-row">
               <header>
-                <h2>Rig</h2>
+                <h3><a href="https://github.com/lolwierd/rig" rel="noreferrer">Rig</a></h3>
                 <p>react · fastify · websockets</p>
               </header>
               <p>
                 a mobile-first console for starting and controlling coding-agent sessions on my machines,
-                with live tool-call streaming, resume/stop controls, and WebSockets.
+                with live tool-call streaming and resume/stop controls.
               </p>
             </article>
 
             <article class="project-row">
               <header>
-                <h2>Tachyon</h2>
+                <h3><a href="https://github.com/lolwierd/tachyon" rel="noreferrer">Tachyon</a></h3>
                 <p>pwa · offline-first</p>
               </header>
               <p>
@@ -162,7 +229,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </div>
 
           <p class="project-note">
-            more projects, experiments, and unfinished stuff <a href="https://github.com/lolwierd" rel="noreferrer">are on GitHub.</a>
+            more projects, experiments, and unfinished stuff are on <a href="https://github.com/lolwierd" rel="noreferrer">GitHub</a>.
           </p>
         </div>
       </section>
@@ -170,14 +237,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <footer class="site-footer" id="contact">
         <div>
           <p class="footer-name">ayaan retiwala</p>
-          <p>vadodara, india</p>
+          <p>vadodara, india · remote</p>
+          <p class="footer-note">b.e. computer engineering, svit · 2018–2022</p>
+          <p class="footer-status">open to platform / infra roles</p>
         </div>
 
         <nav class="footer-links" aria-label="Contact">
           <a href="mailto:me@lolwierd.com">email</a>
           <a href="https://github.com/lolwierd" rel="noreferrer">github</a>
           <a href="https://linkedin.com/in/lolwierd" rel="noreferrer">linkedin</a>
-          <a href="/colophon">colophon</a>
+          <a href="/colophon/">colophon</a>
         </nav>
       </footer>
     </div>

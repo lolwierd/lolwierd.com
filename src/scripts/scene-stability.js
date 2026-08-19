@@ -1,3 +1,5 @@
+import { onFrame, motionMedia } from "./sky-shared.js";
+
 (function () {
   "use strict";
 
@@ -43,4 +45,26 @@
 
     apply(next);
   }, { capture: true, passive: true });
+
+  // Parallax: the scene is absolutely positioned at the top of the document, so
+  // without help it scrolls away at 1:1 with the text. Translating it down by a
+  // fraction of the scroll makes it lag behind and read as distance. Capped so
+  // the ridge never climbs into the reading section, and transform-only so it
+  // costs a composite rather than a layout.
+  var DRIFT = 0.26;
+  var scrolled = 0;
+  var applied = -1;
+
+  window.addEventListener("scroll", function () {
+    scrolled = window.scrollY || window.pageYOffset || 0;
+  }, { passive: true });
+
+  onFrame(function () {
+    if (motionMedia.matches) return;
+    var limit = (last ? last.height : window.innerHeight) * 0.42;
+    var shift = Math.round(Math.min(scrolled * DRIFT, limit));
+    if (shift === applied) return;
+    applied = shift;
+    root.style.setProperty("--scene-shift", shift + "px");
+  });
 })();

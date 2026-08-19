@@ -1,7 +1,16 @@
+import {
+  clamp,
+  smoothstep,
+  lerp,
+  hash,
+  baseState,
+  listenMedia as listen,
+  onFrame
+} from "./sky-shared.js";
+
 (function () {
   "use strict";
 
-  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
   var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
   var reduced = motionMedia.matches;
   var visible = !document.hidden;
@@ -10,7 +19,6 @@
   var ctx = null;
   var state = null;
   var stars = [];
-  var raf = 0;
   var last = 0;
   var tries = 0;
 
@@ -32,39 +40,15 @@
     headRadius: 0
   };
 
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
 
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
 
-  function smoothstep(a, b, value) {
-    var t = clamp((value - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
-  }
 
-  function hash(value) {
-    value = Math.imul(value ^ (value >>> 16), 2246822507);
-    value = Math.imul(value ^ (value >>> 13), 3266489909);
-    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
-  }
 
   function randomBetween(min, max) {
     return min + Math.random() * (max - min);
   }
 
-  function baseState() {
-    return window.__portfolioSky && window.__portfolioSky.state
-      ? window.__portfolioSky.state()
-      : null;
-  }
 
-  function listen(media, callback) {
-    if (media.addEventListener) media.addEventListener("change", callback);
-    else media.addListener(callback);
-  }
 
   function ensureCanvas() {
     if (canvas) return;
@@ -158,6 +142,14 @@
   function maskSpentStars(now) {
     if (!state.dark) return;
 
+    // This paints the page's night colour over stars a comet has consumed. It is
+    // invisible against a genuinely dark sky and obvious against a lit one: with
+    // twilight still painted overhead it showed up as black boxes where the
+    // stars had been. If the sky is not dark yet, the stars are not visible to
+    // need hiding.
+    var veil = typeof state.veil === "number" ? state.veil : 0;
+    if (veil > 0.04) return;
+
     var dpr = state.dpr;
     ctx.fillStyle = "#0b0e13";
 
@@ -180,6 +172,12 @@
   }
 
   function drawRidgeClean() {
+    // This mask exists to keep the night sky clean along the ridge. While
+    // twilight is still painted over the scene the sky there is bright, and the
+    // mask read as a heavy black outline traced along the mountains.
+    var veil = typeof state.veil === "number" ? state.veil : 0;
+    if (veil > 0.04) return;
+
     var depth = Math.ceil(20 * state.dpr);
     ctx.fillStyle = "#0b0e13";
     ctx.globalAlpha = 1;
@@ -330,7 +328,10 @@
     }
 
     var mobile = state.cssWidth < 768;
-    var speed = randomBetween(mobile ? 32 : 50, mobile ? 44 : 70) * state.dpr;
+    // 50-70 px/s was a crawl the eye read as a static hairline; 240-330 darted
+    // past before you could look up. This lands a crossing at roughly 7-9
+    // seconds: slow enough to follow, fast enough to register as motion.
+    var speed = randomBetween(mobile ? 75 : 105, mobile ? 105 : 145) * state.dpr;
 
     comet.active = true;
     comet.start = now;
@@ -519,17 +520,11 @@
   }
 
   function tick(now) {
-    if (!visible || reduced) {
-      raf = 0;
-      return;
-    }
-
-    if (!last || now - last >= 1000 / 30) {
-      last = now;
-      if (state && state.dark && !comet.active && now >= comet.next) scheduleComet(now);
-      draw(now);
-    }
-    raf = window.requestAnimationFrame(tick);
+    if (!visible || reduced) return;
+    if (last && now - last < 1000 / 30) return;
+    last = now;
+    if (state && state.dark && !comet.active && now >= comet.next) scheduleComet(now);
+    draw(now);
   }
 
   function build() {
@@ -551,13 +546,11 @@
     armFirstComet(performance.now());
     draw(reduced ? 1400 : performance.now());
 
-    if (raf) window.cancelAnimationFrame(raf);
-    raf = 0;
     last = 0;
-    if (!reduced && visible) raf = window.requestAnimationFrame(tick);
   }
 
-  listen(themeMedia, build);
+  onFrame(tick);
+  window.addEventListener("skyphasechange", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
     build();
@@ -570,7 +563,6 @@
 
   document.addEventListener("visibilitychange", function () {
     visible = !document.hidden;
-    if (visible && !reduced && !raf) raf = window.requestAnimationFrame(tick);
   });
 
   window.__nightSkyTune = {

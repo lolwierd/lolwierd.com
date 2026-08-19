@@ -1,4 +1,20 @@
 import * as SunCalc from "suncalc";
+import {
+  clamp,
+  smoothstep,
+  lerp,
+  hash,
+  hash2,
+  bayerThreshold,
+  isNight,
+  onSkyPhase,
+  setSkyPhase,
+  markThemeShift,
+  listenMedia,
+  onFrame,
+  flickerOffset,
+  motionMedia
+} from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -10,9 +26,14 @@ import * as SunCalc from "suncalc";
   var plate = new Image();
   var buffer = document.createElement("canvas");
   var bufferCtx = buffer.getContext("2d", { willReadFrequently: true });
-  var themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
-  var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+
+
+  // Full-resolution colour JPEG on purpose. The plate is dithered to 1-bit, so it
+  // looks like it should compress hard -- it does not. Measured alternatives:
+  // 2000px AVIF (306KB) rendered the terrain almost black, exact Rec.709 greyscale
+  // at 3000px only reached 1.34MB and softened the dither. The photograph is the
+  // site, so it ships whole and is preloaded instead.
   var SOURCE = "/assets/annapurna-circuit.jpg";
   var SKYLINE_SOURCE = "/assets/annapurna-skyline.json?v=20260817c";
   var MAX_DPR = 2;
@@ -20,12 +41,6 @@ import * as SunCalc from "suncalc";
   var VADODARA = { latitude: 22.3072, longitude: 73.1812 };
   var CELESTIAL_REFRESH_MS = 60000;
 
-  var BAYER_8 = [
-    0,48,12,60,3,51,15,63,32,16,44,28,35,19,47,31,
-    8,56,4,52,11,59,7,55,40,24,36,20,43,27,39,23,
-    2,50,14,62,1,49,13,61,34,18,46,30,33,17,45,29,
-    10,58,6,54,9,57,5,53,42,26,38,22,41,25,37,21
-  ];
 
   var THEMES = {
     dark: {
@@ -49,11 +64,15 @@ import * as SunCalc from "suncalc";
   var skylineData = null;
   var state = null;
   var terrainImage = null;
+
+  // Mid-tone terrain cells, the only ones whose dither decision can realistically
+  // flip. Re-deciding these against a noise-nudged threshold each frame is what
+  // makes the whole mountain breathe rather than just the sun.
+  var terrainFlicker = null;
+  var TERRAIN_BAND = 0.14;
+  var TERRAIN_AMP = 0.15;
+  var TERRAIN_BUDGET = 7000;
   var edgeDots = [];
-  var dayTexture = [];
-  var daySun = [];
-  var moonPixels = [];
-  var moonAura = [];
   var celestial = null;
   var lastCelestialUpdate = 0;
 
@@ -88,38 +107,15 @@ import * as SunCalc from "suncalc";
   var width = 0;
   var height = 0;
   var resizeTimer = 0;
-  var rafId = 0;
   var lastDraw = 0;
   var reducedMotion = motionMedia.matches;
   var visible = !document.hidden;
   var activeWork = null;
 
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
 
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
 
-  function smoothstep(a, b, value) {
-    var t = clamp((value - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
-  }
 
-  function hash(value) {
-    value = Math.imul(value ^ (value >>> 16), 2246822507);
-    value = Math.imul(value ^ (value >>> 13), 3266489909);
-    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
-  }
 
-  function hash2(x, y, seed) {
-    return hash(
-      Math.imul(x | 0, 374761393) ^
-      Math.imul(y | 0, 668265263) ^
-      Math.imul(seed | 0, 2246822519)
-    );
-  }
 
   function valueNoise(x, y, seed) {
     var ix = Math.floor(x);
@@ -160,20 +156,11 @@ import * as SunCalc from "suncalc";
     );
   }
 
-  function bayerThreshold(x, y) {
-    var px = ((Math.floor(x) % 8) + 8) % 8;
-    var py = ((Math.floor(y) % 8) + 8) % 8;
-    return BAYER_8[py * 8 + px] / 64;
-  }
 
   function theme() {
-    return themeMedia.matches ? THEMES.dark : THEMES.light;
+    return isNight() ? THEMES.dark : THEMES.light;
   }
 
-  function listenMedia(media, callback) {
-    if (media.addEventListener) media.addEventListener("change", callback);
-    else media.addListener(callback);
-  }
 
   function sampleSourceSkyline(sourceX) {
     if (!skylineData || !skylineData.y || !skylineData.y.length) return 0;
@@ -292,6 +279,8 @@ import * as SunCalc from "suncalc";
     var edgeDepth = Math.max(3, Math.round(4 * dpr));
     var seed = width * 13 + height * 29 + 701;
 
+    var candidates = [];
+
     for (var index = 0; index < dots.length; index++) {
       if (!dots[index]) continue;
 
@@ -303,10 +292,47 @@ import * as SunCalc from "suncalc";
       if (distance < edgeDepth && hash2(px, py, seed) < (1 - edgeMix) * 0.10) continue;
 
       var p = index * 4;
+      var alpha = Math.round(activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22));
       output[p] = red;
       output[p + 1] = green;
       output[p + 2] = blue;
-      output[p + 3] = Math.round(activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22));
+      output[p + 3] = alpha;
+
+      // Only mid-tones can flip. Anything solidly lit or solidly dark stays put,
+      // which is what keeps the ridge line and the snow fields stable.
+      var tone = paper[index];
+      if (tone > 0.5 - TERRAIN_BAND && tone < 0.5 + TERRAIN_BAND) candidates.push(index, alpha);
+    }
+
+    // Sample down to a fixed budget so the per-frame cost does not scale with
+    // resolution: on a 2x display the raw candidate set is tens of thousands.
+    var pairs = candidates.length / 2;
+    var step = Math.max(1, Math.ceil(pairs / TERRAIN_BUDGET));
+    var kept = Math.floor(pairs / step);
+    terrainFlicker = kept ? {
+      index: new Int32Array(kept),
+      alpha: new Uint8Array(kept),
+      tone: new Float32Array(kept)
+    } : null;
+
+    for (var k = 0, c = 0; k < kept; k++, c += step) {
+      var src = c * 2;
+      terrainFlicker.index[k] = candidates[src];
+      terrainFlicker.alpha[k] = candidates[src + 1];
+      terrainFlicker.tone[k] = paper[candidates[src]];
+    }
+  }
+
+  function flickerTerrain(now) {
+    if (!terrainFlicker || reducedMotion || !terrainImage) return;
+    var output = terrainImage.data;
+    var idx = terrainFlicker.index;
+    var base = terrainFlicker.alpha;
+    var tone = terrainFlicker.tone;
+
+    for (var i = 0; i < idx.length; i++) {
+      var lit = tone[i] < 0.5 + flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP);
+      output[idx[i] * 4 + 3] = lit ? base[i] : 0;
     }
   }
 
@@ -411,225 +437,71 @@ import * as SunCalc from "suncalc";
     };
 
     lastCelestialUpdate = Date.now();
-    document.documentElement.dataset.vadodaraSky = celestial.sun.altitude > -6 ? "day" : "night";
+
+    // Authoritative phase, from real ephemeris rather than the inline estimate.
+    setSkyPhase(celestial.sun.altitude > -6 ? "day" : "night");
+
+    // How much twilight is still painted over the night sky. The page's colours
+    // flip at -6 but the sky keeps fading to -18, so every layer that cares about
+    // "is it actually dark yet" has to read this rather than the phase alone.
+    twilightVeil = celestial.sun.altitude > -6 ? 1 : clamp((celestial.sun.altitude + 18) / 12, 0, 1);
+    root_veil(twilightVeil);
     document.documentElement.dataset.moonPhase = celestial.moon.phase.toFixed(3);
   }
 
-  function keepPortraitBodyClear(body, radius) {
-    if (!state.portrait) return;
-    var copy = document.querySelector(".hero-copy");
-    if (!copy) return;
-    var rect = copy.getBoundingClientRect();
-    var padding = 14 * dpr;
-    var left = rect.left * dpr - padding;
-    var right = rect.right * dpr + padding;
-    var top = rect.top * dpr - padding;
-    var bottom = rect.bottom * dpr + padding;
-    var overlaps = body.x + radius > left && body.x - radius < right && body.y + radius > top && body.y - radius < bottom;
-    if (!overlaps) return;
+  // An override lets the easter eggs walk the scene to a chosen hour without
+  // touching the wall clock. Null means "follow Vadodara", which is the default
+  // and what every normal visit uses.
+  var clockOverride = null;
+  var twilightVeil = 1;
 
-    var clearY = rect.top * dpr - radius - 18 * dpr;
-    if (clearY > 52 * dpr) body.y = clearY;
+  function root_veil(value) {
+    var root = document.documentElement;
+    root.style.setProperty("--sky-veil", value.toFixed(3));
+    // The page switches to night ink at -6, but the sky behind the hero stays
+    // bright for another few degrees. While it is still lit, the hero needs the
+    // daylight inks or its text is light-on-light.
+    // Three bands, because the sky passes through every luminance on the way
+    // down and the page's two ink sets only cover the ends of that range.
+    var band = value > 0.55 ? "lit" : value > 0.04 ? "dim" : "";
+    if (root.getAttribute("data-sky-veil") === (band || null)) return;
+    if (band) root.setAttribute("data-sky-veil", band);
+    else root.removeAttribute("data-sky-veil");
+    markThemeShift();
   }
 
-  function makeMoon() {
-    moonPixels = [];
-    moonAura = [];
-    if (!state.dark || !celestial || !celestial.moon.visible) return;
+  function skyNow() {
+    return clockOverride == null ? new Date() : new Date(clockOverride);
+  }
 
-    var moon = celestial.moon;
-    var core = Math.max(1, Math.round(dpr));
-    var radius = Math.round((state.portrait ? 20 : 27) * dpr);
-    keepPortraitBodyClear(moon, radius);
-    var cos = Math.cos(moon.limbAngle);
-    var sin = Math.sin(moon.limbAngle);
-    var seed = width * 47 + height * 61 + 4409;
+  // Solar nadir is not when you can see the moon -- tonight the moon is 26
+  // degrees below the horizon at that hour. Find the moment in the next day
+  // when the moon is highest while the sky is genuinely dark.
+  // Ask for proper astronomical night first. At -6 the sky is still bright civil
+  // twilight and the moon egg was landing there and calling it night. Loosen only
+  // if the moon is genuinely never up once it is dark.
+  function bestMoonMoment(from) {
+    return searchMoon(from, -18) || searchMoon(from, -12) || searchMoon(from, -6);
+  }
 
-    for (var dy = -radius; dy <= radius; dy += core) {
-      for (var dx = -radius; dx <= radius; dx += core) {
-        var distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance > radius) continue;
-
-        var rx = dx * cos - dy * sin;
-        var ry = dx * sin + dy * cos;
-        var rowHalf = Math.sqrt(Math.max(0, radius * radius - ry * ry));
-        var terminator = rowHalf * (1 - 2 * moon.fraction);
-        var lit = moon.waxing ? rx >= terminator : rx <= -terminator;
-        if (!lit) continue;
-
-        var edge = smoothstep(radius * 0.84, radius, distance);
-        var threshold = bayerThreshold((moon.x + dx) / core, (moon.y + dy) / core);
-        if (edge > 0 && threshold < edge * 0.76) continue;
-        if (hash2(dx, dy, seed) < 0.035 + edge * 0.08) continue;
-
-        moonPixels.push({
-          x: moon.x + dx,
-          y: moon.y + dy,
-          alpha: 0.66 + (1 - edge) * 0.24,
-          phase: hash2(dx, dy, seed + 5) * Math.PI * 2
-        });
+  function searchMoon(from, sunBelow) {
+    var best = null;
+    var bestAlt = -90;
+    for (var minutes = 0; minutes < 1440; minutes += 10) {
+      var when = new Date(from.getTime() + minutes * 60000);
+      if (SunCalc.getPosition(when, VADODARA.latitude, VADODARA.longitude).altitude > sunBelow) continue;
+      var moon = SunCalc.getMoonPosition(when, VADODARA.latitude, VADODARA.longitude);
+      if (moon.altitude > bestAlt) {
+        bestAlt = moon.altitude;
+        best = when;
       }
     }
-
-    var rayCount = state.portrait ? 68 : 92;
-    for (var ray = 0; ray < rayCount; ray++) {
-      var angle = (ray / rayCount) * Math.PI * 2;
-      var ux = Math.cos(angle);
-      var uy = Math.sin(angle);
-      var edgeX = ux * radius * 0.94;
-      var edgeY = uy * radius * 0.94;
-      var rotatedX = edgeX * cos - edgeY * sin;
-      var rotatedY = edgeX * sin + edgeY * cos;
-      var edgeHalf = Math.sqrt(Math.max(0, radius * radius - rotatedY * rotatedY));
-      var edgeTerminator = edgeHalf * (1 - 2 * moon.fraction);
-      var illuminated = moon.waxing ? rotatedX >= edgeTerminator : rotatedX <= -edgeTerminator;
-      if (hash2(ray, radius, seed + 31) > (illuminated ? 0.66 : 0.38)) continue;
-
-      moonAura.push({
-        x: moon.x + edgeX,
-        y: moon.y + edgeY,
-        ux: ux,
-        uy: uy,
-        reach: (illuminated ? 3 + hash2(ray, radius, seed + 37) * 8 : 2 + hash2(ray, radius, seed + 37) * 5) * dpr,
-        alpha: illuminated
-          ? 0.075 + hash2(ray, radius, seed + 41) * 0.095
-          : 0.035 + hash2(ray, radius, seed + 41) * 0.045,
-        lit: illuminated,
-        phase: hash2(ray, radius, seed + 43) * Math.PI * 2,
-        phase2: hash2(ray, radius, seed + 45) * Math.PI * 2,
-        tangent: (0.25 + hash2(ray, radius, seed + 46) * 0.75) * dpr,
-        period: 4600 + hash2(ray, radius, seed + 47) * 7200
-      });
-    }
+    return bestAlt > 3 ? best : null;
   }
 
-  function makeDaySky() {
-    dayTexture = [];
-    daySun = [];
-    updateCelestial(new Date());
-    makeMoon();
-    if (state.dark) return;
-
-    var seed = width * 19 + height * 43 + 2701;
-    var core = Math.max(1, Math.round(dpr));
-    var textureStep = Math.max(core * 8, Math.round(11 * dpr));
-
-    for (var y = textureStep; y < state.ridgeLow; y += textureStep) {
-      for (var x = textureStep; x < width; x += textureStep) {
-        if (y >= state.skyline[x] || hash2(x, y, seed) > 0.34) continue;
-        dayTexture.push({ x: x, y: y, alpha: 0.018 + hash2(x, y, seed + 3) * 0.018 });
-      }
-    }
-
-    if (celestial.sun.visible) {
-      var sunX = celestial.sun.x;
-      var sunY = celestial.sun.y;
-      var sunR = Math.round((state.portrait ? 34 : 48) * dpr);
-      var coronaR = sunR * 1.48;
-      keepPortraitBodyClear(celestial.sun, sunR);
-      sunY = celestial.sun.y;
-
-      for (y = Math.floor(sunY - coronaR); y <= sunY + coronaR; y += core) {
-        for (x = Math.floor(sunX - coronaR); x <= sunX + coronaR; x += core) {
-          if (x < 0 || x >= width || y < 0 || y >= state.skyline[clamp(x, 0, width - 1)]) continue;
-          var dx = x - sunX;
-          var dy = y - sunY;
-          var distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance > coronaR) continue;
-
-          if (distance <= sunR) {
-            var edge = smoothstep(sunR * 0.84, sunR, distance);
-            if (edge > 0 && bayerThreshold(x / core, y / core) < edge * 0.72) continue;
-            daySun.push({
-              x: x,
-              y: y,
-              alpha: 0.25 + (1 - edge) * 0.070,
-              corona: false,
-              phase: hash2(x, y, seed + 13) * Math.PI * 2,
-              ux: 0,
-              uy: 0
-            });
-          } else {
-            var corona = 1 - (distance - sunR) / (coronaR - sunR);
-            if (hash2(x, y, seed + 17) > corona * corona * 0.46) continue;
-            daySun.push({
-              x: x,
-              y: y,
-              alpha: 0.040 + corona * 0.120,
-              corona: true,
-              phase: hash2(x, y, seed + 23) * Math.PI * 2,
-              phase2: hash2(x, y, seed + 25) * Math.PI * 2,
-              reach: (2 + hash2(x, y, seed + 27) * 8) * dpr,
-              tangent: (0.25 + hash2(x, y, seed + 29) * 1.15) * dpr,
-              period: 4800 + hash2(x, y, seed + 31) * 9200,
-              ux: dx / Math.max(1, distance),
-              uy: dy / Math.max(1, distance)
-            });
-          }
-        }
-      }
-
-    }
+  function updateSky() {
+    updateCelestial(skyNow());
   }
-
-  function drawDaySky(now) {
-    if (state.dark) return;
-    var core = Math.max(1, Math.round(dpr));
-
-    ctx.fillStyle = theme().ink;
-    for (var i = 0; i < dayTexture.length; i++) {
-      var grain = dayTexture[i];
-      ctx.globalAlpha = grain.alpha;
-      ctx.fillRect(grain.x, grain.y, core, core);
-    }
-
-    ctx.fillStyle = "#a13f24";
-    var sunPulse = 0.97 + 0.03 * Math.sin(now * 0.00038);
-    for (i = 0; i < daySun.length; i++) {
-      var sun = daySun[i];
-      var convection = sun.corona
-        ? 0.5 + 0.5 * Math.sin((now / sun.period) * Math.PI * 2 + sun.phase)
-        : 0.5 + 0.5 * Math.sin(now * 0.00058 + sun.phase);
-      var vibration = sun.corona
-        ? Math.sin((now / (sun.period * 0.37)) * Math.PI * 2 + sun.phase2) * sun.tangent
-        : 0;
-      var flare = sun.corona ? convection * sun.reach : 0;
-      var sx = Math.round(sun.x + sun.ux * flare - sun.uy * vibration);
-      var sy = Math.round(sun.y + sun.uy * flare + sun.ux * vibration);
-      if (sx < 0 || sx >= width || sy < 0 || sy >= state.skyline[sx]) continue;
-      ctx.globalAlpha = sun.alpha * sunPulse * (sun.corona ? 0.42 + (1 - convection) * 0.58 : 0.96 + convection * 0.08);
-      ctx.fillRect(sx, sy, core, core);
-    }
-  }
-
-  function drawMoon(now) {
-    if (!state.dark || !moonPixels.length) return;
-    var core = Math.max(1, Math.round(dpr));
-    ctx.fillStyle = theme().star;
-
-    for (var auraIndex = 0; auraIndex < moonAura.length; auraIndex++) {
-      var aura = moonAura[auraIndex];
-      var release = 0.5 + 0.5 * Math.sin((now / aura.period) * Math.PI * 2 + aura.phase);
-      var vibration = Math.sin((now / (aura.period * 0.41)) * Math.PI * 2 + aura.phase2) * aura.tangent;
-      var auraX = Math.round(aura.x + aura.ux * aura.reach * release - aura.uy * vibration);
-      var auraY = Math.round(aura.y + aura.uy * aura.reach * release + aura.ux * vibration);
-      if (auraX < 0 || auraX >= width || auraY < 0 || auraY >= state.skyline[auraX]) continue;
-      ctx.globalAlpha = aura.alpha * (0.36 + (1 - release) * 0.64);
-      ctx.fillRect(auraX, auraY, core, core);
-    }
-
-    for (var i = 0; i < moonPixels.length; i++) {
-      var pixel = moonPixels[i];
-      var x = Math.round(pixel.x);
-      var y = Math.round(pixel.y);
-      if (x < 0 || x >= width || y < 0 || y >= state.skyline[x]) continue;
-      var surface = 0.97 + 0.03 * Math.sin(now * 0.00044 + pixel.phase);
-      ctx.globalAlpha = pixel.alpha * surface;
-      ctx.fillRect(x, y, core, core);
-    }
-  }
-
-
 
   function makeStars() {
     stars = [];
@@ -843,11 +715,10 @@ import * as SunCalc from "suncalc";
     if (!state || !terrainImage) return;
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    flickerTerrain(now);
     ctx.putImageData(terrainImage, 0, 0);
-    drawDaySky(now);
     drawEdge(now);
     drawStars(now);
-    drawMoon(now);
     drawSatellite(now);
     drawComet(now);
     ctx.globalAlpha = 1;
@@ -900,7 +771,7 @@ import * as SunCalc from "suncalc";
       cssWidth: cssW,
       cssHeight: cssH,
       dpr: dpr,
-      dark: themeMedia.matches,
+      dark: isNight(),
       portrait: portrait,
       skyline: skyline,
       luminance: luminance,
@@ -914,7 +785,7 @@ import * as SunCalc from "suncalc";
     makeTerrain(luminance, skyline);
     makeEdgeDots();
     makeStars();
-    makeDaySky();
+    updateSky();
 
     var now = performance.now();
     comet.active = false;
@@ -922,14 +793,18 @@ import * as SunCalc from "suncalc";
     comet.next = state.dark ? now + 4500 + hash2(width, height, 901) * 3000 : Infinity;
     satellite.next = state.dark ? now + 9000 + hash2(width, height, 903) * 5000 : Infinity;
     drawFrame(reducedMotion ? FIXED_TIME : now);
+
+    // First real frame is on the canvas: let the scene fade up. The hero copy
+    // waits on this so the mountain arrives before the words, rather than the
+    // text sitting on an empty page while a 1.8MB plate decodes.
+    document.documentElement.setAttribute("data-scene-ready", "");
   }
 
   function tick(now) {
-    rafId = window.requestAnimationFrame(tick);
     if (!state || reducedMotion || !visible || now - lastDraw < 1000 / 24) return;
     lastDraw = now;
 
-    if (Date.now() - lastCelestialUpdate >= CELESTIAL_REFRESH_MS) makeDaySky();
+    if (Date.now() - lastCelestialUpdate >= CELESTIAL_REFRESH_MS) updateSky();
 
     if (state.dark && !comet.active && now >= comet.next) scheduleComet(now);
     if (state.dark && !satellite.active && now >= satellite.next) scheduleSatellite(now);
@@ -938,10 +813,7 @@ import * as SunCalc from "suncalc";
 
   function build() {
     if (!plate.complete || !plate.naturalWidth || !skylineData) return;
-    window.cancelAnimationFrame(rafId);
-    rafId = 0;
     layoutPlate();
-    if (!reducedMotion) rafId = window.requestAnimationFrame(tick);
   }
 
   function onResize() {
@@ -949,7 +821,7 @@ import * as SunCalc from "suncalc";
     resizeTimer = window.setTimeout(build, 180);
   }
 
-  listenMedia(themeMedia, function () {
+  onSkyPhase(function () {
     window.setTimeout(build, 0);
   });
 
@@ -961,13 +833,77 @@ import * as SunCalc from "suncalc";
   window.addEventListener("resize", onResize, { passive: true });
   document.addEventListener("visibilitychange", function () {
     visible = !document.hidden;
-    if (visible && !reducedMotion && !rafId) rafId = window.requestAnimationFrame(tick);
   });
+
+  onFrame(tick);
 
   window.__portfolioSky = {
     build: build,
     step: function (now) {
       drawFrame(reducedMotion ? FIXED_TIME : now == null ? performance.now() : now);
+    },
+    // Move the sky to a moment: "dawn", "dusk", "night", "noon", or null to go
+    // back to the real hour over Vadodara.
+    // Reports whether the moon is actually up at the override, so callers can
+    // say so rather than silently showing an empty sky.
+    moonUp: function () {
+      return !!(celestial && celestial.moon && celestial.moon.visible);
+    },
+    // Animation path. setClock relayouts the plate, which re-dithers the whole
+    // terrain -- far too heavy to run per frame. Stepping only recomputes the
+    // ephemeris and repaints, and pays for a relayout only when day flips to
+    // night and the terrain palette genuinely changes.
+    stepClock: function (date) {
+      clockOverride = date.getTime();
+      var wasDark = state && state.dark;
+      updateSky();
+
+      // updateSky publishes the phase, and the layers above rebuild from
+      // baseState() the moment it does -- before the relayout below has produced
+      // the state that matches it. On a day/night flip they would cache the old
+      // one and, in night-sky-v2's case, paint its night ridge mask over a
+      // daylit mountain. Relayout first, then tell them again.
+      if (state && state.dark !== isNight()) {
+        layoutPlate();
+        if (state.dark !== wasDark) window.dispatchEvent(new Event("skyphasechange"));
+      }
+
+      window.dispatchEvent(new Event("skyclockstep"));
+      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+    },
+
+    // The span a full-day run walks: first light through to the small hours.
+    dayArc: function () {
+      var base = new Date();
+      var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
+      var from = times.sunrise ? times.sunrise.getTime() - 40 * 60000 : base.getTime();
+      // Run on past the moon's high point so the day ends in real darkness
+      // rather than stopping at -6 degrees, which still reads as late twilight.
+      var moon = bestMoonMoment(base);
+      var to = (moon || times.nadir || base).getTime() + 75 * 60000;
+      if (to <= from) to = from + 18 * 3600000;
+      return { from: from, to: to };
+    },
+
+    setClock: function (moment) {
+      var base = new Date();
+      var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);
+      var target = null;
+
+      if (moment === "dawn") target = times.sunrise;
+      else if (moment === "dusk") target = times.sunset;
+      else if (moment === "night" || moment === "moon") target = bestMoonMoment(base) || times.nadir;
+      else if (moment === "noon") target = times.solarNoon;
+      else if (moment instanceof Date) target = moment;
+
+      clockOverride = target ? target.getTime() : null;
+      updateSky();
+      layoutPlate();
+      // Layers above cache geometry per phase, so make them all rebuild even when
+      // the day/night label itself has not changed (noon -> dusk is still "day").
+      window.dispatchEvent(new Event("skyphasechange"));
+      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      return clockOverride;
     },
     cometNow: function (now) {
       var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
@@ -988,6 +924,11 @@ import * as SunCalc from "suncalc";
         cssHeight: state.cssHeight,
         dpr: state.dpr,
         dark: state.dark,
+        // Layers above size themselves off this. It was missing from the public
+        // state, so twilight-sky read `undefined` and used landscape values on
+        // every phone.
+        portrait: state.portrait,
+        veil: twilightVeil,
         skyline: state.skyline,
         luminance: state.luminance,
         ridgeTop: state.ridgeTop,
@@ -1001,7 +942,9 @@ import * as SunCalc from "suncalc";
           sun: {
             altitude: celestial.sun.altitude,
             azimuth: celestial.sun.azimuth,
-            visible: celestial.sun.visible
+            visible: celestial.sun.visible,
+            x: celestial.sun.x,
+            y: celestial.sun.y
           },
           moon: {
             altitude: celestial.moon.altitude,
@@ -1009,10 +952,13 @@ import * as SunCalc from "suncalc";
             visible: celestial.moon.visible,
             fraction: celestial.moon.fraction,
             phase: celestial.moon.phase,
-            waxing: celestial.moon.waxing
+            waxing: celestial.moon.waxing,
+            x: celestial.moon.x,
+            y: celestial.moon.y,
+            limbAngle: celestial.moon.limbAngle
           }
         },
-        motion: { reduced: reducedMotion, visible: visible, rafActive: !!rafId }
+        motion: { reduced: reducedMotion, visible: visible }
       };
     }
   };
@@ -1020,6 +966,7 @@ import * as SunCalc from "suncalc";
   Promise.all([
     new Promise(function (resolve, reject) {
       plate.decoding = "async";
+      plate.fetchPriority = "high";
       plate.onload = resolve;
       plate.onerror = reject;
       plate.src = SOURCE;

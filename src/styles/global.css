@@ -4,8 +4,8 @@
   --page-deep: #e7e0d4;
   --ink: #2b2d31;
   --ink-strong: #181a1e;
-  --ink-dim: #686762;
-  --ink-faint: #929087;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
   --rule: rgba(35, 35, 34, 0.16);
   --accent: #9d4429;
   --canvas-ink: #293039;
@@ -15,17 +15,35 @@
   --frame: 88rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Night follows the sun over Vadodara, not the visitor's OS theme: the scene is a
+   real view of one place, so the page is dark when it is dark there. The inline
+   head script sets data-sky before first paint. */
+:root[data-sky="night"] {
     color-scheme: dark;
     --page: #0b0e13;
     --page-deep: #10141b;
     --ink: #d0c9bb;
     --ink-strong: #ece4d5;
     --ink-dim: #99958c;
-    --ink-faint: #646159;
+    --ink-faint: #7e7a70;
     --rule: rgba(224, 216, 201, 0.16);
-    --accent: #c15a35;
+    --accent: #c45b36;
+    --canvas-ink: #e2d8c7;
+}
+
+/* Without JS the attribute is never set, so fall back to the OS preference.
+   Same tokens as above -- keep the two in step. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-sky]) {
+    color-scheme: dark;
+    --page: #0b0e13;
+    --page-deep: #10141b;
+    --ink: #d0c9bb;
+    --ink-strong: #ece4d5;
+    --ink-dim: #99958c;
+    --ink-faint: #7e7a70;
+    --rule: rgba(224, 216, 201, 0.16);
+    --accent: #c45b36;
     --canvas-ink: #e2d8c7;
   }
 }
@@ -99,6 +117,119 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .skip-link:focus { top: 1rem; }
 
+/* Feedback for the typed sky commands. Without it the eggs are invisible and
+   read as the page glitching. */
+.sky-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 30;
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-dim);
+  font: 0.62rem/1 var(--mono);
+  opacity: 0;
+  transform: translateY(0.4rem);
+  transition: opacity 260ms ease, transform 260ms ease;
+  pointer-events: none;
+}
+
+.sky-toast[data-visible] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sky-sheet {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 1.25rem;
+  z-index: 31;
+  width: min(24rem, calc(100vw - 2.5rem));
+  padding: 1.1rem 1.25rem 0.95rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  font-family: var(--mono);
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.sky-sheet[data-open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sky-sheet-label,
+.sky-sheet-foot {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+}
+
+.sky-sheet-foot {
+  margin-top: 0.9rem;
+  color: var(--ink-faint);
+}
+
+.sky-sheet dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.3rem 1rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.58rem;
+  line-height: 1.5;
+}
+
+.sky-sheet dt { color: var(--ink-strong); }
+.sky-sheet dd { margin: 0; color: var(--ink-dim); }
+
+/* "bug" scrolls here; the rule brightens so you can see where you landed. */
+.remembered-bug {
+  transition: border-color 400ms ease;
+}
+
+.remembered-bug[data-flash] {
+  border-left-color: var(--accent);
+  animation: bug-flash 2.4s ease;
+}
+
+@keyframes bug-flash {
+  0%, 100% { border-left-width: 1px; }
+  12%, 60% { border-left-width: 4px; }
+}
+
+/* The scene fades up once the plate has actually painted; the hero copy is held
+   until just after, so the mountain lands first and the words settle onto it. */
+#sky,
+#sky-life,
+#twilight-sky,
+#night-sky-tune {
+  opacity: 1;
+  transform: translate3d(0, var(--scene-shift, 0px), 0);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ambient] #sky,
+  :root[data-ambient] #sky-life,
+  :root[data-ambient] #twilight-sky,
+  :root[data-ambient] #night-sky-tune {
+    opacity: 0;
+    transition: opacity 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  :root[data-scene-ready] #sky,
+  :root[data-scene-ready] #sky-life,
+  :root[data-scene-ready] #twilight-sky,
+  :root[data-scene-ready] #night-sky-tune {
+    opacity: 1;
+  }
+}
+
 #sky {
   position: fixed;
   inset: 0;
@@ -158,18 +289,72 @@ a { -webkit-tap-highlight-color: transparent; }
 .hero-nav a:hover { color: var(--accent); }
 
 .hero-copy {
+  --hero-copy-top: clamp(5.5rem, 14vh, 9.5rem);
   align-self: start;
   width: min(100%, 37rem);
-  margin-top: clamp(5.5rem, 14vh, 9.5rem);
+  /* hero-clearance.js sets --hero-copy-lift so the copy clears the ridge. */
+  margin-top: max(0px, calc(var(--hero-copy-top) - var(--hero-copy-lift, 0px)));
+}
+
+/* Belongs in the masthead's microtype band, not stacked on the headline: mono
+   set directly above the serif read as a caption glued to it. Here it sits on
+   the same baseline as the name, in the same register. */
+.topbar-lead {
+  display: flex;
+  align-items: baseline;
+  gap: clamp(1rem, 3vw, 2.4rem);
+  min-width: 0;
+}
+
+.hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.015em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.hero-status::before {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  content: "";
+  flex: none;
 }
 
 .hero-copy h1 {
-  max-width: 11ch;
+  /* Wide enough for "from the machine up." to hold one line. At 11ch it wrapped
+     again after the <br>, leaving "from the" dangling as a two-word orphan. */
+  max-width: 21ch;
   margin: 0;
   color: var(--ink-strong);
   font: 400 clamp(2.55rem, 4.15vw, 3.75rem) / 0.98 var(--serif);
   letter-spacing: -0.045em;
   text-wrap: balance;
+}
+
+/* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
 }
 
 .hero-copy > p {
@@ -181,13 +366,25 @@ a { -webkit-tap-highlight-color: transparent; }
   text-wrap: pretty;
 }
 
+/* The hero copy is placed by CSS, the ridge by the canvas. On short laptop
+   viewports the ridge climbs into the CTA and swallowed it whole.
+   hero-clearance.js lifts the block clear of the terrain; when the masthead caps
+   that lift it also marks the overlap, and only then does the link get a
+   feathered paper backing. No backing in the common case, so no stray box. */
 .hero-action {
   display: inline-block;
   margin-top: 1.35rem;
+  margin-left: -0.65rem;
+  padding: 0.45rem 0.65rem;
   color: var(--ink-strong);
   font: 0.66rem/1.2 var(--mono);
   letter-spacing: 0.025em;
   text-decoration-color: color-mix(in srgb, var(--accent) 68%, transparent);
+}
+
+.hero-copy[data-ridge-overlap] .hero-action {
+  background: color-mix(in srgb, var(--page) 90%, transparent);
+  box-shadow: 0 0 0.9rem 0.55rem color-mix(in srgb, var(--page) 90%, transparent);
 }
 
 .reading-ground {
@@ -213,6 +410,13 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .section-label {
   display: flex;
+  /* Rides down the section it names. The grid area spans the whole row, so it
+     releases naturally at the section's end. */
+  position: sticky;
+  top: clamp(1.2rem, 4vh, 2.4rem);
+  z-index: 1;
+  margin: 0;
+  font-weight: 400;
   gap: 0.75rem;
   align-self: start;
   padding-top: 0.25rem;
@@ -239,6 +443,19 @@ a { -webkit-tap-highlight-color: transparent; }
   text-wrap: balance;
 }
 
+/* Who and when stays put while the ten areas of work scroll past it, so the
+   reader never loses the entry the list belongs to. Only the heading row: the
+   framing paragraph is read once and would otherwise hold a quarter of the
+   viewport for the rest of the section. */
+.entry-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-top: clamp(1rem, 3.5vh, 2rem);
+  padding-bottom: 1rem;
+  background: var(--page);
+}
+
 .entry-heading {
   display: flex;
   justify-content: space-between;
@@ -247,12 +464,26 @@ a { -webkit-tap-highlight-color: transparent; }
   border-top: 1px solid var(--rule);
 }
 
-.entry-heading h2,
-.project-row h2 {
+.entry-heading h3,
+.project-row h3 {
   margin: 0;
   color: var(--ink-strong);
   font: 400 1.36rem/1.08 var(--serif);
   letter-spacing: -0.02em;
+}
+
+/* Project titles stay in the serif voice; the link reads as a quiet affordance
+   rather than borrowing the loud accent colour used for inline prose links. */
+.project-row h3 a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, var(--ink-faint) 70%, transparent);
+  text-decoration-thickness: 0.045em;
+  text-underline-offset: 0.16em;
+}
+
+.project-row h3 a:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
 }
 
 .entry-role,
@@ -309,13 +540,18 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.72;
 }
 
+/* Evidence for the "protocol-level failures" claim above it, not a pull quote
+   on the wall. Styled as a worked example inside the entry: quieter than a
+   testimonial, still given its own air. */
 .remembered-bug {
-  max-width: 39rem;
-  margin: clamp(3.2rem, 6vw, 5.6rem) 0 0 clamp(0rem, 4vw, 3.5rem);
+  max-width: 41rem;
+  margin: clamp(2.6rem, 5vw, 4.2rem) 0 0;
+  padding-left: clamp(1rem, 2.6vw, 1.8rem);
+  border-left: 1px solid var(--accent);
 }
 
 .aside-label {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.7rem;
   color: var(--accent);
   font-size: 0.6rem;
   letter-spacing: 0.05em;
@@ -323,9 +559,37 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .remembered-bug > p:last-child {
   margin: 0;
+  color: var(--ink);
+  font: 400 1.06rem/1.62 var(--serif);
+  letter-spacing: -0.012em;
+}
+
+/* Scannable stack list. Everything here is already named in the notes above, but
+   a recruiter skimming for a keyword should not have to read prose to find it. */
+.stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.85rem;
+  max-width: 46rem;
+  margin: clamp(2.6rem, 5vw, 4rem) 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
   color: var(--ink-dim);
-  font: 400 1.08rem/1.65 var(--serif);
-  letter-spacing: -0.01em;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  line-height: 1.6;
+}
+
+.stack span::after {
+  content: "·";
+  padding-left: 0.85rem;
+  color: var(--rule);
+}
+
+.stack span:last-child::after { content: ""; padding: 0; }
+
+.footer-note {
+  margin-top: 0.35rem !important;
 }
 
 .measurements {
@@ -347,6 +611,10 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .measurements span:last-child::after { content: ""; padding: 0; }
+
+.measurements-label {
+  color: var(--ink-dim);
+}
 
 .project-list {
   margin-top: 0;
@@ -399,6 +667,11 @@ a { -webkit-tap-highlight-color: transparent; }
   color: var(--ink-strong);
 }
 
+.footer-status {
+  margin-top: 0.55rem !important;
+  color: var(--accent);
+}
+
 .footer-links {
   display: flex;
   flex-wrap: wrap;
@@ -416,9 +689,30 @@ a { -webkit-tap-highlight-color: transparent; }
     animation: settle 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  .hero-nav { animation-delay: 80ms; }
-  .hero-copy { animation-delay: 120ms; }
-  .hero-action { animation-delay: 190ms; }
+  .hero-nav { animation-delay: 90ms; }
+  .hero-copy { animation-delay: 150ms; }
+  .hero-action { animation-delay: 260ms; }
+}
+
+/* Paired with the inline hold script: the hero stays down until hero-clearance.js
+   has finished placing it, so the ridge correction is never visible as a jump. */
+:root[data-hero-hold] .hero-copy {
+  opacity: 0;
+}
+
+:root[data-hero-hold] .hero-copy,
+:root[data-hero-hold] .hero-action {
+  animation-play-state: paused;
+}
+
+/* Only while the sky is actually changing phase, so ordinary hover colours are
+   not dragged through a slow fade. Set by markThemeShift for 900ms. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme-shift] body,
+  :root[data-theme-shift] body * {
+    transition: background-color 800ms ease, color 800ms ease,
+      border-color 800ms ease, text-decoration-color 800ms ease;
+  }
 }
 
 @keyframes settle {
@@ -434,12 +728,24 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (min-width: 1100px) and (min-aspect-ratio: 16/10) {
   .hero-copy {
+    --hero-copy-top: clamp(4.6rem, 11vh, 7.5rem);
     width: min(100%, 35rem);
-    margin-top: clamp(4.6rem, 11vh, 7.5rem);
   }
 
   .hero-copy h1 {
     font-size: clamp(2.7rem, 3.55vw, 3.55rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .hero-status { display: none; }
+}
+
+@media (max-width: 860px) {
+  .section-label,
+  .entry-sticky {
+    position: static;
+    padding-top: 0;
   }
 }
 
@@ -475,7 +781,25 @@ a { -webkit-tap-highlight-color: transparent; }
     line-height: 0.98;
   }
 
-  .hero-copy > p {
+  /* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
+.hero-copy > p {
     max-width: 21rem;
     margin-top: 1.15rem;
     font-size: 0.92rem;
@@ -560,7 +884,25 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 370px) {
   .hero-nav { gap: 0.65rem; }
-  .hero-copy > p { max-width: 19rem; }
+  /* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
+.hero-copy > p { max-width: 19rem; }
   .measurements { grid-template-columns: 1fr; }
 }
 

@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#214fd6"/>
-  <path d="M20 46 39 18h7L27 46z" fill="#fbfaf7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="A sun over a mountain ridge">
+  <rect width="64" height="64" rx="13" fill="#eee9df"/>
+  <circle cx="44" cy="20" r="10" fill="#9d4429"/>
+  <path d="M0 64V45l15-16 13 16 9-9 15 17 12-8v19Z" fill="#2b3038"/>
 </svg>
