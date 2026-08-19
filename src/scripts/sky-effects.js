@@ -4,7 +4,7 @@
 // sky's normal job: they only exist because someone typed a word. Keeping them
 // separate means the everyday render path stays readable.
 
-import { clamp, hashUnit, effects } from "./sky-shared.js";
+import { clamp, smoothstep, hashUnit, hash2, bayerThreshold, flickerOffset, effects } from "./sky-shared.js";
 
 var flakes = null;
 var flakeKey = "";
@@ -203,4 +203,149 @@ export function drawEclipse(ctx, state, sun, now) {
   }
   ctx.restore();
   return coverage;
+}
+
+
+// ── moon ────────────────────────────────────────────────────────────────────
+
+// The moon used to be drawn by sky-v3, underneath the layer that paints the
+// sky, and only once the sky was fully dark. That made the one thing everybody
+// has actually seen -- a moon hanging in a sunset -- impossible. It lives up
+// here now, and shows whenever it is above the horizon.
+
+var MOON_BAND = 0.11;
+var MOON_AMP = 0.12;
+
+export function buildMoon(state, clearOfCopy) {
+  var moon = state.celestial && state.celestial.moon;
+  if (!moon || !moon.visible) return null;
+
+  var dpr = state.dpr;
+  var core = Math.max(1, Math.round(dpr));
+  var radius = Math.round((state.portrait ? 20 : 27) * dpr);
+  var x = moon.x;
+  // Unlike the sun this nudges in any orientation: the moon is small and the
+  // sky is wide, and a crescent sitting behind a paragraph reads as a defect.
+  var y = clearOfCopy ? clearOfCopy(state, moon.x, moon.y, radius * 1.6, true) : moon.y;
+
+  var cos = Math.cos(moon.limbAngle);
+  var sin = Math.sin(moon.limbAngle);
+  var seed = state.width * 47 + state.height * 61 + 4409;
+
+  // In full daylight a washed-out moon reads as a smudge behind the text rather
+  // than as the moon, so it is not drawn at all until the sun is near the
+  // horizon. It fades up through golden hour and is at full strength once the
+  // sun is properly down -- which is also every hour the typed commands land on.
+  var reveal = 1 - smoothstep(-4, 4, state.celestial.sun.altitude);
+  if (reveal < 0.03) return null;
+  var strength = 0.45 + reveal * 0.55;
+
+  var solid = [];
+  var marginal = [];
+
+  for (var dy = -radius; dy <= radius; dy += core) {
+    for (var dx = -radius; dx <= radius; dx += core) {
+      var distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > radius) continue;
+
+      // Terminator: which side of the disc the sun is lighting, tilted by the
+      // limb angle so the crescent points the right way for the hour.
+      var rx = dx * cos - dy * sin;
+      var ry = dx * sin + dy * cos;
+      var rowHalf = Math.sqrt(Math.max(0, radius * radius - ry * ry));
+      var terminator = rowHalf * (1 - 2 * moon.fraction);
+      var lit = moon.waxing ? rx >= terminator : rx <= -terminator;
+      if (!lit) continue;
+
+      var px = Math.round(x + dx);
+      var py = Math.round(y + dy);
+      if (px < 0 || px >= state.width || py < 0 || py >= state.skyline[px]) continue;
+
+      var edge = smoothstep(radius * 0.84, radius, distance);
+      var density = 1 - edge * 0.76;
+      if (hash2(dx, dy, seed) < 0.035 + edge * 0.08) continue;
+
+      var alpha = (0.66 + (1 - edge) * 0.24) * strength;
+      var bayer = bayerThreshold(px / core, py / core);
+      var margin = density >= 0.98 ? 1 : density - bayer;
+
+      if (margin > MOON_BAND) solid.push(px, py, alpha);
+      else if (margin > -MOON_BAND) {
+        marginal.push({ x: px, y: py, a: alpha, d: density, b: bayer, s: hashUnit(px * 0.29 + py * 0.53) });
+      }
+    }
+  }
+
+  // A ring of motes around the limb, brighter on the lit side, breathing slowly.
+  var aura = [];
+  var rays = state.portrait ? 68 : 92;
+  for (var ray = 0; ray < rays; ray++) {
+    var angle = (ray / rays) * Math.PI * 2;
+    var ux = Math.cos(angle);
+    var uy = Math.sin(angle);
+    var ex = ux * radius * 0.94;
+    var ey = uy * radius * 0.94;
+    var rotX = ex * cos - ey * sin;
+    var rotY = ex * sin + ey * cos;
+    var half = Math.sqrt(Math.max(0, radius * radius - rotY * rotY));
+    var illuminated = moon.waxing
+      ? rotX >= half * (1 - 2 * moon.fraction)
+      : rotX <= -half * (1 - 2 * moon.fraction);
+    if (hash2(ray, radius, seed + 31) > (illuminated ? 0.66 : 0.38)) continue;
+
+    aura.push({
+      x: x + ex,
+      y: y + ey,
+      ux: ux,
+      uy: uy,
+      reach: (illuminated ? 3 + hash2(ray, radius, seed + 37) * 8 : 2 + hash2(ray, radius, seed + 37) * 5) * dpr,
+      alpha: (illuminated
+        ? 0.075 + hash2(ray, radius, seed + 41) * 0.095
+        : 0.035 + hash2(ray, radius, seed + 41) * 0.045) * strength,
+      phase: hash2(ray, radius, seed + 43) * Math.PI * 2,
+      phase2: hash2(ray, radius, seed + 45) * Math.PI * 2,
+      tangent: (0.25 + hash2(ray, radius, seed + 46) * 0.75) * dpr,
+      period: 4600 + hash2(ray, radius, seed + 47) * 7200
+    });
+  }
+
+  return { solid: solid, marginal: marginal, aura: aura, core: core, width: state.width, skyline: state.skyline };
+}
+
+export function paintMoonSolids(ctx, scene, ink) {
+  if (!scene) return;
+  ctx.fillStyle = ink;
+  for (var i = 0; i < scene.solid.length; i += 3) {
+    ctx.globalAlpha = scene.solid[i + 2];
+    ctx.fillRect(scene.solid[i], scene.solid[i + 1], scene.core, scene.core);
+  }
+  ctx.globalAlpha = 1;
+}
+
+// The moon does not twinkle -- it has no atmosphere to twinkle through -- but
+// its dithered limb can breathe, and the aura around it drifts. Enough motion
+// to notice, not enough to look like a star.
+export function drawMoon(ctx, scene, ink, now, still) {
+  if (!scene) return;
+  ctx.fillStyle = ink;
+
+  for (var i = 0; i < scene.marginal.length; i++) {
+    var m = scene.marginal[i];
+    var threshold = still ? m.b : m.b + flickerOffset(m.s, now, MOON_AMP);
+    if (m.d <= threshold) continue;
+    ctx.globalAlpha = m.a;
+    ctx.fillRect(m.x, m.y, scene.core, scene.core);
+  }
+
+  for (var a = 0; a < scene.aura.length; a++) {
+    var mote = scene.aura[a];
+    var release = still ? 0.5 : 0.5 + 0.5 * Math.sin((now / mote.period) * Math.PI * 2 + mote.phase);
+    var wobble = still ? 0 : Math.sin((now / (mote.period * 0.41)) * Math.PI * 2 + mote.phase2) * mote.tangent;
+    var ax = Math.round(mote.x + mote.ux * mote.reach * release - mote.uy * wobble);
+    var ay = Math.round(mote.y + mote.uy * mote.reach * release + mote.ux * wobble);
+    if (ax < 0 || ax >= scene.width || ay < 0 || ay >= scene.skyline[ax]) continue;
+    ctx.globalAlpha = mote.alpha * (0.36 + (1 - release) * 0.64);
+    ctx.fillRect(ax, ay, scene.core, scene.core);
+  }
+  ctx.globalAlpha = 1;
 }

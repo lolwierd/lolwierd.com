@@ -12,7 +12,7 @@ import {
   effects,
   motionMedia
 } from "./sky-shared.js";
-import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
+import { drawSnow, drawConstellations, drawEclipse, buildMoon, paintMoonSolids, drawMoon } from "./sky-effects.js";
 
 (function () {
   "use strict";
@@ -29,6 +29,7 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
   var baseCtx = null;
   var sunScene = null;
   var ridgeScene = null;
+  var moonScene = null;
   var sunPaused = false;
   var lastSunFrame = 0;
 
@@ -294,8 +295,8 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
   var FLICKER_AMP = 0.15;
 
 
-  function clearOfCopy(state, x, y, radius) {
-    if (!state.portrait) return y;
+  function clearOfCopy(state, x, y, radius, always) {
+    if (!state.portrait && !always) return y;
     var copy = document.querySelector(".hero-copy");
     if (!copy) return y;
 
@@ -424,6 +425,12 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
     ctx.globalAlpha = 1;
   }
 
+  function moonInk(night) {
+    // Bone against a dark sky; the page's own ink when the sky is bright, so a
+    // daytime moon reads as a pale disc rather than a glowing one.
+    return night ? "#e4dac8" : "#8b8578";
+  }
+
   function renderScene(now) {
     if (!base || !ctx) return;
     // One GPU blit of the cached sky is cheaper and far simpler than tracking
@@ -431,6 +438,7 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
     ctx.clearRect(0, 0, base.width, base.height);
     ctx.drawImage(base, 0, 0);
     renderRidge(now);
+    drawMoon(ctx, moonScene, moonInk(isNight()), now, motionMedia.matches);
     renderSun(now);
 
     var state = baseState();
@@ -490,33 +498,39 @@ import { drawSnow, drawConstellations, drawEclipse } from "./sky-effects.js";
     stopSunLoop();
     sunScene = null;
     ridgeScene = null;
-
-    if (isNight()) {
-      // sky-v3 owns the night sky, so this layer contributes only the wisps
-      // lifting off the ridge -- the same gesture as daytime, in moonlight.
-      buildRidge(state, "#e4dac8", true);
-      snapshotBase(state);
-      renderScene(performance.now());
-      startSunLoop();
-      return;
-    }
+    moonScene = null;
 
     // This build of suncalc reports altitude and azimuth in DEGREES, not radians.
-    // Converting again scaled altitude by ~57x, so every reading looked like high
-    // noon: the golden-hour palette and the afterglow could never trigger.
     var altitude = state.celestial.sun.altitude;
+    var night = isNight();
     var colors = palette(altitude);
     var valleyX = findValleyX(state);
 
-    ctx.save();
-    clipSky(state);
-    drawDitheredSky(state, colors);
-    drawAfterglow(state, altitude, valleyX);
-    ctx.restore();
+    // The page's own colours flip at -6 degrees, but the sky does not: there are
+    // another twelve degrees of real twilight after that. Painting stopped dead
+    // at the flip, so dusk cut straight to black. The dithered sky now carries on
+    // through nautical and astronomical twilight, thinning to nothing by -18,
+    // which also lets the stars come out gradually underneath instead of
+    // switching on.
+    var veil = typeof state.veil === "number" ? state.veil : (altitude > -6 ? 1 : clamp((altitude + 18) / 12, 0, 1));
 
-    buildRidge(state, colors.top, false);
+    if (veil > 0.01) {
+      ctx.save();
+      clipSky(state);
+      ctx.globalAlpha = veil;
+      drawDitheredSky(state, colors);
+      drawAfterglow(state, altitude, valleyX);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
+    buildRidge(state, night ? "#e4dac8" : colors.top, night);
+    // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
+    // in the sky and the old night-only moon could never show it.
+    moonScene = buildMoon(state, clearOfCopy);
     buildSun(state, altitude, valleyX);
     paintSunSolids();
+    paintMoonSolids(ctx, moonScene, moonInk(night));
     snapshotBase(state);
     renderScene(performance.now());
     startSunLoop();

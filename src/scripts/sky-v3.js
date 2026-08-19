@@ -72,8 +72,6 @@ import {
   var TERRAIN_AMP = 0.15;
   var TERRAIN_BUDGET = 7000;
   var edgeDots = [];
-  var moonPixels = [];
-  var moonAura = [];
   var celestial = null;
   var lastCelestialUpdate = 0;
 
@@ -441,106 +439,33 @@ import {
 
     // Authoritative phase, from real ephemeris rather than the inline estimate.
     setSkyPhase(celestial.sun.altitude > -6 ? "day" : "night");
+
+    // How much twilight is still painted over the night sky. The page's colours
+    // flip at -6 but the sky keeps fading to -18, so every layer that cares about
+    // "is it actually dark yet" has to read this rather than the phase alone.
+    twilightVeil = celestial.sun.altitude > -6 ? 1 : clamp((celestial.sun.altitude + 18) / 12, 0, 1);
+    root_veil(twilightVeil);
     document.documentElement.dataset.moonPhase = celestial.moon.phase.toFixed(3);
   }
 
-  function keepPortraitBodyClear(body, radius) {
-    if (!state.portrait) return;
-    var copy = document.querySelector(".hero-copy");
-    if (!copy) return;
-    var rect = copy.getBoundingClientRect();
-    var padding = 14 * dpr;
-    var left = rect.left * dpr - padding;
-    var right = rect.right * dpr + padding;
-    var top = rect.top * dpr - padding;
-    var bottom = rect.bottom * dpr + padding;
-    var overlaps = body.x + radius > left && body.x - radius < right && body.y + radius > top && body.y - radius < bottom;
-    if (!overlaps) return;
-
-    var clearY = rect.top * dpr - radius - 18 * dpr;
-    if (clearY > 52 * dpr) body.y = clearY;
-  }
-
-  function makeMoon() {
-    moonPixels = [];
-    moonAura = [];
-    if (!state.dark || !celestial || !celestial.moon.visible) return;
-
-    var moon = celestial.moon;
-    var core = Math.max(1, Math.round(dpr));
-    var radius = Math.round((state.portrait ? 20 : 27) * dpr);
-    keepPortraitBodyClear(moon, radius);
-    var cos = Math.cos(moon.limbAngle);
-    var sin = Math.sin(moon.limbAngle);
-    var seed = width * 47 + height * 61 + 4409;
-
-    for (var dy = -radius; dy <= radius; dy += core) {
-      for (var dx = -radius; dx <= radius; dx += core) {
-        var distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance > radius) continue;
-
-        var rx = dx * cos - dy * sin;
-        var ry = dx * sin + dy * cos;
-        var rowHalf = Math.sqrt(Math.max(0, radius * radius - ry * ry));
-        var terminator = rowHalf * (1 - 2 * moon.fraction);
-        var lit = moon.waxing ? rx >= terminator : rx <= -terminator;
-        if (!lit) continue;
-
-        var edge = smoothstep(radius * 0.84, radius, distance);
-        var threshold = bayerThreshold((moon.x + dx) / core, (moon.y + dy) / core);
-        if (edge > 0 && threshold < edge * 0.76) continue;
-        if (hash2(dx, dy, seed) < 0.035 + edge * 0.08) continue;
-
-        moonPixels.push({
-          x: moon.x + dx,
-          y: moon.y + dy,
-          alpha: 0.66 + (1 - edge) * 0.24,
-          phase: hash2(dx, dy, seed + 5) * Math.PI * 2
-        });
-      }
-    }
-
-    var rayCount = state.portrait ? 68 : 92;
-    for (var ray = 0; ray < rayCount; ray++) {
-      var angle = (ray / rayCount) * Math.PI * 2;
-      var ux = Math.cos(angle);
-      var uy = Math.sin(angle);
-      var edgeX = ux * radius * 0.94;
-      var edgeY = uy * radius * 0.94;
-      var rotatedX = edgeX * cos - edgeY * sin;
-      var rotatedY = edgeX * sin + edgeY * cos;
-      var edgeHalf = Math.sqrt(Math.max(0, radius * radius - rotatedY * rotatedY));
-      var edgeTerminator = edgeHalf * (1 - 2 * moon.fraction);
-      var illuminated = moon.waxing ? rotatedX >= edgeTerminator : rotatedX <= -edgeTerminator;
-      if (hash2(ray, radius, seed + 31) > (illuminated ? 0.66 : 0.38)) continue;
-
-      moonAura.push({
-        x: moon.x + edgeX,
-        y: moon.y + edgeY,
-        ux: ux,
-        uy: uy,
-        reach: (illuminated ? 3 + hash2(ray, radius, seed + 37) * 8 : 2 + hash2(ray, radius, seed + 37) * 5) * dpr,
-        alpha: illuminated
-          ? 0.075 + hash2(ray, radius, seed + 41) * 0.095
-          : 0.035 + hash2(ray, radius, seed + 41) * 0.045,
-        lit: illuminated,
-        phase: hash2(ray, radius, seed + 43) * Math.PI * 2,
-        phase2: hash2(ray, radius, seed + 45) * Math.PI * 2,
-        tangent: (0.25 + hash2(ray, radius, seed + 46) * 0.75) * dpr,
-        period: 4600 + hash2(ray, radius, seed + 47) * 7200
-      });
-    }
-  }
-
-  // Ephemeris refresh only. This layer used to dither its own daytime sky and sun
-  // here, but twilight-sky.js paints an opaque sky on top of this canvas, so none
-  // of it could ever be seen -- and drawing it first made the sun appear pale for
-  // a beat before the real disc landed on it. Daytime sky and sun belong to
-  // twilight-sky.js; this file owns the terrain, stars, moon and night.
   // An override lets the easter eggs walk the scene to a chosen hour without
   // touching the wall clock. Null means "follow Vadodara", which is the default
   // and what every normal visit uses.
   var clockOverride = null;
+  var twilightVeil = 1;
+
+  function root_veil(value) {
+    var root = document.documentElement;
+    root.style.setProperty("--sky-veil", value.toFixed(3));
+    // The page switches to night ink at -6, but the sky behind the hero stays
+    // bright for another few degrees. While it is still lit, the hero needs the
+    // daylight inks or its text is light-on-light.
+    // Three bands, because the sky passes through every luminance on the way
+    // down and the page's two ink sets only cover the ends of that range.
+    if (value > 0.55) root.setAttribute("data-sky-veil", "lit");
+    else if (value > 0.04) root.setAttribute("data-sky-veil", "dim");
+    else root.removeAttribute("data-sky-veil");
+  }
 
   function skyNow() {
     return clockOverride == null ? new Date() : new Date(clockOverride);
@@ -566,36 +491,7 @@ import {
 
   function updateSky() {
     updateCelestial(skyNow());
-    makeMoon();
   }
-  function drawMoon(now) {
-    if (!state.dark || !moonPixels.length) return;
-    var core = Math.max(1, Math.round(dpr));
-    ctx.fillStyle = theme().star;
-
-    for (var auraIndex = 0; auraIndex < moonAura.length; auraIndex++) {
-      var aura = moonAura[auraIndex];
-      var release = 0.5 + 0.5 * Math.sin((now / aura.period) * Math.PI * 2 + aura.phase);
-      var vibration = Math.sin((now / (aura.period * 0.41)) * Math.PI * 2 + aura.phase2) * aura.tangent;
-      var auraX = Math.round(aura.x + aura.ux * aura.reach * release - aura.uy * vibration);
-      var auraY = Math.round(aura.y + aura.uy * aura.reach * release + aura.ux * vibration);
-      if (auraX < 0 || auraX >= width || auraY < 0 || auraY >= state.skyline[auraX]) continue;
-      ctx.globalAlpha = aura.alpha * (0.36 + (1 - release) * 0.64);
-      ctx.fillRect(auraX, auraY, core, core);
-    }
-
-    for (var i = 0; i < moonPixels.length; i++) {
-      var pixel = moonPixels[i];
-      var x = Math.round(pixel.x);
-      var y = Math.round(pixel.y);
-      if (x < 0 || x >= width || y < 0 || y >= state.skyline[x]) continue;
-      var surface = 0.97 + 0.03 * Math.sin(now * 0.00044 + pixel.phase);
-      ctx.globalAlpha = pixel.alpha * surface;
-      ctx.fillRect(x, y, core, core);
-    }
-  }
-
-
 
   function makeStars() {
     stars = [];
@@ -813,7 +709,6 @@ import {
     ctx.putImageData(terrainImage, 0, 0);
     drawEdge(now);
     drawStars(now);
-    drawMoon(now);
     drawSatellite(now);
     drawComet(now);
     ctx.globalAlpha = 1;
@@ -1023,6 +918,7 @@ import {
         // state, so twilight-sky read `undefined` and used landscape values on
         // every phone.
         portrait: state.portrait,
+        veil: twilightVeil,
         skyline: state.skyline,
         luminance: state.luminance,
         ridgeTop: state.ridgeTop,
@@ -1046,7 +942,10 @@ import {
             visible: celestial.moon.visible,
             fraction: celestial.moon.fraction,
             phase: celestial.moon.phase,
-            waxing: celestial.moon.waxing
+            waxing: celestial.moon.waxing,
+            x: celestial.moon.x,
+            y: celestial.moon.y,
+            limbAngle: celestial.moon.limbAngle
           }
         },
         motion: { reduced: reducedMotion, visible: visible }

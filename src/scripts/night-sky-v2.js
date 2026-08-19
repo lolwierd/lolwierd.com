@@ -164,6 +164,12 @@ import {
   }
 
   function drawRidgeClean() {
+    // This mask exists to keep the night sky clean along the ridge. While
+    // twilight is still painted over the scene the sky there is bright, and the
+    // mask read as a heavy black outline traced along the mountains.
+    var veil = typeof state.veil === "number" ? state.veil : 0;
+    if (veil > 0.04) return;
+
     var depth = Math.ceil(20 * state.dpr);
     ctx.fillStyle = "#0b0e13";
     ctx.globalAlpha = 1;

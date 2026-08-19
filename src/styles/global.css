@@ -339,6 +339,24 @@ a { -webkit-tap-highlight-color: transparent; }
   text-wrap: balance;
 }
 
+/* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
 .hero-copy > p {
   max-width: 31rem;
   margin: clamp(1.25rem, 2.5vh, 1.8rem) 0 0;
@@ -753,7 +771,25 @@ a { -webkit-tap-highlight-color: transparent; }
     line-height: 0.98;
   }
 
-  .hero-copy > p {
+  /* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
+.hero-copy > p {
     max-width: 21rem;
     margin-top: 1.15rem;
     font-size: 0.92rem;
@@ -838,7 +874,25 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 370px) {
   .hero-nav { gap: 0.65rem; }
-  .hero-copy > p { max-width: 19rem; }
+  /* Through civil twilight the page has already switched to its night ink while
+   the sky behind the hero is still lit. Scoped to the hero only: everything
+   below it sits on the page colour and must keep the night inks. */
+:root[data-sky-veil="lit"] .hero {
+  --ink: #2b2d31;
+  --ink-strong: #181a1e;
+  --ink-dim: #5a5954;
+  --ink-faint: #6b6961;
+}
+
+/* Nautical twilight: the sky is mid-grey, where neither ink set has any
+   contrast. The night inks are right in kind, just too quiet -- lift the
+   secondary tones until the sky finishes going dark. */
+:root[data-sky-veil="dim"] .hero {
+  --ink-dim: #d4cdbf;
+  --ink-faint: #b8b2a6;
+}
+
+.hero-copy > p { max-width: 19rem; }
   .measurements { grid-template-columns: 1fr; }
 }
 
