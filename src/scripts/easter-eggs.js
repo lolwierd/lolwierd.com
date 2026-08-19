@@ -21,7 +21,6 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     ["comet", "throw one, if it is dark enough"],
     ["stars", "light up the constellations"],
     ["snow", "weather"],
-    ["bug / hpack", "the failure i still think about"],
     ["ridge", "show the skyline the page computed"],
     ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
@@ -93,17 +92,6 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     window.scrollTo({ top: 0, behavior: motionMedia.matches ? "auto" : "smooth" });
   }
 
-  function highlightBug() {
-    var bug = document.querySelector(".remembered-bug");
-    if (!bug) return;
-    say("the one i still think about");
-    bug.scrollIntoView({ behavior: motionMedia.matches ? "auto" : "smooth", block: "center" });
-    bug.setAttribute("data-flash", "");
-    window.setTimeout(function () {
-      bug.removeAttribute("data-flash");
-    }, 2600);
-  }
-
   var dayRun = 0;
 
   // Walk the clock continuously rather than cutting between four hours. Stepping
@@ -114,6 +102,58 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   var DAY_MS = 15000;
   var STEP_MS = 140;
 
+  // Sun altitude is a terrible clock to run at a constant rate. Two thirds of
+  // the arc is daylight above ten degrees, where the palette, the veil and the
+  // accent are all pinned and nothing on screen changes; the twelve degrees of
+  // twilight where every one of them moves went past in about a second, so the
+  // accent jumped straight from its daylight tone to its night one and skipped
+  // the pale band in between entirely.
+  //
+  // So the run spends its time in proportion to how much the scene is changing:
+  // a tall narrow bell over the twilight where the veil, the palette and the
+  // accent all move at once, a lower one over golden hour where the sun is worth
+  // watching, and a floor under both so noon passes rather than stalling. The
+  // run then walks the cumulative weight instead of the hours.
+  var PACE_STOPS = 240;
+
+  function paceArc(api, arc) {
+    var weights = new Array(PACE_STOPS + 1);
+    var cumulative = new Array(PACE_STOPS + 1);
+
+    for (var i = 0; i <= PACE_STOPS; i++) {
+      var at = new Date(arc.from + (arc.to - arc.from) * (i / PACE_STOPS));
+      var altitude = api.sunAltitudeAt(at);
+      var twilight = (altitude + 13.5) / 6;
+      var golden = (altitude - 1) / 7;
+      weights[i] = 0.04 + 1.4 * Math.exp(-twilight * twilight) + 0.35 * Math.exp(-golden * golden);
+    }
+
+    var total = 0;
+    cumulative[0] = 0;
+    for (var j = 1; j <= PACE_STOPS; j++) {
+      total += (weights[j - 1] + weights[j]) / 2;
+      cumulative[j] = total;
+    }
+    if (!total) return null;
+    for (var k = 0; k <= PACE_STOPS; k++) cumulative[k] /= total;
+    return cumulative;
+  }
+
+  // Where along the arc the run should be, given how much of its budget it has
+  // spent. Inverts the cumulative weight by bisection.
+  function arcAt(cumulative, spent) {
+    if (!cumulative) return spent;
+    var lo = 0;
+    var hi = PACE_STOPS;
+    while (lo + 1 < hi) {
+      var mid = (lo + hi) >> 1;
+      if (cumulative[mid] <= spent) lo = mid;
+      else hi = mid;
+    }
+    var span = cumulative[hi] - cumulative[lo];
+    return (lo + (span > 0 ? (spent - cumulative[lo]) / span : 0)) / PACE_STOPS;
+  }
+
   function runTheDay() {
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
@@ -121,6 +161,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
 
     toTop();
     var arc = api.dayArc();
+    var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
     var started = performance.now();
     say("a whole day, fifteen seconds");
 
@@ -136,7 +177,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       // Ease the ends so the run settles into dawn and out at night instead of
       // starting and stopping at full speed.
       var eased = t * t * (3 - 2 * t);
-      api.stepClock(new Date(arc.from + (arc.to - arc.from) * eased));
+      api.stepClock(new Date(arc.from + (arc.to - arc.from) * arcAt(pacing, eased)));
     }, STEP_MS);
   }
 
@@ -245,10 +286,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
 
     budget: function () {
       toggleBudget();
-    },
-
-    bug: highlightBug,
-    hpack: highlightBug
+    }
   };
 
   var budgetPanel = null;

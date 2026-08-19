@@ -509,6 +509,20 @@ import {
 
   function draw(now) {
     if (!ctx || !state) return;
+
+    // state is a snapshot taken in build(), and build() only re-runs on a resize
+    // or a phase flip -- so the veil in it was frozen at whatever it happened to
+    // be then. Both masks below are gated on the veil, and with a stale one they
+    // painted the page's night colour along the ridge while the sky above it was
+    // still lit: a dark border traced around the mountain. The geometry in the
+    // snapshot is genuinely static; only these two move, so only these two are
+    // re-read.
+    var live = baseState();
+    if (live) {
+      state.veil = live.veil;
+      state.dark = live.dark;
+    }
+
     ctx.clearRect(0, 0, state.width, state.height);
     if (!state.dark) return;
 

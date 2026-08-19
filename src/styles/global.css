@@ -289,21 +289,6 @@ a { -webkit-tap-highlight-color: transparent; }
 .sky-sheet dt { color: var(--ink-strong); }
 .sky-sheet dd { margin: 0; color: var(--ink-dim); }
 
-/* "bug" scrolls here; the rule brightens so you can see where you landed. */
-.remembered-bug {
-  transition: border-color 400ms ease;
-}
-
-.remembered-bug[data-flash] {
-  border-left-color: var(--accent);
-  animation: bug-flash 2.4s ease;
-}
-
-@keyframes bug-flash {
-  0%, 100% { border-left-width: 1px; }
-  12%, 60% { border-left-width: 4px; }
-}
-
 /* The scene fades up once the plate has actually painted; the hero copy is held
    until just after, so the mountain lands first and the words settle onto it. */
 #sky,
@@ -887,42 +872,7 @@ a { -webkit-tap-highlight-color: transparent; }
     line-height: 0.98;
   }
 
-  /* Through civil twilight the page has already switched to its night ink while
-   the sky behind the hero is still lit. Scoped to the hero only: everything
-   below it sits on the page colour and must keep the night inks. */
-:root[data-sky-veil="lit"] .hero {
-  --ink: #2b2d31;
-  --ink-strong: #181a1e;
-  --ink-dim: #5a5954;
-  --ink-faint: #6b6961;
-}
-
-/* The accent has to move with the sky too. Measured behind the masthead across
-   an evening, the ground under that line runs from 233 down to 11, and a single
-   orange cannot survive it: the night accent falls to 1.06:1 against the middle
-   of that range. Each band gets the accent that actually reads on it -- deep
-   while the sky is bright, pale once it is dark. */
-:root[data-sky-veil="lit"] .hero {
-  --accent: #4f2012;
-}
-
-/* Nautical twilight: the sky is mid-grey, where neither ink set has much
-   contrast. The night inks are right in kind, just too quiet -- lift the
-   secondary tones, and take the accent almost to bone, which is the best any
-   warm tone manages against that ground. */
-:root[data-sky-veil="edge"] .hero {
-  --accent: #fadfd0;
-  --ink-dim: #d4cdbf;
-  --ink-faint: #b8b2a6;
-}
-
-:root[data-sky-veil="dim"] .hero {
-  --accent: #e08a5f;
-  --ink-dim: #d4cdbf;
-  --ink-faint: #b8b2a6;
-}
-
-.hero-copy > p {
+  .hero-copy > p {
     max-width: 21rem;
     margin-top: 1.15rem;
     font-size: 0.92rem;
@@ -1007,42 +957,7 @@ a { -webkit-tap-highlight-color: transparent; }
 
 @media (max-width: 370px) {
   .hero-nav { gap: 0.65rem; }
-  /* Through civil twilight the page has already switched to its night ink while
-   the sky behind the hero is still lit. Scoped to the hero only: everything
-   below it sits on the page colour and must keep the night inks. */
-:root[data-sky-veil="lit"] .hero {
-  --ink: #2b2d31;
-  --ink-strong: #181a1e;
-  --ink-dim: #5a5954;
-  --ink-faint: #6b6961;
-}
-
-/* The accent has to move with the sky too. Measured behind the masthead across
-   an evening, the ground under that line runs from 233 down to 11, and a single
-   orange cannot survive it: the night accent falls to 1.06:1 against the middle
-   of that range. Each band gets the accent that actually reads on it -- deep
-   while the sky is bright, pale once it is dark. */
-:root[data-sky-veil="lit"] .hero {
-  --accent: #4f2012;
-}
-
-/* Nautical twilight: the sky is mid-grey, where neither ink set has much
-   contrast. The night inks are right in kind, just too quiet -- lift the
-   secondary tones, and take the accent almost to bone, which is the best any
-   warm tone manages against that ground. */
-:root[data-sky-veil="edge"] .hero {
-  --accent: #fadfd0;
-  --ink-dim: #d4cdbf;
-  --ink-faint: #b8b2a6;
-}
-
-:root[data-sky-veil="dim"] .hero {
-  --accent: #e08a5f;
-  --ink-dim: #d4cdbf;
-  --ink-faint: #b8b2a6;
-}
-
-.hero-copy > p { max-width: 19rem; }
+  .hero-copy > p { max-width: 19rem; }
   .measurements { grid-template-columns: 1fr; }
 }
 

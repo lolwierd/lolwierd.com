@@ -911,6 +911,13 @@ import {
     },
 
     // The span a full-day run walks: first light through to the small hours.
+    // The whole-day run needs to know where the sun will be before it goes
+    // there, so it can spend its fifteen seconds on the part of the arc that
+    // actually changes rather than on six hours of unvarying noon.
+    sunAltitudeAt: function (date) {
+      return SunCalc.getPosition(date, VADODARA.latitude, VADODARA.longitude).altitude;
+    },
+
     dayArc: function () {
       var base = new Date();
       var times = SunCalc.getTimes(base, VADODARA.latitude, VADODARA.longitude);

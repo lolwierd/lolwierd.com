@@ -236,7 +236,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   function buildRidge(state, tint, night) {
     var dpr = state.dpr;
     var core = Math.max(1, Math.round(dpr));
-    var count = state.portrait ? 40 : 72;
+    var count = state.portrait ? 52 : 94;
     var motes = [];
 
     for (var i = 0; i < count; i++) {
@@ -246,14 +246,14 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       motes.push({
         x: x,
         y: ridge - core,
-        rise: (24 + hash(i * 2.7) * 54) * dpr,
+        rise: (28 + hash(i * 2.7) * 62) * dpr,
         sway: (4 + hash(i * 9.1) * 13) * dpr,
         period: 9000 + hash(i * 4.4) * 11000,
         phase: hash(i * 1.9),
         // At noon the wisp tint matches the page and they are invisible; against
         // a warm dusk sky the same alpha made them the busiest thing on screen.
         // Trimmed so golden hour is not more restless than midday.
-        alpha: night ? 0.05 + hash(i * 6.6) * 0.09 : 0.085 + hash(i * 6.6) * 0.13
+        alpha: night ? 0.065 + hash(i * 6.6) * 0.115 : 0.105 + hash(i * 6.6) * 0.16
       });
     }
 
