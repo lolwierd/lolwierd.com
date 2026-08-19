@@ -1,17 +1,9 @@
+import { isNight, onSkyPhase, listenMedia, motionMedia } from "./sky-shared.js";
+
 (function () {
   "use strict";
 
-  var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  // Day/night follows the sun over Vadodara (see BaseLayout's inline script), not
-  // the visitor's OS theme. `skyphasechange` fires when that flips.
-  function isNight() {
-    return document.documentElement.dataset.sky === "night";
-  }
-
-  function onSkyPhase(handler) {
-    window.addEventListener("skyphasechange", handler);
-  }
 
   var timer = 0;
 
@@ -65,8 +57,7 @@
 
   onSkyPhase(resetForTheme);
 
-  if (motionMedia.addEventListener) motionMedia.addEventListener("change", resetForTheme);
-  else motionMedia.addListener(resetForTheme);
+  listenMedia(motionMedia, resetForTheme);
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) clear();

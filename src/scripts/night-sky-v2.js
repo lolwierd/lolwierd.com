@@ -1,3 +1,13 @@
+import {
+  clamp,
+  smoothstep,
+  lerp,
+  hash,
+  baseState,
+  listenMedia as listen,
+  onFrame
+} from "./sky-shared.js";
+
 (function () {
   "use strict";
 
@@ -9,7 +19,6 @@
   var ctx = null;
   var state = null;
   var stars = [];
-  var raf = 0;
   var last = 0;
   var tries = 0;
 
@@ -31,39 +40,15 @@
     headRadius: 0
   };
 
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
 
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
 
-  function smoothstep(a, b, value) {
-    var t = clamp((value - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
-  }
 
-  function hash(value) {
-    value = Math.imul(value ^ (value >>> 16), 2246822507);
-    value = Math.imul(value ^ (value >>> 13), 3266489909);
-    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
-  }
 
   function randomBetween(min, max) {
     return min + Math.random() * (max - min);
   }
 
-  function baseState() {
-    return window.__portfolioSky && window.__portfolioSky.state
-      ? window.__portfolioSky.state()
-      : null;
-  }
 
-  function listen(media, callback) {
-    if (media.addEventListener) media.addEventListener("change", callback);
-    else media.addListener(callback);
-  }
 
   function ensureCanvas() {
     if (canvas) return;
@@ -521,17 +506,11 @@
   }
 
   function tick(now) {
-    if (!visible || reduced) {
-      raf = 0;
-      return;
-    }
-
-    if (!last || now - last >= 1000 / 30) {
-      last = now;
-      if (state && state.dark && !comet.active && now >= comet.next) scheduleComet(now);
-      draw(now);
-    }
-    raf = window.requestAnimationFrame(tick);
+    if (!visible || reduced) return;
+    if (last && now - last < 1000 / 30) return;
+    last = now;
+    if (state && state.dark && !comet.active && now >= comet.next) scheduleComet(now);
+    draw(now);
   }
 
   function build() {
@@ -553,12 +532,10 @@
     armFirstComet(performance.now());
     draw(reduced ? 1400 : performance.now());
 
-    if (raf) window.cancelAnimationFrame(raf);
-    raf = 0;
     last = 0;
-    if (!reduced && visible) raf = window.requestAnimationFrame(tick);
   }
 
+  onFrame(tick);
   window.addEventListener("skyphasechange", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
@@ -572,7 +549,6 @@
 
   document.addEventListener("visibilitychange", function () {
     visible = !document.hidden;
-    if (visible && !reduced && !raf) raf = window.requestAnimationFrame(tick);
   });
 
   window.__nightSkyTune = {

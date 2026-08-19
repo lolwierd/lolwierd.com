@@ -1,3 +1,13 @@
+import {
+  clamp,
+  smoothstep as smooth,
+  hash,
+  hash2,
+  baseState,
+  listenMedia as listen,
+  onFrame
+} from "./sky-shared.js";
+
 (function () {
   "use strict";
 
@@ -31,7 +41,6 @@
   var shadowDots = [];
 
   var mouse = { x: -1000, y: -1000, vx: 0, vy: 0, speed: 0, lastX: 0, lastY: 0, lastT: 0 };
-  var raf = 0;
   var last = 0;
   var tries = 0;
   var width = 0;
@@ -58,18 +67,6 @@
     var t = clamp((v - a) / (b - a), 0, 1);
     return t * t * (3 - 2 * t);
   }
-  function hash(n) {
-    n = Math.imul(n ^ (n >>> 16), 2246822507);
-    n = Math.imul(n ^ (n >>> 13), 3266489909);
-    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
-  }
-  function hash2(a, b, seed) {
-    return hash(
-      Math.imul(a | 0, 374761393) ^
-      Math.imul(b | 0, 668265263) ^
-      Math.imul(seed | 0, 2246822519)
-    );
-  }
 
   function bayer8Threshold(x, y) {
     var px = ((Math.floor(x) % 8) + 8) % 8;
@@ -90,16 +87,7 @@
     return (w1 * 0.45 + w2 * 0.40 + w3 * 0.15) * 0.5 + 0.5; // [0, 1] range
   }
 
-  function listen(media, fn) {
-    if (media.addEventListener) media.addEventListener("change", fn);
-    else media.addListener(fn);
-  }
 
-  function baseState() {
-    return window.__portfolioSky && window.__portfolioSky.state
-      ? window.__portfolioSky.state()
-      : null;
-  }
 
   function ensureCanvas() {
     if (canvas) return;
@@ -219,10 +207,7 @@
     seedShadowCouloirs();
     draw(reduced ? FIXED_TIME : performance.now());
 
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
     last = 0;
-    if (!reduced && visible) raf = requestAnimationFrame(tick);
   }
 
   /* ─── draw ──────────────────────────────────────────────────────── */
@@ -295,17 +280,13 @@
   /* ─── loop ──────────────────────────────────────────────────────── */
 
   function tick(now) {
-    if (!visible || reduced) {
-      raf = 0;
-      return;
-    }
-    if (!last || now - last >= FRAME_MS) {
-      last = now;
-      draw(now);
-    }
-    raf = requestAnimationFrame(tick);
+    if (!visible || reduced) return;
+    if (last && now - last < FRAME_MS) return;
+    last = now;
+    draw(now);
   }
 
+  onFrame(tick);
   window.addEventListener("skyphasechange", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
@@ -317,7 +298,6 @@
   }, { passive: true });
   document.addEventListener("visibilitychange", function () {
     visible = !document.hidden;
-    if (visible && !reduced && !raf) raf = requestAnimationFrame(tick);
   });
 
   window.__portfolioLife = {

@@ -1,20 +1,23 @@
+import {
+  clamp,
+  smoothstep,
+  lerp,
+  hashUnit as hash,
+  bayerThreshold,
+  baseState,
+  isNight,
+  onSkyPhase,
+  onFrame,
+  motionMedia
+} from "./sky-shared.js";
+
 (function () {
   "use strict";
 
   var canvas = null;
   var ctx = null;
   var tries = 0;
-  var motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  // Day/night follows the sun over Vadodara (see BaseLayout's inline script), not
-  // the visitor's OS theme. `skyphasechange` fires when that flips.
-  function isNight() {
-    return document.documentElement.dataset.sky === "night";
-  }
-
-  function onSkyPhase(handler) {
-    window.addEventListener("skyphasechange", handler);
-  }
 
   // The sky and afterglow are expensive to redraw, so they are painted once into
   // `base`. The animated corona then only has to restore the sun's bounding box
@@ -23,15 +26,9 @@
   var baseCtx = null;
   var sunScene = null;
   var ridgeScene = null;
-  var sunRaf = 0;
+  var sunPaused = false;
   var lastSunFrame = 0;
 
-  var BAYER_8 = [
-    0,48,12,60,3,51,15,63,32,16,44,28,35,19,47,31,
-    8,56,4,52,11,59,7,55,40,24,36,20,43,27,39,23,
-    2,50,14,62,1,49,13,61,34,18,46,30,33,17,45,29,
-    10,58,6,54,9,57,5,53,42,26,38,22,41,25,37,21
-  ];
 
   var PALETTES = {
     day: { top: "#eee9df", horizon: "#eadfd1" },
@@ -41,35 +38,11 @@
     night: { top: "#dadbe0", horizon: "#e4dbd4" }
   };
 
-  function baseState() {
-    return window.__portfolioSky && window.__portfolioSky.state
-      ? window.__portfolioSky.state()
-      : null;
-  }
 
-  function clamp(value, min, max) {
-    return value < min ? min : value > max ? max : value;
-  }
 
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
 
-  function smoothstep(a, b, value) {
-    var t = clamp((value - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
-  }
 
-  function hash(n) {
-    var v = Math.sin(n * 127.1) * 43758.5453;
-    return v - Math.floor(v);
-  }
 
-  function bayerThreshold(x, y) {
-    var px = ((Math.floor(x) % 8) + 8) % 8;
-    var py = ((Math.floor(y) % 8) + 8) % 8;
-    return BAYER_8[py * 8 + px] / 64;
-  }
 
   function rgb(hex) {
     var value = hex.replace("#", "");
@@ -434,25 +407,20 @@
     renderSun(now);
   }
 
+  // 24fps is plenty for a shimmer this slow. The loop itself is shared.
   function sunFrame(now) {
-    sunRaf = window.requestAnimationFrame(sunFrame);
-    // 24fps is plenty for a shimmer this slow, and keeps the cost off the budget
-    // the three existing sky loops already spend.
+    if (sunPaused || (!sunScene && !ridgeScene)) return;
     if (now - lastSunFrame < 1000 / 24) return;
     lastSunFrame = now;
     renderScene(now);
   }
 
   function stopSunLoop() {
-    if (!sunRaf) return;
-    window.cancelAnimationFrame(sunRaf);
-    sunRaf = 0;
+    sunPaused = true;
   }
 
   function startSunLoop() {
-    stopSunLoop();
-    if ((!sunScene && !ridgeScene) || motionMedia.matches || document.hidden) return;
-    sunRaf = window.requestAnimationFrame(sunFrame);
+    sunPaused = false;
   }
 
   function snapshotBase(state) {
@@ -526,14 +494,11 @@
     redrawSoon.timer = window.setTimeout(draw, 180);
   }
 
+  onFrame(sunFrame);
   onSkyPhase(redrawSoon);
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", redrawSoon);
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
-  document.addEventListener("visibilitychange", function () {
-    if (document.hidden) stopSunLoop();
-    else startSunLoop();
-  });
   window.setInterval(draw, 60000);
 
   draw();

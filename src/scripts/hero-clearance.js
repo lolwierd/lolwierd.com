@@ -1,3 +1,5 @@
+import { baseState } from "./sky-shared.js";
+
 (function () {
   "use strict";
 
@@ -68,8 +70,7 @@
     if (x1 <= x0) return Infinity;
 
     var y = Infinity;
-    var sky = window.__portfolioSky;
-    var state = sky && sky.state && sky.state();
+    var state = baseState();
     var skyline = state && state.skyline;
 
     if (skyline && skyline.length) {
