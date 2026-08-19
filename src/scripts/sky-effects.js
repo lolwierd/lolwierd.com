@@ -108,14 +108,31 @@ function altAz(raHours, decDegrees, lst) {
   return { alt: alt / RAD, az: ((az / RAD + 180) % 360 + 360) % 360 };
 }
 
-// The photograph has no recorded bearing, so azimuth maps linearly across the
-// frame. The figures are the right shape and turn at the right rate; only which
-// compass direction the camera faced is invented.
+// The frame faces due south. That is not a guess: the sun already crosses it
+// left to right, which in the northern hemisphere only happens looking south,
+// and the Annapurna Circuit's most photographed stretch does look south at the
+// massif. Reusing the sun's own anchors -- it rises at 0.13 of the width and
+// sets at 0.87 -- puts both bodies on one projection instead of two that merely
+// happened to agree about which way was east.
+//
+// Azimuth used to map 0-360 straight across the frame, which wrapped the
+// northern sky onto both edges: stars behind the camera were drawn in front of
+// it. Anything more than VIEW_HALF from the bearing is now simply out of shot.
+var VIEW_BEARING = 180;
+var VIEW_EAST_X = 0.13;
+var VIEW_WEST_X = 0.87;
+var VIEW_HALF = 105;
+
 function project(pos, state) {
+  var offset = pos.az - VIEW_BEARING;
+  if (offset > 180) offset -= 360;
+  if (offset < -180) offset += 360;
+
+  var quarter = (VIEW_WEST_X - VIEW_EAST_X) / 2;
   return {
-    x: (pos.az / 360) * state.width,
+    x: (0.5 + (offset / 90) * quarter) * state.width,
     y: state.height * (0.52 - clamp(pos.alt, 0, 90) / 90 * 0.46),
-    up: pos.alt > 1
+    up: pos.alt > 1 && Math.abs(offset) <= VIEW_HALF
   };
 }
 
