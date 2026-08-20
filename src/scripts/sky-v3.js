@@ -93,7 +93,13 @@ import {
   // it stretches the mid densities down toward paper while anything at full
   // density stays put, so the near silhouette keeps its weight and the distance
   // recedes. It amplifies a real measurement instead of inventing a geometry.
-  var DAY_TONE_GAMMA = 1.32;
+  //
+  // Set by measurement rather than by eye. At 1.32 the largest ink change
+  // anywhere on the plate was 6.6 points of density, confined to the mid-tones,
+  // which is a real difference and one nobody can see. This moves it to about
+  // 15, which separates the far ridges from the near buttress at a glance while
+  // still leaving everything at full density exactly where it was.
+  var DAY_TONE_GAMMA = 1.62;
   var edgeDots = [];
   var celestial = null;
   var lastCelestialUpdate = 0;

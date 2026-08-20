@@ -52,8 +52,13 @@ import {
   // frame: fast enough that the flow is continuous to look at, slow enough that
   // a warped fbm per cell is not the whole frame budget.
   var POOL_FIELD_MS = 140;
-  var POOL_PEAK = 0.14;
-  var POOL_ALPHA_STEPS = 4;
+
+  // Tuned by eye at first and it came out at a third of one percent of the frame
+  // carrying ten percent opacity, which is not restraint, it is nothing. These
+  // are set against a measurement now: enough coverage and enough ink that the
+  // fog is visible sitting in the passes without ever competing with the ridge.
+  var POOL_PEAK = 0.34;
+  var POOL_ALPHA_STEPS = 5;
   var lastPoolField = 0;
   var birds = [];
   var nextBird = Infinity;
@@ -173,24 +178,24 @@ import {
     var cells = [];
     var seed = width * 11 + height * 23 + 6607;
     var step = Math.max(1, Math.round(dpr));
-    var budgetCap = state.portrait ? 2600 : 4200;
+    var budgetCap = state.portrait ? 5200 : 11000;
 
     // A pass is a dip of a decent fraction of the frame, not a metre of noise in
     // the ridge trace, so both the window and the reference are generous.
     var reach = Math.round(width * 0.075);
     var stride = Math.max(1, Math.round(width * 0.004));
-    var reference = height * 0.085;
+    var reference = height * 0.070;
 
     for (var x = 0; x < width; x += step) {
       var edge = skyline[x];
       if (edge >= height) continue;
 
       var dip = edge - shoulderOf(skyline, x, reach, stride);
-      var depth = smoothstep(0.22, 1, dip / reference);
+      var depth = smoothstep(0.10, 0.88, dip / reference);
       if (depth <= 0.02) continue;
 
-      var fall = Math.round(height * (0.016 + depth * 0.055));
-      var overtop = Math.round(depth * depth * height * 0.014);
+      var fall = Math.round(height * (0.022 + depth * 0.085));
+      var overtop = Math.round(depth * depth * height * 0.022);
 
       for (var d = -overtop; d <= fall; d++) {
         var y = edge + d;
@@ -203,7 +208,7 @@ import {
           : 1 - smoothstep(0, fall, d) * 0.85;
         var weight = depth * vertical;
         if (weight <= 0.05) continue;
-        if (hash2(x, y, seed) > weight * 0.38) continue;
+        if (hash2(x, y, seed) > weight * 0.62) continue;
 
         cells.push({
           x: x,
@@ -268,8 +273,8 @@ import {
         // instead of only sliding past.
         var swell = 0.5 + 0.5 * Math.sin(now * 0.000068 + cell.seed * 6.28);
         var density = cell.weight * (0.30 + field * 0.78 + swell * 0.16);
-        cell.lit = density >= cell.threshold * 0.68
-          ? clamp(density * 0.15, 0, POOL_PEAK)
+        cell.lit = density >= cell.threshold * 0.58
+          ? clamp(density * 0.36, 0, POOL_PEAK)
           : 0;
       }
     }
