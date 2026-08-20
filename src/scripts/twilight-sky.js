@@ -627,7 +627,22 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", redrawSoon);
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
-  window.setInterval(draw, 60000);
+
+  // Coming back to a tab that has been in the background for an hour used to
+  // show an hour-old sun for up to another minute, because the only thing that
+  // moved it was this interval and the scene had no idea it had gone stale.
+  // rAF is halted while hidden, so nothing else was going to catch it either.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) redrawSoon();
+  });
+
+  // Every half minute rather than every minute. The sun crosses the frame at
+  // about a pixel a minute, so this is not about covering more ground -- it is
+  // that a full minute of dead stillness followed by a step is what reads as a
+  // page that has stopped, and half that is enough to read as drift. It is not
+  // cheaper than this: the redraw rebuilds the dithered sky, the ridge and both
+  // bodies, and costs about 23ms, so it stays as rare as it can stand to be.
+  window.setInterval(draw, 30000);
 
   draw();
 })();
