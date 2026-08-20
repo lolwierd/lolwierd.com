@@ -170,6 +170,84 @@ import {
     return highest;
   }
 
+  // Ink against paper, paper against ink.
+  //
+  // Anything drawn in front of the mountain is the same colour as the mountain,
+  // so on dark rock it simply disappears. Both the birds and the valley fog hit
+  // this, and fog hits it harder: fog is bright, so printing it in ink down in a
+  // shadowed basin is not just invisible, it is backwards. The photograph's own
+  // luminance is already loaded for the dither, so anything crossing the terrain
+  // asks it what it is standing against and takes the opposite.
+  function paperAt(x, y) {
+    if (!state.luminance) return false;
+    var px = clamp(Math.round(x), 0, width - 1);
+    var py = clamp(Math.round(y), 0, height - 1);
+    if (py < state.skyline[px]) return false;
+    return state.luminance[py * width + px] < 118;
+  }
+
+  function contrastInk(x, y) {
+    return paperAt(x, y) ? PAPER : INK;
+  }
+
+  // Fog answers to the sun, because that is what fog does.
+  //
+  // Radiation fog forms overnight in the low ground and burns off as the sun
+  // warms it, which is why a valley is drowned at first light and clear by
+  // mid-morning, and why it fills again as the ground cools at dusk. Driving it
+  // from the real solar altitude over Vadodara costs nothing -- the number is
+  // already published for the sun itself -- and it gives daylight a shape it did
+  // not have: the hero looks materially different at 07:00 and at 13:00.
+  function fogSeason() {
+    var alt = state.celestial && state.celestial.sun
+      ? state.celestial.sun.altitude
+      : 18;
+    //
+    // The floor is not zero and cannot be. Density is gated against a bayer
+    // threshold, so anything under about a third of full strength does not
+    // merely thin -- every cell fails the test at once and the fog disappears
+    // outright. A midday visitor would see exactly nothing and reasonably
+    // conclude it was never built. So noon keeps a real trace in the deepest
+    // passes, and the difference between first light and noon is carried by the
+    // valley below, which is allowed to go to nothing because it genuinely does.
+    return 0.40 + 0.60 * (1 - smoothstep(3, 30, alt));
+  }
+
+  // The valley floor only fills at the ends of the day. At noon there is no
+  // radiation fog down there at all, and pretending otherwise would be the same
+  // lie as drawing a moon that is below the horizon.
+  function valleySeason() {
+    var alt = state.celestial && state.celestial.sun
+      ? state.celestial.sun.altitude
+      : 18;
+    return 1 - smoothstep(1, 15, alt);
+  }
+
+  function pushCell(cells, x, y, weight, low, seed, rise) {
+    cells.push({
+      x: x,
+      y: y,
+      weight: weight,
+      low: low,
+      // Decided once, here, because the terrain never moves.
+      //
+      // The deck is always paper. Fog is white, and letting each cell pick ink
+      // or paper by the brightness underneath it broke the one thing a deck has
+      // to have -- it came out half dark and half light and read as noise on the
+      // slope rather than as a single body of cloud. Only the fog up in the
+      // passes, which sits against sky as often as rock, still asks.
+      paper: low ? true : paperAt(x, y),
+      // How far this dot climbs before it dissolves, and where in that climb it
+      // currently is. Fog lifts; this is the part of it that actually rises.
+      rise: rise,
+      phase: hash2(x, y, seed + 71),
+      threshold: bayerThreshold(x, y),
+      seed: hash2(x, y, seed + 53),
+      lit: 0,
+      lift: 0
+    });
+  }
+
   function buildPools() {
     pools = null;
     if (!state) return;
@@ -178,7 +256,7 @@ import {
     var cells = [];
     var seed = width * 11 + height * 23 + 6607;
     var step = Math.max(1, Math.round(dpr));
-    var budgetCap = state.portrait ? 5200 : 11000;
+    var budgetCap = state.portrait ? 6500 : 15000;
 
     // A pass is a dip of a decent fraction of the frame, not a metre of noise in
     // the ridge trace, so both the window and the reference are generous.
@@ -186,7 +264,10 @@ import {
     var stride = Math.max(1, Math.round(width * 0.004));
     var reference = height * 0.070;
 
-    for (var x = 0; x < width; x += step) {
+    var x;
+    var y;
+
+    for (x = 0; x < width; x += step) {
       var edge = skyline[x];
       if (edge >= height) continue;
 
@@ -198,7 +279,7 @@ import {
       var overtop = Math.round(depth * depth * height * 0.022);
 
       for (var d = -overtop; d <= fall; d++) {
-        var y = edge + d;
+        y = edge + d;
         if (y < 0 || y >= height) continue;
 
         // Densest at the surface of the pool, thinning downward into the basin
@@ -210,15 +291,50 @@ import {
         if (weight <= 0.05) continue;
         if (hash2(x, y, seed) > weight * 0.62) continue;
 
-        cells.push({
-          x: x,
-          y: y,
-          weight: weight,
-          threshold: bayerThreshold(x, y),
-          seed: hash2(x, y, seed + 53),
-          // Resolved by drawPools a few times a second and held in between.
-          lit: 0
-        });
+        pushCell(cells, x, y, weight, false, seed, height * (0.010 + hash2(x, y, seed + 29) * 0.022));
+      }
+    }
+
+    // The valley floor, which is the half of the frame fog was never allowed
+    // into. The first attempt seeded it by shade -- a dot wherever the rock was
+    // dark enough -- and it printed as an even scatter of speckle across the
+    // whole slope, which reads as dirt on the plate and not as weather.
+    //
+    // Fog in a basin is not a scatter, it is a surface. An inversion has a top:
+    // a level you can see, with everything below it drowned and everything above
+    // it clear. So this fills upward to a line instead of dusting a region, and
+    // the line itself wanders from column to column so it never reads as a rule
+    // drawn across the picture.
+    var valleyTop = state.ridgeTop + (height - state.ridgeTop) * 0.42;
+    var deckBase = valleyTop + (height - valleyTop) * 0.34;
+    var deckSoft = height * 0.045;
+    var vStep = Math.max(1, Math.round(dpr));
+
+    for (x = 0; x < width; x += vStep) {
+      // The surface, wandering. Two scales so it has both a long tilt across the
+      // valley and a little local swell on top of it.
+      var surface = deckBase +
+        (valueNoise(x * 0.0016, 11.5, seed + 7) - 0.5) * height * 0.075 +
+        (valueNoise(x * 0.0064, 27.5, seed + 9) - 0.5) * height * 0.028;
+
+      var floorY = Math.min(height - 1, Math.round(surface + deckSoft + height * 0.30));
+
+      for (y = Math.round(surface - deckSoft); y <= floorY; y += vStep) {
+        if (y < 0 || y >= height) continue;
+        if (y < skyline[x]) continue;
+
+        // Thin above the surface, solid below it. This is the whole difference
+        // between fog and speckle: there is a level, and it is visible.
+        var below = y - surface;
+        var vWeight = smoothstep(-deckSoft, deckSoft * 0.55, below);
+
+        // Thins again far below, so the very bottom of the frame does not turn
+        // into a flat wall of ink.
+        vWeight *= 1 - smoothstep(deckSoft, height * 0.30, below) * 0.55;
+        if (vWeight <= 0.06) continue;
+        if (hash2(x, y, seed + 5) > vWeight * 0.78) continue;
+
+        pushCell(cells, x, y, vWeight, true, seed, height * (0.016 + hash2(x, y, seed + 31) * 0.036));
       }
     }
 
@@ -241,65 +357,110 @@ import {
   function drawPools(now) {
     if (!pools) return;
 
-    // Two costs live in here and neither of them needed paying every frame.
-    //
-    // The field is a warped fbm -- two fbms, three octaves each -- and running
-    // it per cell per frame was most of a ten millisecond frame on its own. Fog
-    // this slow does not change meaningfully in forty milliseconds, so the
-    // density is recomputed a few times a second and held in between. Nothing
-    // about the motion reads differently; the arithmetic drops by two thirds.
-    //
-    // The other cost was one fill per cell with a globalAlpha change between
-    // each. The cells are bucketed by alpha instead and go down as a handful of
-    // paths, the same trick the terrain flicker uses.
+    // Two costs live in here and neither of them needed paying every frame. The
+    // field is a warped fbm -- two fbms, three octaves each -- and running it per
+    // cell per frame was most of a ten millisecond frame on its own. Fog this
+    // slow does not change meaningfully in forty milliseconds, so the density is
+    // recomputed a few times a second and held in between.
+    var season = fogSeason();
+    var valley = valleySeason();
     var resolve = now - lastPoolField >= POOL_FIELD_MS;
 
     if (resolve) {
       lastPoolField = now;
       var t = now * 0.0000042;
 
-      // Fog in a pass is not a texture sitting still, it is air being pushed
-      // through a gap. Advecting the sample point sideways streams the density
-      // across the notch while the envelope that decides which cells may light
-      // at all stays exactly where the ridge put it -- so the fog visibly moves
-      // and still cannot spill outside the saddle it belongs to.
+      // Fog in a pass is air being pushed through a gap, so the sample point is
+      // advected sideways; and fog everywhere lifts, so it is advected upward as
+      // well. Moving the sampling rather than the cells means the envelope that
+      // decides which cells may light at all stays exactly where the terrain put
+      // it -- the fog visibly rises and drifts and still cannot climb out of the
+      // valley it belongs to.
       var flow = now * 0.000042;
+      var climb = now * 0.000027;
 
       for (var i = 0; i < pools.length; i++) {
         var cell = pools[i];
-        var field = warpedField(cell.x * 0.0016 - flow, cell.y * 0.0042 + cell.seed * 3, t, 733);
+        var live = cell.low ? season * valley : season;
+        if (live <= 0.02) {
+          cell.lit = 0;
+          continue;
+        }
+
+        var field = warpedField(
+          cell.x * 0.0016 - flow,
+          cell.y * 0.0042 - climb + cell.seed * 3,
+          t,
+          733
+        );
 
         // A slow swell on top of the flow, so the pool also rises and settles
         // instead of only sliding past.
         var swell = 0.5 + 0.5 * Math.sin(now * 0.000068 + cell.seed * 6.28);
-        var density = cell.weight * (0.30 + field * 0.78 + swell * 0.16);
+        var density = cell.weight * live * (0.30 + field * 0.78 + swell * 0.16);
         cell.lit = density >= cell.threshold * 0.58
           ? clamp(density * 0.36, 0, POOL_PEAK)
           : 0;
       }
     }
 
-    var buckets = [];
+    // The dots themselves climb. The field above makes the pattern rise; this
+    // makes individual pixels leave the ground, thin out and dissolve near the
+    // top of their travel, which is what fog burning off actually looks like.
+    // Cheap enough to run every frame, so the lift stays smooth between the
+    // field's slower resolutions.
+    var lifting = 0.35 + 0.65 * (1 - smoothstep(2, 26,
+      state.celestial && state.celestial.sun ? state.celestial.sun.altitude : 18));
+
+    var inkBuckets = [];
+    var paperBuckets = [];
     var b;
-    for (b = 0; b < POOL_ALPHA_STEPS; b++) buckets.push(null);
+    for (b = 0; b < POOL_ALPHA_STEPS; b++) {
+      inkBuckets.push(null);
+      paperBuckets.push(null);
+    }
 
     var unit = Math.max(1, Math.round(dpr));
     var drawn = 0;
 
     for (var k = 0; k < pools.length; k++) {
-      var lit = pools[k].lit;
-      if (lit < 0.005) continue;
+      var c = pools[k];
+      if (c.lit < 0.005) continue;
 
-      b = clamp(Math.round((lit / POOL_PEAK) * (POOL_ALPHA_STEPS - 1)), 0, POOL_ALPHA_STEPS - 1);
-      if (!buckets[b]) buckets[b] = new Path2D();
-      buckets[b].rect(pools[k].x, pools[k].y, unit, unit);
+      // A sawtooth per cell on its own long, private cycle, so no two dots rise
+      // together and there is never a pulse.
+      var span = c.phase * 0.55 + 0.45;
+      var cycle = (now * 0.000045 * span + c.phase) % 1;
+      var rise = Math.round(cycle * c.rise * lifting);
+      var fade = 1 - smoothstep(0.62, 1, cycle);
+      var alpha = c.lit * fade;
+      if (alpha < 0.005) continue;
+
+      var sy = c.y - rise;
+      if (sy < 0) continue;
+
+      b = clamp(Math.round((alpha / POOL_PEAK) * (POOL_ALPHA_STEPS - 1)), 0, POOL_ALPHA_STEPS - 1);
+      var target = c.paper ? paperBuckets : inkBuckets;
+      if (!target[b]) target[b] = new Path2D();
+      target[b].rect(c.x, sy, unit, unit);
       drawn++;
     }
 
     for (b = 0; b < POOL_ALPHA_STEPS; b++) {
-      if (!buckets[b]) continue;
-      ctx.globalAlpha = POOL_PEAK * ((b + 1) / POOL_ALPHA_STEPS);
-      ctx.fill(buckets[b]);
+      var level = POOL_PEAK * ((b + 1) / POOL_ALPHA_STEPS);
+      if (inkBuckets[b]) {
+        ctx.globalAlpha = level;
+        ctx.fillStyle = INK;
+        ctx.fill(inkBuckets[b]);
+      }
+      if (paperBuckets[b]) {
+        // Paper on dark rock reads weaker than ink on paper does, so the deck
+        // is given more rather than less -- at parity it vanished into the
+        // slope it was supposed to be lying on.
+        ctx.globalAlpha = Math.min(1, level * 1.5);
+        ctx.fillStyle = PAPER;
+        ctx.fill(paperBuckets[b]);
+      }
     }
 
     budget.poolCells = drawn;
@@ -459,18 +620,6 @@ import {
     };
   }
 
-  // Ink against paper, paper against ink. A bird in front of the mountain is the
-  // same colour as the mountain, so on dark rock it simply disappeared. The
-  // photograph's own luminance is already loaded for the dither, so the bird
-  // asks it what it is standing against and takes the opposite.
-  function birdInk(x, y) {
-    if (!state.luminance) return INK;
-    var px = clamp(Math.round(x), 0, width - 1);
-    var py = clamp(Math.round(y), 0, height - 1);
-    if (py < state.skyline[px]) return INK;
-    return state.luminance[py * width + px] < 118 ? PAPER : INK;
-  }
-
   function drawBird(bird) {
     var age = flightClock - bird.start;
     if (age < 0) return;
@@ -512,7 +661,7 @@ import {
     var unit = Math.max(1, Math.round(dpr));
     var alpha = clamp(lerp(0.54, 0.26, bird.depth) * presence, 0, 0.56);
 
-    ctx.fillStyle = birdInk(cx, cy);
+    ctx.fillStyle = contrastInk(cx, cy);
 
     // A body two cells deep. One left the wings meeting at a point with nothing
     // in the middle, and the eye needs a centre to read a bird around.
@@ -552,6 +701,9 @@ import {
     budget.birds = birds.length;
   }
 
+  // Assumes the caller has already adopted the published state: tick does that
+  // every frame before it decides whether the geometry moved. Called on its own
+  // it will happily rebuild against whatever snapshot was last taken.
   function rebuild() {
     if (!state) return;
 
@@ -579,14 +731,10 @@ import {
 
     buildPools();
 
-    // Later than the comet's four and a half seconds on purpose. Night is
-    // supposed to feel populated the moment you arrive; midday is supposed to
-    // feel still, and then have something in it.
+    // Sooner than the comet's four and a half seconds. A visit is short, the
+    // birds are the only thing that happens in daylight, and one that arrives
+    // after you have gone is the same as no bird at all.
     var boot = performance.now();
-
-    // Sooner than the comet. A visit is short, the birds are the only thing that
-    // happens in daylight, and one that arrives after you have gone is the same
-    // as no bird at all.
     flightClock = 0;
     lastRealTime = 0;
     nextBird = 2000 + hash2(width, height, 907) * 1000;
