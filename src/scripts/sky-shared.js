@@ -160,7 +160,9 @@ export var budget = {
   since: 0,
   terrainCells: 0,
   sunCells: 0,
-  wisps: 0
+  wisps: 0,
+  poolCells: 0,
+  birds: 0
 };
 
 // One animation loop for every layer. Each layer keeps its own frame budget and
