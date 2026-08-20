@@ -82,6 +82,18 @@ import {
   var TERRAIN_BAND = 0.14;
   var TERRAIN_AMP = 0.15;
   var TERRAIN_BUDGET = 7000;
+
+  // Aerial perspective. The range used to print at one ink density from the
+  // nearest buttress to the farthest peak, which is why it read as a cutout
+  // rather than as miles of air.
+  //
+  // The fix is not a depth map. The photograph already recorded the haze -- the
+  // far ridges came back lower in contrast because there is more atmosphere in
+  // front of them -- and the old exponent was flattening that back out. Raising
+  // it stretches the mid densities down toward paper while anything at full
+  // density stays put, so the near silhouette keeps its weight and the distance
+  // recedes. It amplifies a real measurement instead of inventing a geometry.
+  var DAY_TONE_GAMMA = 1.32;
   var edgeDots = [];
   var celestial = null;
   var lastCelestialUpdate = 0;
@@ -273,7 +285,7 @@ import {
         if (state.dark) {
           density = 0.035 + 0.965 * Math.pow(smoothstep(0.055, 0.95, value), 1.27);
         } else {
-          density = 0.018 + 0.982 * Math.pow(smoothstep(0.035, 0.84, 1 - value), 1.10);
+          density = 0.018 + 0.982 * Math.pow(smoothstep(0.035, 0.84, 1 - value), DAY_TONE_GAMMA);
         }
         paper[i] = 1 - clamp(density, 0, 1);
       }
