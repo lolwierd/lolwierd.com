@@ -19,12 +19,13 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     ["noon / day", "overhead"],
     ["now / reset", "back to the real hour"],
     ["comet", "throw one, if it is dark enough"],
+    ["birb / bird", "put one up, if the sun is"],
     ["stars", "light up the constellations"],
     ["snow", "weather"],
     ["ridge", "show the skyline the page computed"],
     ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
-    ["↑↑↓↓←→←→ba", "a whole day in fifteen seconds"],
+    ["↑↑↓↓←→←→ba", "a whole day in thirty seconds"],
     ["?", "this list"]
   ];
 
@@ -97,9 +98,14 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   // Walk the clock continuously rather than cutting between four hours. Stepping
   // at ~7fps: each step repaints the sky palette and rebuilds the sun, which is
   // too much to ask sixty times a second, and the sun's own travel is slow
-  // enough that this still reads as motion rather than as frames. Fifteen
-  // seconds at 140ms is about 107 steps, roughly a degree of sun per step.
-  var DAY_MS = 15000;
+  // enough that this still reads as motion rather than as frames. Thirty
+  // seconds at 140ms is about 214 steps, roughly half a degree of sun per step.
+  //
+  // It ran in fifteen and that was a sky being fast-forwarded rather than a day
+  // going past. Doubling it costs nothing -- the step rate is unchanged, there
+  // are simply twice as many of them -- and it leaves time to actually watch the
+  // light cross the range, which is the only reason to run it at all.
+  var DAY_MS = 30000;
   var STEP_MS = 140;
 
   // Sun altitude is a terrible clock to run at a constant rate. Two thirds of
@@ -154,6 +160,18 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     return (lo + (span > 0 ? (spent - cumulative[lo]) / span : 0)) / PACE_STOPS;
   }
 
+  function putBirdUp() {
+    toTop();
+    if (isNight()) {
+      say("birds want daylight. try 'noon'");
+      return;
+    }
+    if (window.__dayAtmosphere && window.__dayAtmosphere.birdNow) {
+      window.__dayAtmosphere.birdNow();
+      say("look up");
+    }
+  }
+
   function runTheDay() {
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
@@ -163,7 +181,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     var arc = api.dayArc();
     var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
     var started = performance.now();
-    say("a whole day, fifteen seconds");
+    say("a whole day, thirty seconds");
 
     dayRun = window.setInterval(function () {
       var t = (performance.now() - started) / DAY_MS;
@@ -257,6 +275,9 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       }
     },
 
+    birb: putBirdUp,
+    bird: putBirdUp,
+
     stars: function () {
       toTop();
       if (!isNight()) {
@@ -316,6 +337,10 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
         "<dt>terrain cells lit</dt><dd>" + budget.terrainCells + "</dd>" +
         "<dt>corona cells</dt><dd>" + budget.sunCells + "</dd>" +
         "<dt>ridge wisps</dt><dd>" + budget.wisps + "</dd>" +
+        // Daytime only, and honest about it: at night these are simply zero,
+        // which is the same thing the panel says about the corona after dark.
+        "<dt>saddle fog cells</dt><dd>" + (budget.poolCells || 0) + "</dd>" +
+        "<dt>birds aloft</dt><dd>" + (budget.birds || 0) + "</dd>" +
         "</dl>";
     };
     tick();
