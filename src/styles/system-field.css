@@ -1,0 +1,234 @@
+/* A small, data-led topology field: the visual is atmospheric, but every label
+   points at a real part of the platform described below it. */
+.system-field {
+  margin: 0 0 clamp(4.5rem, 8vw, 7rem);
+  padding: 1.15rem 0 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.system-field__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(15rem, 0.92fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: end;
+  padding-bottom: 1.3rem;
+}
+
+.system-field__kicker,
+.system-field__node-meta,
+.system-field__detail,
+.system-field__caption {
+  font-family: var(--mono);
+}
+
+.system-field__kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.system-field h3 {
+  max-width: 20rem;
+  margin: 0.65rem 0 0;
+  color: var(--ink-strong);
+  font: 400 clamp(1.55rem, 2.6vw, 2.15rem) / 1.05 var(--serif);
+  letter-spacing: -0.035em;
+}
+
+.system-field__intro {
+  max-width: 25rem;
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.83rem;
+  line-height: 1.65;
+}
+
+.system-field__stage {
+  position: relative;
+  min-height: 22rem;
+  overflow: hidden;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  isolation: isolate;
+}
+
+.system-field__stage::before,
+.system-field__stage::after {
+  position: absolute;
+  z-index: 0;
+  color: var(--ink-faint);
+  font: 10px/1 var(--mono);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.system-field__stage::before {
+  content: "request path";
+  top: 0.75rem;
+  left: 0.8rem;
+}
+
+.system-field__stage::after {
+  content: "state / convergence";
+  right: 0.8rem;
+  bottom: 0.75rem;
+}
+
+.system-field__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.system-field__nodes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.system-field__node {
+  position: absolute;
+  display: grid;
+  gap: 0.22rem;
+  min-width: 7.8rem;
+  padding: 0.35rem 0.45rem;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--ink-faint) 52%, transparent);
+  background: transparent;
+  color: var(--ink-dim);
+  font: 400 0.76rem/1.2 var(--mono);
+  text-align: left;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.system-field__node:hover,
+.system-field__node:focus-visible,
+.system-field__node[aria-pressed="true"] {
+  border-left-color: var(--accent);
+  color: var(--ink-strong);
+}
+
+.system-field__node[aria-pressed="true"] {
+  transform: translateX(0.2rem);
+}
+
+.system-field__node-label {
+  display: block;
+  color: inherit;
+}
+
+.system-field__node-label::before {
+  content: "";
+  display: inline-block;
+  width: 0.38rem;
+  height: 0.38rem;
+  margin: 0 0.48rem 0.04rem 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.system-field__node[aria-pressed="true"] .system-field__node-label::before {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 0 0.22rem color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.system-field__node-meta {
+  padding-left: 0.9rem;
+  color: var(--ink-faint);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+[data-system-node="compute"] { top: 17%; left: 5%; }
+[data-system-node="storage"] { bottom: 14%; left: 5%; }
+[data-system-node="kubernetes"] { top: 43%; left: 38%; }
+[data-system-node="networking"] { top: 17%; right: 5%; }
+[data-system-node="identity"] { right: 5%; bottom: 14%; }
+[data-system-node="reconciliation"] { bottom: 7%; left: 38%; }
+
+.system-field__detail {
+  display: grid;
+  grid-template-columns: minmax(7.8rem, 0.24fr) minmax(0, 1fr);
+  gap: 1.8rem;
+  max-width: 45rem;
+  margin: 0;
+  padding: 0.9rem 0;
+  color: var(--ink-dim);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.system-field__detail-label {
+  color: var(--accent);
+}
+
+.system-field__caption {
+  margin: 0;
+  padding: 0.65rem 0 0.9rem;
+  color: var(--ink-faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .system-field__header {
+    display: block;
+  }
+
+  .system-field__intro {
+    max-width: 26rem;
+    margin-top: 1rem;
+  }
+
+  .system-field__stage {
+    min-height: 24rem;
+  }
+
+  .system-field__node {
+    min-width: 7rem;
+    font-size: 0.68rem;
+  }
+
+  [data-system-node="kubernetes"],
+  [data-system-node="reconciliation"] {
+    left: 34%;
+  }
+
+  .system-field__detail {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 460px) {
+  .system-field__stage {
+    min-height: 28rem;
+  }
+
+  [data-system-node="compute"] { top: 12%; left: 4%; }
+  [data-system-node="storage"] { bottom: 12%; left: 4%; }
+  [data-system-node="kubernetes"] { top: 42%; left: 29%; }
+  [data-system-node="networking"] { top: 12%; right: 2%; }
+  [data-system-node="identity"] { right: 2%; bottom: 12%; }
+  [data-system-node="reconciliation"] { bottom: 3%; left: 29%; }
+
+  .system-field__node-meta {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .system-field__node {
+    transition: none;
+  }
+}

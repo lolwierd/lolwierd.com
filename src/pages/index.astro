@@ -9,11 +9,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <div class="hero-frame">
       <div class="topbar">
         <p class="site-name">ayaan retiwala <span class="site-role">· platform engineer</span><span class="site-open"> · open to work</span></p>
-        <nav class="hero-nav" aria-label="Page">
-          <a href="#work">work</a>
-          <a href="#projects">projects</a>
+        <nav class="hero-nav" data-nav-dock aria-label="Page">
+          <a href="#work" data-nav-target="work">work</a>
+          <a href="#projects" data-nav-target="projects">projects</a>
           <a class="nav-resume" href="/ayaan-retiwala-resume.pdf">resume</a>
-          <a href="#contact">contact</a>
+          <a href="#contact" data-nav-target="contact">contact</a>
         </nav>
       </div>
 
@@ -41,6 +41,55 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             three years building and running Excloud's core platform with <a href="https://www.linkedin.com/in/arjun-hemrajani-416581ab/" rel="noreferrer">Arjun</a>, its
             founder — from hosts and storage up to the APIs and tools customers used.
           </p>
+
+          <figure class="system-field" data-system-field aria-labelledby="system-field-title">
+            <div class="system-field__header">
+              <div>
+                <p class="system-field__kicker">control plane / field note 01</p>
+                <h3 id="system-field-title">the parts had to converge.</h3>
+              </div>
+              <p class="system-field__intro">
+                a request could begin at the console and end in a hypervisor, a volume, a DNS record,
+                or a cluster — with state to reconcile at every seam.
+              </p>
+            </div>
+
+            <div class="system-field__stage" data-system-stage>
+              <canvas class="system-field__canvas" data-system-canvas aria-hidden="true"></canvas>
+              <div class="system-field__nodes" aria-label="Platform areas">
+                <button class="system-field__node" type="button" data-system-node="compute" aria-pressed="true">
+                  <span class="system-field__node-label">compute</span>
+                  <span class="system-field__node-meta">QEMU/KVM · lifecycle</span>
+                </button>
+                <button class="system-field__node" type="button" data-system-node="storage" aria-pressed="false">
+                  <span class="system-field__node-label">storage</span>
+                  <span class="system-field__node-meta">SPDK · NVMe-oF</span>
+                </button>
+                <button class="system-field__node" type="button" data-system-node="kubernetes" aria-pressed="false">
+                  <span class="system-field__node-label">kubernetes</span>
+                  <span class="system-field__node-meta">clusters · CSI</span>
+                </button>
+                <button class="system-field__node" type="button" data-system-node="networking" aria-pressed="false">
+                  <span class="system-field__node-label">networking</span>
+                  <span class="system-field__node-meta">ARP/NDP · DNS</span>
+                </button>
+                <button class="system-field__node" type="button" data-system-node="identity" aria-pressed="false">
+                  <span class="system-field__node-label">identity</span>
+                  <span class="system-field__node-meta">IAM · IMDS · S3</span>
+                </button>
+                <button class="system-field__node" type="button" data-system-node="reconciliation" aria-pressed="false">
+                  <span class="system-field__node-label">reconciliation</span>
+                  <span class="system-field__node-meta">intent ↔ live state</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="system-field__detail" aria-live="polite">
+              <span class="system-field__detail-label" data-system-detail-label>compute</span>
+              <span data-system-detail-copy>the control plane over QEMU/KVM, including rescue boot, attach/detach, resize, and recovery after failed transitions.</span>
+            </p>
+            <figcaption class="system-field__caption">hover or focus a node to trace the seam.</figcaption>
+          </figure>
 
           <article class="experience-entry">
             <div class="entry-sticky">
