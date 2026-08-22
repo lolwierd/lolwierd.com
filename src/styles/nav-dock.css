@@ -1,35 +1,13 @@
-/* Animated Top Dock translated into this site's language: no glass panel or
-   floating pills, just a live section state and a quiet proximity lift. */
+/* Top navigation translated into this site's language: no glass panel or
+   floating pills, just a quiet proximity lift. */
 .hero-nav {
   align-items: baseline;
 }
 
 .hero-nav a {
-  position: relative;
   display: inline-block;
   transform: translateY(var(--dock-lift, 0));
   transition: color 180ms ease, opacity 180ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.hero-nav a[data-nav-target]::after {
-  position: absolute;
-  right: 0;
-  bottom: -0.45rem;
-  left: 0;
-  height: 1px;
-  background: var(--accent);
-  content: "";
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.hero-nav a[aria-current="page"] {
-  color: var(--ink-strong);
-}
-
-.hero-nav a[aria-current="page"]::after {
-  transform: scaleX(1);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -44,8 +22,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-nav a,
-  .hero-nav a::after {
+  .hero-nav a {
     transition: none;
   }
 }
