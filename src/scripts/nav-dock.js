@@ -6,6 +6,7 @@ if (nav) {
     .map((link) => document.getElementById(link.dataset.navTarget))
     .filter(Boolean);
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function setCurrent(id) {
     links.forEach((link) => {
@@ -29,7 +30,7 @@ if (nav) {
   }
 
   nav.addEventListener("pointermove", (event) => {
-    if (!finePointer.matches) return;
+    if (!finePointer.matches || reducedMotion.matches) return;
     nav.setAttribute("data-nav-hover", "");
     links.forEach((link) => {
       const rect = link.getBoundingClientRect();
@@ -43,4 +44,11 @@ if (nav) {
   nav.addEventListener("focusout", (event) => {
     if (!nav.contains(event.relatedTarget)) resetLift();
   });
+
+  const handleMotionChange = () => {
+    if (reducedMotion.matches) resetLift();
+  };
+
+  if (reducedMotion.addEventListener) reducedMotion.addEventListener("change", handleMotionChange);
+  else reducedMotion.addListener?.(handleMotionChange);
 }
