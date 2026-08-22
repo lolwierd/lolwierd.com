@@ -42,88 +42,71 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             founder — from hosts and storage up to the APIs and tools customers used.
           </p>
 
-          <figure class="system-field" data-system-field aria-labelledby="system-field-title">
-            <div class="system-field__header">
+          <figure class="operation-study" aria-labelledby="operation-study-title">
+            <div class="operation-study__header">
               <div>
-                <p class="system-field__kicker">control plane / field note 01</p>
-                <h3 id="system-field-title">the parts had to converge.</h3>
+                <p class="operation-study__kicker">operation study 01 / volume attach</p>
+                <h3 id="operation-study-title">when the host stops, the request keeps going.</h3>
               </div>
-              <p class="system-field__intro">
-                a request could begin at the console and end in a hypervisor, a volume, a DNS record,
-                or a cluster — with state to reconcile at every seam.
+              <p class="operation-study__intro">
+                one representative operation: preserve intent while live state changes underneath it.
               </p>
             </div>
 
-            <div class="system-field__stage" data-system-stage>
-              <svg class="system-field__routes" data-system-routes aria-hidden="true" preserveAspectRatio="none">
-                <path class="system-field__route system-field__route--spine" data-system-route="spine"></path>
-                <path class="system-field__route" data-system-route="request"></path>
-                <path class="system-field__route" data-system-route="control"></path>
-                <path class="system-field__route" data-system-route="compute"></path>
-                <path class="system-field__route" data-system-route="storage"></path>
-                <path class="system-field__route" data-system-route="kubernetes"></path>
-                <path class="system-field__route" data-system-route="networking"></path>
-                <path class="system-field__route" data-system-route="identity"></path>
-                <path class="system-field__route" data-system-route="reconciliation"></path>
-              </svg>
-              <div class="system-field__map" role="group" aria-label="Platform control-plane flow">
-                <div class="system-field__row system-field__row--request">
-                  <p class="system-field__row-label">request surface</p>
-                  <button class="system-field__node" type="button" data-system-node="request" aria-pressed="false">
-                    <span class="system-field__node-label">console / SDK / CLI</span>
-                    <span class="system-field__node-meta">one intent · many entry points</span>
-                  </button>
-                </div>
-
-                <div class="system-field__row system-field__row--control">
-                  <p class="system-field__row-label">shared layer</p>
-                  <button class="system-field__node" type="button" data-system-node="control" aria-pressed="true">
-                    <span class="system-field__node-label">Go control plane</span>
-                    <span class="system-field__node-meta">auth · APIs · orchestration</span>
-                  </button>
-                </div>
-
-                <div class="system-field__row system-field__row--substrates">
-                  <p class="system-field__row-label">live substrates</p>
-                  <div class="system-field__system-set">
-                    <button class="system-field__node" type="button" data-system-node="compute" aria-pressed="false">
-                      <span class="system-field__node-label">compute</span>
-                      <span class="system-field__node-meta">QEMU/KVM</span>
-                    </button>
-                    <button class="system-field__node" type="button" data-system-node="storage" aria-pressed="false">
-                      <span class="system-field__node-label">storage</span>
-                      <span class="system-field__node-meta">SPDK · NVMe-oF</span>
-                    </button>
-                    <button class="system-field__node" type="button" data-system-node="kubernetes" aria-pressed="false">
-                      <span class="system-field__node-label">kubernetes</span>
-                      <span class="system-field__node-meta">clusters · CSI</span>
-                    </button>
-                    <button class="system-field__node" type="button" data-system-node="networking" aria-pressed="false">
-                      <span class="system-field__node-label">networking</span>
-                      <span class="system-field__node-meta">ARP/NDP · DNS</span>
-                    </button>
-                    <button class="system-field__node" type="button" data-system-node="identity" aria-pressed="false">
-                      <span class="system-field__node-label">identity</span>
-                      <span class="system-field__node-meta">IAM · IMDS · S3</span>
-                    </button>
+            <div class="operation-study__sheet">
+              <div class="operation-study__datum" aria-hidden="true"></div>
+              <ol class="operation-study__phases">
+                <li class="operation-study__phase">
+                  <span class="operation-study__number">01</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>intent</h4>
+                    <p>one customer request enters the API contract.</p>
                   </div>
-                </div>
-
-                <div class="system-field__row system-field__row--reconcile">
-                  <p class="system-field__row-label">failure path</p>
-                  <button class="system-field__node" type="button" data-system-node="reconciliation" aria-pressed="false">
-                    <span class="system-field__node-label">intent ↔ live state</span>
-                    <span class="system-field__node-meta">reconcile · retry · recover</span>
-                  </button>
-                </div>
-              </div>
+                </li>
+                <li class="operation-study__phase">
+                  <span class="operation-study__number">02</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>allocate</h4>
+                    <p>SPDK allocates the backing volume.</p>
+                  </div>
+                </li>
+                <li class="operation-study__phase">
+                  <span class="operation-study__number">03</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>attach</h4>
+                    <p>the control plane asks QEMU to expose the device.</p>
+                  </div>
+                </li>
+                <li class="operation-study__phase operation-study__phase--interrupted">
+                  <span class="operation-study__number">04</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>interrupted</h4>
+                    <p>the host transition stops before live state catches up.</p>
+                  </div>
+                </li>
+                <li class="operation-study__phase">
+                  <span class="operation-study__number">05</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>observe</h4>
+                    <p>the reconciler compares desired intent with live device state.</p>
+                  </div>
+                </li>
+                <li class="operation-study__phase operation-study__phase--closed">
+                  <span class="operation-study__number">06</span>
+                  <span class="operation-study__marker" aria-hidden="true"></span>
+                  <div class="operation-study__phase-body">
+                    <h4>converge</h4>
+                    <p>an idempotent retry closes the partial transition.</p>
+                  </div>
+                </li>
+              </ol>
             </div>
 
-            <p class="system-field__detail" aria-live="polite">
-              <span class="system-field__detail-label" data-system-detail-label>control</span>
-              <span data-system-detail-copy>the shared Go layer handled auth, typed errors, OpenAPI generation, telemetry, and orchestration across the services.</span>
-            </p>
-            <figcaption class="system-field__caption">read a seam; focus a node for the field note.</figcaption>
           </figure>
 
           <article class="experience-entry">
