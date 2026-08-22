@@ -55,8 +55,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             </div>
 
             <div class="system-field__stage" data-system-stage>
-              <canvas class="system-field__canvas" data-system-canvas aria-hidden="true"></canvas>
-              <div class="system-field__map" aria-label="Platform control-plane flow">
+              <svg class="system-field__routes" data-system-routes aria-hidden="true" preserveAspectRatio="none">
+                <path class="system-field__route system-field__route--spine" data-system-route="spine"></path>
+                <path class="system-field__route" data-system-route="request"></path>
+                <path class="system-field__route" data-system-route="control"></path>
+                <path class="system-field__route" data-system-route="compute"></path>
+                <path class="system-field__route" data-system-route="storage"></path>
+                <path class="system-field__route" data-system-route="kubernetes"></path>
+                <path class="system-field__route" data-system-route="networking"></path>
+                <path class="system-field__route" data-system-route="identity"></path>
+                <path class="system-field__route" data-system-route="reconciliation"></path>
+              </svg>
+              <div class="system-field__map" role="group" aria-label="Platform control-plane flow">
                 <div class="system-field__row system-field__row--request">
                   <p class="system-field__row-label">request surface</p>
                   <button class="system-field__node" type="button" data-system-node="request" aria-pressed="false">
@@ -113,7 +123,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               <span class="system-field__detail-label" data-system-detail-label>control</span>
               <span data-system-detail-copy>the shared Go layer handled auth, typed errors, OpenAPI generation, telemetry, and orchestration across the services.</span>
             </p>
-            <figcaption class="system-field__caption">hover or focus a path; the selected line is the one to read.</figcaption>
+            <figcaption class="system-field__caption">read a seam; focus a node for the field note.</figcaption>
           </figure>
 
           <article class="experience-entry">
