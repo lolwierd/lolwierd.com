@@ -47,6 +47,17 @@ import {
   var THEMES = {
     dark: {
       ink: "#e4dac8",
+      // The plate prints in three inks rather than one. Tier 0 is the moonlit
+      // snow and keeps the old colour, so the ridge line is unchanged; the two
+      // below it are the shadowed snow and the aerial haze, and they are cool
+      // because that is what moonlight on snow actually does. The bottom tier
+      // is deliberately faint -- it has to describe the near buttress without
+      // filling it in, or the range stops being a silhouette.
+      terrainRamp: [
+        { ink: "#ece0cb", weight: 1.00 },
+        { ink: "#94a2ad", weight: 0.95 },
+        { ink: "#3c5470", weight: 0.46 }
+      ],
       terrainAlpha: 0.91,
       dustAlpha: 0.23,
       star: "#eee6d8",
@@ -55,6 +66,15 @@ import {
     },
     light: {
       ink: "#293039",
+      // Day inverts the tone curve, so tier 0 is the near rock rather than the
+      // snow. The ramp inverts with it: full ink up close, and the distance
+      // going pale and blue the way a hazy ridge does at noon. This is the same
+      // aerial perspective DAY_TONE_GAMMA already stretches, said in hue.
+      terrainRamp: [
+        { ink: "#232a34", weight: 1.00 },
+        { ink: "#4a5a6d", weight: 0.90 },
+        { ink: "#7d8b9a", weight: 0.44 }
+      ],
       terrainAlpha: 0.87,
       dustAlpha: 0.18,
       star: "#293039",
@@ -72,13 +92,20 @@ import {
   // 20MB at 2x, twenty-four times a second -- which is the single most expensive
   // thing the page did, and which Safari handles far worse than Chrome.
   var terrainCanvas = null;
-  var terrainInk = "#000000";
-  var terrainFlickerAlpha = 1;
+  var terrainInk = [];
+  var terrainFlickerAlpha = [];
 
   // Mid-tone terrain cells, the only ones whose dither decision can realistically
   // flip. Re-deciding these against a noise-nudged threshold each frame is what
   // makes the whole mountain breathe rather than just the sun.
   var terrainFlicker = null;
+
+  // Ink tiers, densest first. The quantiser has TERRAIN_TIERS + 1 levels: tiers
+  // 0..TERRAIN_TIERS-1 print, and tier TERRAIN_TIERS is bare paper. Four levels
+  // rather than two is the change that matters -- at 1 bit the plate had only
+  // "ink" and "nothing", so a lit snow field and a lit rock face printed
+  // identically and the whole range came out a flat cutout.
+  var TERRAIN_TIERS = 3;
   var TERRAIN_BAND = 0.14;
   var TERRAIN_AMP = 0.15;
   var TERRAIN_BUDGET = 7000;
@@ -241,6 +268,11 @@ import {
     activeWork[y * width + x] += error;
   }
 
+  // Error diffusion, now quantising to TERRAIN_TIERS + 1 evenly spaced tones
+  // instead of to black and white. The kernel and its weights are untouched --
+  // only the quantiser changed -- so the grain is the same grain, it just has
+  // more inks to land in. Returns the tier per cell: 0 is the densest ink,
+  // TERRAIN_TIERS is bare paper.
   function atkinson(paper, skyline) {
     activeWork = new Float32Array(paper);
     var dots = new Uint8Array(width * height);
@@ -251,12 +283,14 @@ import {
 
         if (y < skyline[x]) {
           activeWork[i] = 1;
+          dots[i] = TERRAIN_TIERS;
           continue;
         }
 
         var old = activeWork[i];
-        var quantized = old >= 0.5 ? 1 : 0;
-        dots[i] = quantized ? 0 : 1;
+        var level = Math.round(clamp(old, 0, 1) * TERRAIN_TIERS);
+        var quantized = level / TERRAIN_TIERS;
+        dots[i] = level;
         var error = (old - quantized) * 0.125;
         if (!error) continue;
 
@@ -271,6 +305,21 @@ import {
 
     activeWork = null;
     return dots;
+  }
+
+  // The plate is a baked bitmap, so the theme's ink is baked in with it and no
+  // amount of per-frame work can fix it up -- the colour is in the bytes. The
+  // theme flips at -6, so crossing that needs a relayout.
+  //
+  // This is why a visitor who sat on the page through sunset used to keep the
+  // day plate under a night sky: updateSky refreshes the ephemeris on a timer
+  // but has never relayouted, and only a resize would have corrected it. It
+  // matters more now that the plate carries three inks rather than one, since
+  // the two ramps differ by more than a single ink did.
+  //
+  // The cost is one re-dither per twilight, not one per frame.
+  function plateIsStale() {
+    return !!state && state.dark !== isNight();
   }
 
   function makeTerrain(luminance, skyline) {
@@ -300,17 +349,26 @@ import {
     var dots = atkinson(paper, skyline);
     terrainImage = ctx.createImageData(width, height);
     var output = terrainImage.data;
-    var rgb = parseInt(activeTheme.ink.replace("#", ""), 16);
-    var red = (rgb >> 16) & 255;
-    var green = (rgb >> 8) & 255;
-    var blue = rgb & 255;
+    var ramp = activeTheme.terrainRamp;
+    var rampRed = [];
+    var rampGreen = [];
+    var rampBlue = [];
+
+    for (var t = 0; t < TERRAIN_TIERS; t++) {
+      var rgb = parseInt(ramp[t].ink.replace("#", ""), 16);
+      rampRed[t] = (rgb >> 16) & 255;
+      rampGreen[t] = (rgb >> 8) & 255;
+      rampBlue[t] = rgb & 255;
+    }
+
     var edgeDepth = Math.max(3, Math.round(4 * dpr));
     var seed = width * 13 + height * 29 + 701;
 
     var candidates = [];
 
     for (var index = 0; index < dots.length; index++) {
-      if (!dots[index]) continue;
+      var tierIndex = dots[index];
+      if (tierIndex >= TERRAIN_TIERS) continue;
 
       var py = Math.floor(index / width);
       var px = index - py * width;
@@ -320,45 +378,64 @@ import {
       if (distance < edgeDepth && hash2(px, py, seed) < (1 - edgeMix) * 0.10) continue;
 
       var p = index * 4;
-      var alpha = Math.round(activeTheme.terrainAlpha * 255 * (0.78 + edgeMix * 0.22));
-      output[p] = red;
-      output[p + 1] = green;
-      output[p + 2] = blue;
+      var alpha = Math.round(
+        activeTheme.terrainAlpha * 255 * ramp[tierIndex].weight * (0.78 + edgeMix * 0.22)
+      );
+      output[p] = rampRed[tierIndex];
+      output[p + 1] = rampGreen[tierIndex];
+      output[p + 2] = rampBlue[tierIndex];
       output[p + 3] = alpha;
 
-      // Only mid-tones can flip. Anything solidly lit or solidly dark stays put,
-      // which is what keeps the ridge line and the snow fields stable.
+      // Only tones sitting on a quantisation boundary can flip. Anything solidly
+      // inside a tier stays put, which is what keeps the ridge line and the snow
+      // fields stable. There are TERRAIN_TIERS boundaries now rather than one, so
+      // the band around each is scaled down to keep the flickering population --
+      // and therefore the amount of visible movement -- where it was at 1 bit.
       var tone = paper[index];
-      if (tone > 0.5 - TERRAIN_BAND && tone < 0.5 + TERRAIN_BAND) candidates.push(index, alpha);
+      var boundary = Math.floor(tone * TERRAIN_TIERS);
+      if (boundary >= TERRAIN_TIERS) boundary = TERRAIN_TIERS - 1;
+      var edgeTone = (boundary + 0.5) / TERRAIN_TIERS;
+      if (Math.abs(tone - edgeTone) < TERRAIN_BAND / TERRAIN_TIERS) {
+        candidates.push(index, 0.78 + edgeMix * 0.22, boundary);
+      }
     }
 
     // Sample down to a fixed budget so the per-frame cost does not scale with
     // resolution: on a 2x display the raw candidate set is tens of thousands.
-    var pairs = candidates.length / 2;
-    var step = Math.max(1, Math.ceil(pairs / TERRAIN_BUDGET));
-    var kept = Math.floor(pairs / step);
+    var triples = candidates.length / 3;
+    var step = Math.max(1, Math.ceil(triples / TERRAIN_BUDGET));
+    var kept = Math.floor(triples / step);
     terrainFlicker = kept ? {
       index: new Int32Array(kept),
-      tone: new Float32Array(kept)
+      tone: new Float32Array(kept),
+      boundary: new Uint8Array(kept)
     } : null;
 
-    var alphaSum = 0;
+    var edgeSum = 0;
     for (var k = 0, c = 0; k < kept; k++, c += step) {
-      var src = c * 2;
+      var src = c * 3;
       var cell = candidates[src];
       terrainFlicker.index[k] = cell;
       terrainFlicker.tone[k] = paper[cell];
-      alphaSum += candidates[src + 1];
+      terrainFlicker.boundary[k] = candidates[src + 2];
+      edgeSum += candidates[src + 1];
       // Baked with the flicker cells off, so each frame only has to add the ones
       // currently lit rather than rewrite the whole bitmap.
       output[cell * 4 + 3] = 0;
     }
 
-    // One alpha for the whole flickering set. They span 0.78 to 1.0 of the
-    // terrain alpha, and a single value lets every cell go down in one fill
-    // instead of thousands of state changes.
-    terrainFlickerAlpha = kept ? (alphaSum / kept) / 255 : 1;
-    terrainInk = activeTheme.ink;
+    // One alpha per tier for the whole flickering set. Within a tier the cells
+    // span 0.78 to 1.0 of the terrain alpha, and a single value per tier lets
+    // each one go down in a single fill rather than thousands of state changes.
+    // Three fills a frame instead of one is the entire cost of the extra inks.
+    var edgeAverage = kept ? edgeSum / kept : 1;
+    terrainFlickerAlpha = [];
+    terrainInk = [];
+
+    for (t = 0; t < TERRAIN_TIERS; t++) {
+      terrainFlickerAlpha[t] = activeTheme.terrainAlpha * ramp[t].weight * edgeAverage;
+      terrainInk[t] = ramp[t].ink;
+    }
 
     if (!terrainCanvas) terrainCanvas = document.createElement("canvas");
     terrainCanvas.width = width;
@@ -372,21 +449,39 @@ import {
     if (!terrainFlicker) return;
     var idx = terrainFlicker.index;
     var tone = terrainFlicker.tone;
-    var path = new Path2D();
+    var boundary = terrainFlicker.boundary;
+    var paths = [];
     var drew = false;
 
     for (var i = 0; i < idx.length; i++) {
-      if (!reducedMotion && tone[i] >= 0.5 + flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP)) continue;
+      // Re-decide the cell against its own boundary, nudged by noise. With the
+      // nudge at zero this reproduces the baked tier exactly, which is why the
+      // reduced-motion path can simply skip the offset instead of special-casing.
+      var edge = boundary[i];
+      var threshold = (edge + 0.5) / TERRAIN_TIERS;
+      if (!reducedMotion) {
+        threshold += flickerOffset(idx[i] * 0.0137, now, TERRAIN_AMP / TERRAIN_TIERS);
+      }
+
+      var tier = tone[i] < threshold ? edge : edge + 1;
+      if (tier >= TERRAIN_TIERS) continue;
+      if (!paths[tier]) paths[tier] = new Path2D();
+
       var cell = idx[i];
       var y = (cell / width) | 0;
-      path.rect(cell - y * width, y, 1, 1);
+      paths[tier].rect(cell - y * width, y, 1, 1);
       drew = true;
     }
 
     if (!drew) return;
-    ctx.globalAlpha = terrainFlickerAlpha;
-    ctx.fillStyle = terrainInk;
-    ctx.fill(path);
+
+    for (var t = 0; t < TERRAIN_TIERS; t++) {
+      if (!paths[t]) continue;
+      ctx.globalAlpha = terrainFlickerAlpha[t];
+      ctx.fillStyle = terrainInk[t];
+      ctx.fill(paths[t]);
+    }
+
     ctx.globalAlpha = 1;
   }
 
@@ -859,7 +954,15 @@ import {
     if (!state || reducedMotion || !visible || now - lastDraw < 1000 / 24) return;
     lastDraw = now;
 
-    if (Date.now() - lastCelestialUpdate >= CELESTIAL_REFRESH_MS) updateSky();
+    if (Date.now() - lastCelestialUpdate >= CELESTIAL_REFRESH_MS) {
+      updateSky();
+
+      if (plateIsStale()) {
+        var wasDark = state.dark;
+        layoutPlate();
+        if (state.dark !== wasDark) window.dispatchEvent(new Event("skyphasechange"));
+      }
+    }
 
     if (state.dark && !comet.active && now >= comet.next) scheduleComet(now);
     if (state.dark && !satellite.active && now >= satellite.next) scheduleSatellite(now);
@@ -919,7 +1022,7 @@ import {
       // the state that matches it. On a day/night flip they would cache the old
       // one and, in night-sky-v2's case, paint its night ridge mask over a
       // daylit mountain. Relayout first, then tell them again.
-      if (state && state.dark !== isNight()) {
+      if (plateIsStale()) {
         layoutPlate();
         if (state.dark !== wasDark) window.dispatchEvent(new Event("skyphasechange"));
       }
