@@ -325,6 +325,12 @@ a { -webkit-tap-highlight-color: transparent; }
   z-index: 1;
   min-height: 100svh;
   isolation: isolate;
+  /* The ground the hero paints its own small backings on. It has to be a token
+     separate from --page because the veil rules below move the hero's ink
+     independently of the page's, and any plate drawn behind that ink has to
+     travel with it. Defaults to the page colour, which is what it is in every
+     band that leaves the ink alone. */
+  --hero-ground: var(--page);
 }
 
 .hero-frame {
@@ -406,6 +412,9 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-strong: #181a1e;
   --ink-dim: #5a5954;
   --ink-faint: #6b6961;
+  /* Day ink needs day ground under it: the night --page here would put the
+     dark plate of .hero-action behind dark text and erase the link. */
+  --hero-ground: #eee9df;
 }
 
 /* The accent has to move with the sky too. Measured behind the masthead across
@@ -459,8 +468,8 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .hero-copy[data-ridge-overlap] .hero-action {
-  background: color-mix(in srgb, var(--page) 90%, transparent);
-  box-shadow: 0 0 0.9rem 0.55rem color-mix(in srgb, var(--page) 90%, transparent);
+  background: color-mix(in srgb, var(--hero-ground) 90%, transparent);
+  box-shadow: 0 0 0.9rem 0.55rem color-mix(in srgb, var(--hero-ground) 90%, transparent);
 }
 
 .reading-ground {
