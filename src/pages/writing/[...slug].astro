@@ -31,26 +31,24 @@ const minutes = readingTime(post.body);
     <span class="post-rail-spine"></span>
   </aside>
 
-  <main class="page-body writing-column">
-    <article>
-      <header class="post-header">
-        <h1>{post.data.title}</h1>
-        <p class="post-summary">{post.data.summary}</p>
-        <p class="post-meta">
-          <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
-          <span>{minutes} min</span>
-          {post.data.updated && (
-            <span>updated {formatDate(post.data.updated)}</span>
-          )}
-          {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
-          {post.data.draft && <span class="draft">draft</span>}
-        </p>
-      </header>
+  <header class="post-header" slot="hero">
+    <h1>{post.data.title}</h1>
+    <p class="post-summary">{post.data.summary}</p>
+    <p class="post-meta">
+      <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+      <span>{minutes} min</span>
+      {post.data.updated && (
+        <span>updated {formatDate(post.data.updated)}</span>
+      )}
+      {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
+      {post.data.draft && <span class="draft">draft</span>}
+    </p>
+  </header>
 
-      <div class="post-body">
-        <Content />
-      </div>
-    </article>
+  <article class="writing-column">
+    <div class="post-body">
+      <Content />
+    </div>
 
     <footer class="post-footer">
       <p>ayaan retiwala · vadodara</p>
@@ -60,7 +58,7 @@ const minutes = readingTime(post.body);
         <a href="/writing/">all writing</a>
       </nav>
     </footer>
-  </main>
+  </article>
 
   <script>
     import "../../scripts/post-rail.js";

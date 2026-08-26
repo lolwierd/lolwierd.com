@@ -1,34 +1,7 @@
-/* Interior pages: the 404 and everything under /writing.
-   Same paper, same inks, same print language as the front page -- but the sky
-   is not here. These pages get one static plate of the range at the bottom of
-   the frame and otherwise stay out of their own way. */
-
-.page {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100svh;
-  /* One number the plate and the copy both read, so the words are always clear
-     of the crest instead of being trusted to land above it.
-     Sized like the hero's range rather than as a footer strip: at a quarter of
-     the viewport the empty middle of a short page read as an unfinished page,
-     and at nearly half it reads as sky, which is what it is on the front page
-     too. */
-  --ridge-height: clamp(14rem, 44vh, 30rem);
-}
-
-.page-frame {
-  display: flex;
-  flex-direction: column;
-  /* Grows to fill a short page so the range still lands at the bottom of the
-     window, and grows with the words on a long one. */
-  flex: 1 0 auto;
-  width: min(100%, var(--frame));
-  margin: 0 auto;
-  padding: clamp(1.35rem, 3.4vw, 3rem) clamp(1.25rem, 5.2vw, 5.5rem)
-    clamp(2rem, 4vw, 3.25rem);
-}
+/* Interior pages: /writing, a post, the colophon.
+   They use the front page's composition, because there is only one of it: the
+   live scene in the first viewport, then an opaque reading ground. What differs
+   is only what is written over the sky. */
 
 .site-name a {
   color: inherit;
@@ -41,98 +14,37 @@
   text-decoration-color: color-mix(in srgb, var(--accent) 58%, transparent);
 }
 
-/* The range is the last thing in the page rather than a layer under it. In flow
-   it cannot be written over: whatever the length of the words above, the plate
-   begins where they end. Reserving space for it with padding instead meant
-   picking a fraction of the band to protect, which was right for the page that
-   was measured and wrong for the next one. */
-/* The sky the spindrift crosses: everything above the range, behind the words.
-   It ends at the top of the plate, so grains never appear over the mountain
-   itself -- they come off its edge and leave. */
-#drift {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
-}
-
-.ridge-stage {
-  position: relative;
-  flex: 0 0 var(--ridge-height);
-  width: 100%;
-  height: var(--ridge-height);
-}
-
-#ridge {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  opacity: 0;
-  pointer-events: none;
-}
-
-#ridge[data-ready] {
-  opacity: 1;
-}
-
-/* The loose pixels above the crest, on their own plate so the mountain below is
-   dithered once and left alone. */
-#ridge-air {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  #ridge {
-    transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-}
-
-/* Anything that has to stay readable where the plate reaches sits on the page
-   colour itself. No cards: the ground is the same paper, just opaque. */
-.page-body {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  padding-top: clamp(2.25rem, 7vh, 4.5rem);
-}
-
-.page-title {
+/* The hero copy on the front page is a headline and a paragraph. Here it is
+   usually just a title, so it wants less width and no minimum height of its
+   own -- hero-clearance still lifts it clear of the ridge. */
+.hero-copy > .page-title {
   max-width: 18ch;
   margin: 0;
   color: var(--ink-strong);
-  font: 400 clamp(2.3rem, 4.15vw, 3.4rem) / 1 var(--serif);
-  letter-spacing: -0.042em;
+  font: 400 clamp(2.55rem, 4.15vw, 3.75rem) / 0.98 var(--serif);
+  letter-spacing: -0.045em;
   text-wrap: balance;
+}
+
+/* Content lands on paper, never over the scene: this is the same ground the
+   front page's work and projects sit on. */
+.reading-ground > .reading-inner > * {
+  padding-top: clamp(3.5rem, 8vw, 6rem);
+  padding-bottom: clamp(4rem, 9vw, 7rem);
 }
 
 /* The front page hides its masthead nav on a phone on purpose: the hero's own
    "selected work" is the way in, and the footer carries the rest. An interior
    page has neither, so hiding it there leaves the site name as the only link on
-   the screen. These pages keep the nav, set smaller and without the resume link
-   the front page carries. */
+   the screen. These pages keep the nav, set smaller. */
 @media (max-width: 620px) {
-  .page .hero-nav {
+  .hero .hero-nav {
     display: flex;
     gap: 0.8rem;
     font-size: 11px;
   }
 
-  .page .topbar {
+  .hero .topbar {
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
   }

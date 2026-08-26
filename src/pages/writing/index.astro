@@ -16,8 +16,9 @@ for (const post of posts) {
 ---
 
 <PageLayout title="Writing · Ayaan Retiwala" description="Posts by Ayaan Retiwala.">
-  <main class="page-body writing-index">
-    <h1 class="page-title writing-head">writing</h1>
+  <h1 class="page-title writing-head" slot="hero">writing</h1>
+
+  <section class="writing-index">
 
     {posts.length === 0 ? (
       <p class="entries-empty">
@@ -47,5 +48,5 @@ for (const post of posts) {
     )}
 
     <p class="entries-feed"><a href="/rss.xml">rss</a></p>
-  </main>
+  </section>
 </PageLayout>

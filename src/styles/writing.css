@@ -265,9 +265,10 @@
   .post-rail-section { display: none; }
 }
 
+/* The header sits over the scene now, and the reading ground below it already
+   draws the line between the two. A rule here as well was a second one. */
 .post-header {
-  padding-bottom: clamp(1.5rem, 2.5vw, 2rem);
-  border-bottom: 1px solid var(--rule);
+  max-width: 40rem;
 }
 
 .post-header h1 {

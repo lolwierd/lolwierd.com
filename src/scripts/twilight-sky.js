@@ -296,37 +296,15 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   var FLICKER_AMP = 0.15;
 
 
-  function clearOfCopy(state, x, y, radius, always) {
-    if (!state.portrait && !always) return y;
-    var copy = document.querySelector(".hero-copy");
-    if (!copy) return y;
-
-    var rect = copy.getBoundingClientRect();
-    var dpr = state.dpr;
-    var pad = 16 * dpr;
-    var left = rect.left * dpr - pad;
-    var right = rect.right * dpr + pad;
-    var top = rect.top * dpr - pad;
-    var bottom = rect.bottom * dpr + pad;
-    if (x + radius <= left || x - radius >= right) return y;
-    if (y + radius <= top || y - radius >= bottom) return y;
-
-    // Above the copy, but never into the masthead. The old floor was a flat
-    // 46px, which on a phone is inside the topbar -- a high sun got lifted clear
-    // of the paragraph and straight behind the nav.
-    var bar = document.querySelector(".topbar");
-    var floor = (bar ? bar.getBoundingClientRect().bottom * dpr : 0) + radius + 14 * dpr;
-    var lifted = Math.round(rect.top * dpr - radius - 18 * dpr);
-    if (lifted >= floor) return lifted;
-
-    // No room above: drop it below the copy instead, as long as it stays clear
-    // of the ridge. Better low in the sky than hidden behind the navigation.
-    var dropped = Math.round(rect.bottom * dpr + radius + 18 * dpr);
-    var ridge = state.skyline[clamp(Math.round(x), 0, state.width - 1)];
-    if (dropped + radius < ridge) return dropped;
-
-    return Math.max(floor, y);
-  }
+  // The sun and the moon used to be nudged out from behind the hero copy, which
+  // meant their seats depended on how tall that copy happened to be. Every page
+  // has a different amount of writing over the scene, so the same moon at the
+  // same minute sat somewhere different on each of them -- and a sky that moves
+  // when you navigate is not the sky over one place.
+  //
+  // They are placed by altitude and hour now, full stop, and the writing sits on
+  // top of them. The page is layered for it: the copy is above the canvas, and
+  // everything that has to be read at length is on the opaque ground below.
 
   function buildSun(state, altitude, valleyX) {
     sunScene = null;
@@ -352,11 +330,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var sunX = Math.round(lerp(state.celestial.sun.x, valleyX, lowBlend * 0.55));
     var ridgeY = state.skyline[clamp(sunX, 0, state.width - 1)];
     var sunY = Math.round(lerp(state.celestial.sun.y, ridgeY - radius * 0.55, lowBlend));
-
-    // In portrait the copy fills most of the sky, and a sun placed purely by
-    // altitude lands on top of the headline. sky-v3 used to do this for its own
-    // disc; the sun lives here now, so the clearance does too.
-    sunY = clearOfCopy(state, sunX, sunY, coronaR * 0.72);
 
     var solid = [];
     var marginal = [];
@@ -606,7 +579,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     buildRidge(state, night ? "#e4dac8" : colors.top, night);
     // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
     // in the sky and the old night-only moon could never show it.
-    moonScene = buildMoon(state, clearOfCopy);
+    moonScene = buildMoon(state, null);
     buildSun(state, altitude, valleyX);
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));
