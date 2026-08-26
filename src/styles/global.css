@@ -98,7 +98,6 @@ code,
 .entry-role,
 .entry-date,
 .work-notes dt,
-.aside-label,
 .project-row header p,
 .measurements,
 .project-note,
@@ -627,30 +626,6 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.7;
 }
 
-/* Evidence for the "protocol-level failures" claim above it, not a pull quote
-   on the wall. Styled as a worked example inside the entry: quieter than a
-   testimonial, still given its own air. */
-.remembered-bug {
-  max-width: 41rem;
-  margin: clamp(2.6rem, 5vw, 4.2rem) 0 0;
-  padding-left: clamp(1rem, 2.6vw, 1.8rem);
-  border-left: 1px solid var(--accent);
-}
-
-.aside-label {
-  margin: 0 0 0.7rem;
-  color: var(--accent);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-}
-
-.remembered-bug > p:last-child {
-  margin: 0;
-  color: var(--ink);
-  font: 400 1.06rem/1.62 var(--serif);
-  letter-spacing: -0.012em;
-}
-
 /* Scannable stack list. Everything here is already named in the notes above, but
    a recruiter skimming for a keyword should not have to read prose to find it. */
 .stack {
@@ -932,14 +907,6 @@ a { -webkit-tap-highlight-color: transparent; }
   .work-notes dd,
   .project-row > p {
     font-size: 0.88rem;
-  }
-
-  .remembered-bug {
-    margin-left: 0;
-  }
-
-  .remembered-bug > p:last-child {
-    font-size: 1.02rem;
   }
 
   .measurements {

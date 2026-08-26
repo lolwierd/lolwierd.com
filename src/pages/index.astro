@@ -141,15 +141,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
               </div>
             </dl>
 
-            <aside class="remembered-bug">
-              <p class="aside-label">the kind of thing that broke</p>
-              <p>
-                a borrowed header outlived its buffer in the Kubernetes API transport. i traced it
-                through HTTP/2 and HPACK, then fixed the lifetime issue without losing OpenTelemetry
-                trace propagation.
-              </p>
-            </aside>
-
             <p class="stack">
               <span>Go</span><span>C</span><span>TypeScript</span><span>Swift</span><span>Python</span>
               <span>Kubernetes</span><span>QEMU/KVM</span><span>Firecracker</span><span>SPDK</span>
