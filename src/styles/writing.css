@@ -19,6 +19,10 @@
   max-width: 37rem;
 }
 
+.writing-index {
+  display: block;
+}
+
 /* The feed, once, at the end of the stream. A counted line of posts, words,
    tags and a latest date was four facts nobody asked for standing where the
    writing should be. */
@@ -265,10 +269,9 @@
   .post-rail-section { display: none; }
 }
 
-/* The header sits over the scene now, and the reading ground below it already
-   draws the line between the two. A rule here as well was a second one. */
 .post-header {
-  max-width: 40rem;
+  padding-bottom: clamp(1.5rem, 2.5vw, 2rem);
+  border-bottom: 1px solid var(--rule);
 }
 
 .post-header h1 {

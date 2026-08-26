@@ -2,21 +2,19 @@
 import BaseLayout from "./BaseLayout.astro";
 import "../styles/interior.css";
 
-// The shell every page that is not the front page uses, and it is the front
-// page's own shell: the live scene in the first viewport, then an opaque
-// reading ground under it. There is one sky over this site, so every page that
-// shows sky shows that one -- the same canvas, the same scripts, the same hour
-// over Vadodara -- rather than a still of it printed at the foot.
+// The shell for every page that is not the front page.
 //
-// The `hero` slot is what sits over the scene (a title, and whatever belongs
-// beside it); the default slot is everything that has to be read, which lands
-// on paper below.
+// No scene, and no hero holding one. The front page and the 404 have nothing to
+// read, so a viewport of sky is the point there; these pages exist to be read,
+// and a full screen of mountain in front of the writing just means the writing
+// does not get read. They also skip the 1.8MB plate and the sky scripts, which
+// is the right trade for a page of prose.
 const { title, description } = Astro.props;
 ---
 
-<BaseLayout ambient title={title} description={description}>
-  <header class="hero" id="top">
-    <div class="hero-frame">
+<BaseLayout title={title} description={description}>
+  <div class="page">
+    <div class="page-frame">
       <div class="topbar">
         <!-- Just the name here. The front page's masthead introduces him, which
              is what a front page is for; repeating the job title at the top of
@@ -24,7 +22,7 @@ const { title, description } = Astro.props;
         <p class="site-name">
           <a href="/">ayaan retiwala</a>
         </p>
-        <nav class="hero-nav" data-nav-dock aria-label="Site">
+        <nav class="hero-nav" aria-label="Site">
           <a href="/#work">work</a>
           <a href="/#projects">projects</a>
           <a href="/writing/">writing</a>
@@ -32,15 +30,9 @@ const { title, description } = Astro.props;
         </nav>
       </div>
 
-      <div class="hero-copy">
-        <slot name="hero" />
-      </div>
+      <main class="page-body">
+        <slot />
+      </main>
     </div>
-  </header>
-
-  <main class="reading-ground">
-    <div class="reading-inner">
-      <slot />
-    </div>
-  </main>
+  </div>
 </BaseLayout>

@@ -1,7 +1,17 @@
-/* Interior pages: /writing, a post, the colophon.
-   They use the front page's composition, because there is only one of it: the
-   live scene in the first viewport, then an opaque reading ground. What differs
-   is only what is written over the sky. */
+/* Interior pages: /writing, a post, the colophon. Paper, a masthead, and the
+   thing you came to read. The scene belongs to the two pages that have nothing
+   to read on them. */
+
+.page {
+  min-height: 100svh;
+}
+
+.page-frame {
+  width: min(100%, var(--frame));
+  margin: 0 auto;
+  padding: clamp(1.35rem, 3.4vw, 3rem) clamp(1.25rem, 5.2vw, 5.5rem)
+    clamp(4rem, 9vw, 7rem);
+}
 
 .site-name a {
   color: inherit;
@@ -14,23 +24,17 @@
   text-decoration-color: color-mix(in srgb, var(--accent) 58%, transparent);
 }
 
-/* The hero copy on the front page is a headline and a paragraph. Here it is
-   usually just a title, so it wants less width and no minimum height of its
-   own -- hero-clearance still lifts it clear of the ridge. */
-.hero-copy > .page-title {
+.page-body {
+  padding-top: clamp(2.5rem, 8vh, 5rem);
+}
+
+.page-title {
   max-width: 18ch;
   margin: 0;
   color: var(--ink-strong);
-  font: 400 clamp(2.55rem, 4.15vw, 3.75rem) / 0.98 var(--serif);
-  letter-spacing: -0.045em;
+  font: 400 clamp(2.3rem, 4.15vw, 3.4rem) / 1 var(--serif);
+  letter-spacing: -0.042em;
   text-wrap: balance;
-}
-
-/* Content lands on paper, never over the scene: this is the same ground the
-   front page's work and projects sit on. */
-.reading-ground > .reading-inner > * {
-  padding-top: clamp(3.5rem, 8vw, 6rem);
-  padding-bottom: clamp(4rem, 9vw, 7rem);
 }
 
 /* The front page hides its masthead nav on a phone on purpose: the hero's own
@@ -38,13 +42,13 @@
    page has neither, so hiding it there leaves the site name as the only link on
    the screen. These pages keep the nav, set smaller. */
 @media (max-width: 620px) {
-  .hero .hero-nav {
+  .page .hero-nav {
     display: flex;
     gap: 0.8rem;
     font-size: 11px;
   }
 
-  .hero .topbar {
+  .page .topbar {
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
   }
