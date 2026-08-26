@@ -1,50 +1,180 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { getPosts, postUrl } from "../lib/writing.js";
+
+// Every page that actually exists, baked in at build time, so a near miss can be
+// answered rather than only reported.
+const posts = await getPosts();
+const routes = ["/", "/writing/", "/colophon/", ...posts.map(postUrl)];
 ---
 
 <BaseLayout
+  ambient
   title="Not found · Ayaan Retiwala"
   description="That page does not exist on lolwierd.com."
 >
-  <main class="notfound">
-    <p class="label">404</p>
-    <h1>this page failed to provision.</h1>
-    <p class="note">
-      nothing is here, and nothing is going to reconcile it.
-      <a href="/">go back to the start</a>.
-    </p>
-  </main>
+  <!-- Not the interior shell. Every other page here has something to read, so it
+       gets a band of the range at its foot and no sky; this one has a sentence
+       and a path, and what fills the rest of it is the scene itself -- the same
+       canvas, the same scripts, the same hour over Vadodara as the front page.
+       A second implementation of that sky was only ever going to be a lookalike
+       that drifted. -->
+  <header class="hero" id="top">
+    <div class="hero-frame">
+      <div class="topbar">
+        <p class="site-name">
+          <a href="/">ayaan retiwala</a>
+        </p>
+        <nav class="hero-nav" data-nav-dock aria-label="Site">
+          <a href="/#work">work</a>
+          <a href="/#projects">projects</a>
+          <a href="/writing/">writing</a>
+          <a href="/#contact">contact</a>
+        </nav>
+      </div>
+
+      <div class="hero-copy">
+        <h1>nothing at this path.</h1>
+
+        <!-- The one fact an error page has that no other page has. One line of
+             machine text: the arrow is the label, and the colours carry which
+             path is dead and which is live. -->
+        <p class="miss" data-miss>
+          <span class="miss-path" data-requested-path></span>
+          <span class="miss-arrow" data-miss-arrow hidden aria-hidden="true">→</span>
+          <a class="miss-near" data-closest-link href="/" hidden></a>
+        </p>
+
+        <a class="hero-action" href="/">home</a>
+      </div>
+    </div>
+  </header>
+
+  <script is:inline define:vars={{ routes }}>
+    // The requested path is only knowable in the browser: this page is a single
+    // static plate served for every miss. Written as text, never as markup.
+    (function () {
+      var line = document.querySelector("[data-miss]");
+      var slot = document.querySelector("[data-requested-path]");
+      var arrow = document.querySelector("[data-miss-arrow]");
+      var link = document.querySelector("[data-closest-link]");
+      if (!line || !slot) return;
+
+      var path = location.pathname + location.search;
+      slot.textContent = path.length > 96 ? path.slice(0, 95) + "…" : path;
+
+      var best = null;
+      var bestScore = -1;
+
+      for (var i = 0; i < routes.length; i++) {
+        var prefix = shared(location.pathname, routes[i]);
+        var distance = edits(location.pathname, routes[i]);
+        // Prefix first, because a mistyped tail is the common miss and edit
+        // distance alone ranks "/" highest for anything short.
+        var score = prefix * 2 - distance;
+        if (score > bestScore) {
+          bestScore = score;
+          best = { route: routes[i], prefix: prefix, distance: distance };
+        }
+      }
+
+      // Only when it is genuinely near: a real shared path, or a typo away.
+      // Otherwise the line is the dead path on its own, which is the whole truth.
+      if (best && (best.prefix >= 3 || best.distance <= 3) && arrow && link) {
+        link.href = best.route;
+        link.textContent = best.route;
+        arrow.removeAttribute("hidden");
+        link.removeAttribute("hidden");
+      }
+
+      line.setAttribute("data-filled", "");
+
+      function shared(a, b) {
+        var n = Math.min(a.length, b.length);
+        var i = 0;
+        while (i < n && a.charAt(i) === b.charAt(i)) i++;
+        return i;
+      }
+
+      function edits(a, b) {
+        var previous = [];
+        for (var j = 0; j <= b.length; j++) previous[j] = j;
+
+        for (var x = 1; x <= a.length; x++) {
+          var current = [x];
+          for (var y = 1; y <= b.length; y++) {
+            current[y] = Math.min(
+              previous[y] + 1,
+              current[y - 1] + 1,
+              previous[y - 1] + (a.charAt(x - 1) === b.charAt(y - 1) ? 0 : 1)
+            );
+          }
+          previous = current;
+        }
+
+        return previous[b.length];
+      }
+    })();
+  </script>
 
   <style>
-    .notfound {
-      width: min(100%, 44rem);
-      min-height: 100svh;
-      margin: 0 auto;
-      padding: clamp(2rem, 6vw, 5rem) 1.25rem 4rem;
+    /* Breaks after "at", so the two lines are near enough the same length. */
+    .hero-copy h1 {
+      max-width: 13ch;
     }
 
-    .label {
-      margin: clamp(6rem, 18vh, 10rem) 0 1.5rem;
+    .miss {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0 0.75rem;
+      max-width: 34rem;
+      /* Reserved before it is filled, so the fade-in is not a layout shift. */
+      min-height: 1.7em;
+      margin: clamp(1.25rem, 2.5vh, 1.8rem) 0 0;
+      font: 12px/1.7 var(--mono);
+      opacity: 0;
+    }
+
+    .miss[data-filled] { opacity: 1; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .miss { transition: opacity 420ms ease; }
+    }
+
+    /* Which path is dead and which is live is said in ink, not in words: the
+       requested one is faint, and the route that exists carries the accent. */
+    .miss-path,
+    .miss-arrow {
+      color: var(--ink-faint);
+    }
+
+    .miss-path,
+    .miss-near {
+      overflow-wrap: anywhere;
+    }
+
+    .miss-near {
       color: var(--accent);
-      font-family: var(--mono);
-      font-size: 0.64rem;
-      letter-spacing: 0.06em;
+      text-decoration-color: color-mix(in srgb, var(--accent) 50%, transparent);
     }
 
-    h1 {
-      max-width: 14ch;
-      margin: 0;
-      color: var(--ink-strong);
-      font: 400 clamp(2.1rem, 4vw, 3.1rem) / 1.02 var(--serif);
-      letter-spacing: -0.04em;
+    .miss-near:hover {
+      text-decoration-color: var(--accent);
     }
 
-    .note {
-      max-width: 32rem;
-      margin: 1.6rem 0 0;
-      color: var(--ink-dim);
-      font-size: 0.96rem;
-      line-height: 1.7;
+    @media (max-width: 760px) {
+      .hero-copy h1 {
+        max-width: 11ch;
+      }
+
+      .miss {
+        max-width: 21rem;
+        gap: 0 0.55rem;
+        /* Departure Mono is a pixel face; every size it is set at is a whole
+           pixel, here as everywhere else. */
+        font-size: 11px;
+      }
     }
   </style>
 </BaseLayout>
