@@ -1,0 +1,51 @@
+---
+import PageLayout from "../../layouts/PageLayout.astro";
+import "../../styles/writing.css";
+import { formatDate, getPosts, isoDate, postUrl, readingTime } from "../../lib/writing.js";
+
+const posts = await getPosts();
+
+const years = [];
+for (const post of posts) {
+  const year = post.data.date.getUTCFullYear();
+  const last = years[years.length - 1];
+  if (last && last.year === year) last.posts.push(post);
+  else years.push({ year, posts: [post] });
+}
+
+---
+
+<PageLayout title="Writing · Ayaan Retiwala" description="Posts by Ayaan Retiwala.">
+  <main class="page-body writing-index">
+    <h1 class="page-title writing-head">writing</h1>
+
+    {posts.length === 0 ? (
+      <p class="entries-empty">
+        the first post is a markdown file in <code>src/content/writing/</code>.
+      </p>
+    ) : (
+      <div class="entries">
+        {years.map((group) => (
+          <section class="entry-year" aria-label={String(group.year)}>
+            <p class="year-mark" aria-hidden="true">{group.year}</p>
+
+            {group.posts.map((post) => (
+              <article class="entry">
+                <p class="entry-slug">
+                  <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+                  <span> · {readingTime(post.body)} min</span>
+                  {post.data.tags.length > 0 && <span> · {post.data.tags.join(" · ")}</span>}
+                  {post.data.draft && <span class="draft"> · draft</span>}
+                </p>
+                <h2 class="entry-title"><a href={postUrl(post)}>{post.data.title}</a></h2>
+                <p class="entry-summary">{post.data.summary}</p>
+              </article>
+            ))}
+          </section>
+        ))}
+      </div>
+    )}
+
+    <p class="entries-feed"><a href="/rss.xml">rss</a></p>
+  </main>
+</PageLayout>

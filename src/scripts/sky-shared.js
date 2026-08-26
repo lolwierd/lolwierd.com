@@ -235,3 +235,151 @@ listenMedia(motionMedia, function () {
   if (motionMedia.matches) halt();
   else resume();
 });
+
+
+// --- the mountain --------------------------------------------------------
+//
+// The hero prints a living plate of the range and the interior pages print a
+// static band of it. Those are two crops of one photograph, so what the ink
+// looks like and how the photograph's luminance becomes ink density are defined
+// once, here, rather than tuned twice and allowed to drift apart.
+
+export var SKY_THEMES = {
+  dark: {
+    ink: "#e4dac8",
+    // The plate prints in three inks rather than one. Tier 0 is the moonlit
+    // snow and keeps the old colour, so the ridge line is unchanged; the two
+    // below it are the shadowed snow and the aerial haze, and they are cool
+    // because that is what moonlight on snow actually does. The bottom tier
+    // is deliberately faint -- it has to describe the near buttress without
+    // filling it in, or the range stops being a silhouette.
+    terrainRamp: [
+      { ink: "#ece0cb", weight: 1.00 },
+      { ink: "#94a2ad", weight: 0.95 },
+      { ink: "#3c5470", weight: 0.46 }
+    ],
+    terrainAlpha: 0.91,
+    dustAlpha: 0.23,
+    star: "#eee6d8",
+    starAlpha: 0.94,
+    satelliteAlpha: 0.34
+  },
+  light: {
+    ink: "#293039",
+    // Day inverts the tone curve, so tier 0 is the near rock rather than the
+    // snow. The ramp inverts with it: full ink up close, and the distance
+    // going pale and blue the way a hazy ridge does at noon. This is the same
+    // aerial perspective DAY_TONE_GAMMA already stretches, said in hue.
+    terrainRamp: [
+      { ink: "#232a34", weight: 1.00 },
+      { ink: "#4a5a6d", weight: 0.90 },
+      { ink: "#7d8b9a", weight: 0.44 }
+    ],
+    terrainAlpha: 0.87,
+    dustAlpha: 0.18,
+    star: "#293039",
+    starAlpha: 0,
+    satelliteAlpha: 0
+  }
+};
+
+// Ink tiers, densest first. The quantiser has TERRAIN_TIERS + 1 levels: tiers
+// 0..TERRAIN_TIERS-1 print, and tier TERRAIN_TIERS is bare paper. Four levels
+// rather than two is the change that matters -- at 1 bit the plate had only
+// "ink" and "nothing", so a lit snow field and a lit rock face printed
+// identically and the whole range came out a flat cutout.
+export var TERRAIN_TIERS = 3;
+
+// Aerial perspective. The range used to print at one ink density from the
+// nearest buttress to the farthest peak, which is why it read as a cutout
+// rather than as miles of air.
+//
+// The fix is not a depth map. The photograph already recorded the haze -- the
+// far ridges came back lower in contrast because there is more atmosphere in
+// front of them -- and the old exponent was flattening that back out. Raising
+// it stretches the mid densities down toward paper while anything at full
+// density stays put, so the near silhouette keeps its weight and the distance
+// recedes. It amplifies a real measurement instead of inventing a geometry.
+//
+// Set by measurement rather than by eye. At 1.32 the largest ink change
+// anywhere on the plate was 6.6 points of density, confined to the mid-tones,
+// which is a real difference and one nobody can see. This moves it to about
+// 15, which separates the far ridges from the near buttress at a glance while
+// still leaving everything at full density exactly where it was.
+export var DAY_TONE_GAMMA = 1.62;
+
+// Photographed luminance (0..255) to paper value, where 1 is bare paper and 0
+// is full ink. Day and night are composed separately rather than inverted.
+export function terrainPaper(luminance, dark) {
+  var value = luminance / 255;
+  var density = dark
+    ? 0.035 + 0.965 * Math.pow(smoothstep(0.055, 0.95, value), 1.27)
+    : 0.018 + 0.982 * Math.pow(smoothstep(0.035, 0.84, 1 - value), DAY_TONE_GAMMA);
+  return 1 - clamp(density, 0, 1);
+}
+
+// Atkinson error diffusion, quantising to TERRAIN_TIERS + 1 evenly spaced tones
+// rather than to black and white. The kernel and its weights are the classic
+// ones; only the quantiser differs, so the grain is the same grain with more
+// inks to land in. Everything at or above the skyline is left as bare paper.
+// Returns the tier per cell: 0 is the densest ink, TERRAIN_TIERS is paper.
+export function atkinsonTiers(paper, skyline, width, height) {
+  var work = new Float32Array(paper);
+  var dots = new Uint8Array(width * height);
+
+  function diffuse(x, y, error) {
+    if (x < 0 || y < 0 || x >= width || y >= height || y < skyline[x]) return;
+    work[y * width + x] += error;
+  }
+
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      var i = y * width + x;
+
+      if (y < skyline[x]) {
+        work[i] = 1;
+        dots[i] = TERRAIN_TIERS;
+        continue;
+      }
+
+      var old = work[i];
+      var level = Math.round(clamp(old, 0, 1) * TERRAIN_TIERS);
+      var quantized = level / TERRAIN_TIERS;
+      dots[i] = level;
+      var error = (old - quantized) * 0.125;
+      if (!error) continue;
+
+      diffuse(x + 1, y, error);
+      diffuse(x + 2, y, error);
+      diffuse(x - 1, y + 1, error);
+      diffuse(x, y + 1, error);
+      diffuse(x + 1, y + 1, error);
+      diffuse(x, y + 2, error);
+    }
+  }
+
+  return dots;
+}
+
+// The crop of the photograph that fills a frame of the given size. The hero
+// uses it for a whole viewport; the interior pages use it for a short band, and
+// because the rule is the same the ridge lands in the same place in both.
+export function terrainCrop(plateW, plateH, targetW, targetH, portrait) {
+  var sourceAspect = plateW / plateH;
+  var targetAspect = targetW / targetH;
+  var sx = 0;
+  var sy = 0;
+  var sw = plateW;
+  var sh = plateH;
+  var focus = portrait ? 0.55 : 0.52;
+
+  if (targetAspect > sourceAspect) {
+    sh = sw / targetAspect;
+    sy = clamp(plateH * 0.17, 0, Math.max(0, plateH - sh));
+  } else {
+    sw = sh * targetAspect;
+    sx = clamp(plateW * focus - sw / 2, 0, Math.max(0, plateW - sw));
+  }
+
+  return { sx: sx, sy: sy, sw: sw, sh: sh };
+}

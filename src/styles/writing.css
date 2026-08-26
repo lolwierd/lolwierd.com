@@ -1,0 +1,663 @@
+/* The reading page. One measure, one serif, thin rules, and mono reserved for
+   the things that are literally machine text: dates, code, labels. */
+
+/* Centred in the frame, at a measure the serif is comfortable at: about 70
+   characters for a post, a little wider for the list because of the year rail
+   down its left edge. */
+/* --- the index ----------------------------------------------------------- */
+
+/* A contents page, not a catalogue. The front page's ruled two-column rows are
+   right for ten work notes and five projects, which are lists of small things;
+   a handful of long pieces set that way reads as a table. So the entries run as
+   a single stream down one measure, separated by space rather than by rules,
+   with the year hung out in the margin the way a note is written beside a page
+   rather than boxed above it.
+   The stream keeps to the left, which leaves the right of the frame as sky --
+   the same composition the hero uses. */
+
+.writing-head {
+  max-width: 37rem;
+}
+
+/* The feed, once, at the end of the stream. A counted line of posts, words,
+   tags and a latest date was four facts nobody asked for standing where the
+   writing should be. */
+.entries-feed {
+  margin: clamp(3rem, 7vh, 4.5rem) 0 0;
+  font: 11px/1 var(--mono);
+}
+
+.entries-feed a { color: var(--ink-dim); }
+.entries-feed a:hover { color: var(--accent); }
+
+.entries {
+  margin-top: clamp(3.5rem, 9vh, 6rem);
+}
+
+.entry-year {
+  position: relative;
+}
+
+.entry-year + .entry-year {
+  margin-top: clamp(3.25rem, 6vw, 5rem);
+}
+
+.year-mark {
+  margin: 0 0 1.75rem;
+  color: var(--ink-faint);
+  font: 400 11px/1 var(--mono);
+  letter-spacing: 0.07em;
+}
+
+.entry + .entry {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+}
+
+.entry-slug {
+  margin: 0;
+  color: var(--ink-faint);
+  font: 11px/1.5 var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.entry-slug .draft { color: var(--accent); }
+
+.entry-title {
+  max-width: 24ch;
+  margin: 0.5rem 0 0;
+  font: 400 clamp(1.5rem, 2.6vw, 2rem) / 1.1 var(--serif);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.entry-title a {
+  color: var(--ink-strong);
+  text-decoration-color: transparent;
+  text-decoration-thickness: 0.04em;
+  text-underline-offset: 0.18em;
+}
+
+.entry-title a:hover,
+.entry-title a:focus-visible {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .entry-title a {
+    transition: color 180ms ease, text-decoration-color 180ms ease;
+  }
+}
+
+.entry-summary {
+  max-width: 33rem;
+  margin: 0.7rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.97rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.entries-empty {
+  max-width: 32rem;
+  margin: clamp(3rem, 8vh, 5rem) 0 0;
+  color: var(--ink-dim);
+  font-size: 0.97rem;
+  line-height: 1.7;
+}
+
+/* The front page sets its measurements as a two-column grid on a phone, which
+   suits a long list of numbers. Five short facts read better as one wrapped run
+   than as a table with an orphan in the last cell. */
+@media (max-width: 760px) {
+  .entries {
+    margin-top: clamp(2.25rem, 5vh, 3rem);
+  }
+
+  .year-mark {
+    margin-bottom: 1.25rem;
+  }
+}
+
+/* Wide enough for a margin: the year steps out beside the stream instead of
+   sitting on top of it, and the titles keep one unbroken left edge. */
+@media (min-width: 900px) {
+  .entry-year {
+    padding-left: 8rem;
+  }
+
+  .year-mark {
+    position: absolute;
+    top: 0.3rem;
+    left: 0;
+    margin: 0;
+  }
+}
+
+/* --- a single post ------------------------------------------------------- */
+
+/* Centred in the frame at a measure the serif is comfortable at: about 70
+   characters. */
+.writing-column {
+  width: min(100%, 40rem);
+  margin: 0 auto;
+}
+
+/* A running head, in the sense a book means it: where you are, printed small in
+   the text face at the top of the page. Two facts, not one -- the piece, then
+   the section of it you are actually in -- so it tracks with the reading rather
+   than restating the title you just scrolled past. */
+.post-rail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0.62rem clamp(1.25rem, 5.2vw, 5.5rem) 0.58rem;
+  background: var(--page);
+  color: var(--ink-faint);
+  font: 400 0.86rem/1.45 var(--serif);
+  letter-spacing: -0.012em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+/* The title is what gets centred, and the section hangs off its right edge
+   without taking part in the layout. If the section joined the line, every
+   change of heading would re-centre the whole thing and shove the title
+   sideways -- which is the kind of movement that reads as a glitch rather than
+   as an animation. */
+.post-rail-head {
+  position: relative;
+  display: inline-block;
+}
+
+.post-rail-title {
+  color: var(--ink-dim);
+}
+
+.post-rail-section {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  white-space: nowrap;
+  opacity: 0;
+}
+
+/* The dot is the site's own separator, the one the masthead uses. */
+.post-rail-section::before {
+  content: "·";
+  margin: 0 0.45em;
+  color: var(--rule);
+}
+
+/* The section changes as you read, so the change is the thing to get right: the
+   old heading lifts out of the way and the new one comes up into its place,
+   quickly and only once. Out is faster than in, which is what stops a run of
+   headings during a fast scroll from feeling like a slot machine. */
+.post-rail-section[data-state="in"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.post-rail-section[data-state="out"] {
+  opacity: 0;
+  transform: translateY(-0.4em);
+}
+
+.post-rail-section[data-state="ready"] {
+  opacity: 0;
+  transform: translateY(0.4em);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .post-rail-section {
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .post-rail-section[data-state="in"] {
+    transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+.post-rail[data-visible] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The rule along its foot is how far through the piece you are, in the same
+   move the prose links make: a printed rule taking ink. */
+.post-rail-spine {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+.post-rail-spine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(var(--rail-progress, 0));
+  transform-origin: 0 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .post-rail {
+    transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Two facts do not fit across a phone. The piece wins: the section is a
+   refinement, and the headings are a few lines away in any case. */
+@media (max-width: 620px) {
+  .post-rail { font-size: 0.8rem; }
+  .post-rail-section { display: none; }
+}
+
+.post-header {
+  padding-bottom: clamp(1.5rem, 2.5vw, 2rem);
+  border-bottom: 1px solid var(--rule);
+}
+
+.post-header h1 {
+  max-width: 22ch;
+  margin: 0;
+  color: var(--ink-strong);
+  font: 400 clamp(2.1rem, 3.6vw, 3rem) / 1.02 var(--serif);
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  margin: 0.75rem 0 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.post-meta .draft { color: var(--accent); }
+
+.post-header .post-summary {
+  max-width: 33rem;
+  margin: 0.9rem 0 0;
+  color: var(--ink-dim);
+  font-size: clamp(0.94rem, 1.12vw, 1.02rem);
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.post-body {
+  margin: clamp(2rem, 3.5vw, 2.75rem) 0 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+/* One rhythm for the whole body: every block starts flush and the space between
+   blocks is set in one place. Anything that needs more room asks for padding, so
+   it cannot quietly win a specificity argument with this rule. */
+.post-body > * { margin: 0; }
+.post-body > * + * { margin-top: 1.15rem; }
+
+.post-body p { text-wrap: pretty; }
+
+/* Prose links are printed, not underlined: the rule under them is a row of
+   dots, the same halftone the mountain is made of. Hovering floods it with ink
+   left to right, which is the one thing this site's whole visual language is
+   about -- dither resolving into solid. Two layers, because only the solid one
+   is animated; the dotted rule never moves. */
+.post-body p a,
+.post-body li a,
+.post-body blockquote a,
+.post-body td a {
+  color: var(--accent);
+  text-decoration: none;
+  background-image:
+    linear-gradient(var(--accent), var(--accent)),
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--accent) 70%, transparent) 0 1px,
+      transparent 1px 3px
+    );
+  background-repeat: no-repeat;
+  background-position: 0 1.12em, 0 1.12em;
+  background-size: 0% 1px, 100% 1px;
+}
+
+.post-body p a:hover,
+.post-body li a:hover,
+.post-body blockquote a:hover,
+.post-body td a:hover,
+.post-body p a:focus-visible,
+.post-body li a:focus-visible {
+  background-size: 100% 1px, 100% 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .post-body p a,
+  .post-body li a,
+  .post-body blockquote a,
+  .post-body td a {
+    transition: background-size 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Leaving the site is worth saying, once, in the small mono. */
+.post-body a[href^="http"]::after {
+  content: "↗";
+  margin-left: 0.28em;
+  font-family: var(--mono);
+  font-size: 0.72em;
+  vertical-align: 0.08em;
+  color: var(--ink-faint);
+}
+
+.post-body a[href^="http"]:hover::after { color: var(--accent); }
+
+.post-body h2,
+.post-body h3 {
+  /* Named, because the section mark has to hang at the same height as the words
+     and would otherwise be aligned to the top of the padding. */
+  --head-pad: clamp(1rem, 1.8vw, 1.5rem);
+  position: relative;
+  padding-top: var(--head-pad);
+  /* Arriving at a section should not park it under the running head. */
+  scroll-margin-top: 4.25rem;
+  color: var(--ink-strong);
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: -0.026em;
+  line-height: 1.2;
+}
+
+.post-body h2 { font-size: clamp(1.35rem, 2vw, 1.65rem); }
+.post-body h3 { font-size: 1.15rem; }
+.post-body h2 + *, .post-body h3 + * { margin-top: 0.7rem; }
+
+/* The heading itself is the section link, so there is nothing extra on the page
+   and nothing at all until the pointer is on it. On hover it takes the same
+   halftone rule the prose links use, which is the site's one way of saying
+   "this is a link" -- just quieter, since a heading is not asking to be clicked. */
+.heading-link {
+  color: inherit;
+  text-decoration: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ink-faint) 65%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+  background-repeat: no-repeat;
+  background-position: 0 1.06em;
+  background-size: 0% 1px;
+}
+
+.heading-link:hover,
+.heading-link:focus-visible {
+  background-size: 100% 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .heading-link {
+    transition: background-size 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 180ms ease;
+  }
+}
+
+.post-body ul,
+.post-body ol {
+  padding-left: 1.15rem;
+}
+
+.post-body li + li { margin-top: 0.3rem; }
+.post-body li::marker { color: var(--ink-faint); }
+
+.post-body blockquote {
+  padding-left: 1.15rem;
+  border-left: 1px solid var(--rule);
+  color: var(--ink-dim);
+}
+
+.post-body hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin-top: 2rem;
+}
+
+.post-body figure { margin: 1.25rem 0 0; }
+
+.post-body img,
+.post-body video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.post-body figcaption {
+  margin-top: 0.6rem;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.post-body :not(pre) > code {
+  padding: 0.1em 0.3em;
+  border: 1px solid var(--rule);
+  background: var(--page-deep);
+  font-size: 0.85em;
+}
+
+/* The block and its controls travel together; the wrapper is what the body's
+   rhythm spaces, so the block inside it adds nothing of its own. */
+.code-block {
+  position: relative;
+}
+
+.code-block pre {
+  margin-top: 0;
+}
+
+.post-body pre {
+  margin-top: 1.25rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--rule);
+  background: var(--page-deep) !important;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  overflow-x: auto;
+}
+
+.post-body pre code {
+  font-family: var(--mono);
+}
+
+/* The default bar is a rounded grey pill with a track, which is the one piece of
+   stock interface chrome the page would otherwise contain. This is a hairline in
+   the page's own ink instead: square, trackless, and quiet until used. */
+.post-body pre {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink-faint) 45%, transparent) transparent;
+}
+
+.post-body pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.post-body pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.post-body pre::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: color-mix(in srgb, var(--ink-faint) 40%, transparent);
+}
+
+.post-body pre::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink-faint) 70%, transparent);
+}
+
+.code-copy {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.45rem 0.7rem 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font: 11px/1 var(--mono);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .code-copy { transition: opacity 160ms ease, color 160ms ease; }
+}
+
+.code-block:hover .code-copy,
+.code-copy:focus-visible,
+.code-copy[data-said] {
+  opacity: 1;
+}
+
+.code-copy:hover { color: var(--ink-strong); }
+.code-copy[data-said] { color: var(--accent); }
+
+/* No hover to reveal it on a touch screen, so it simply stays. */
+@media (hover: none) {
+  .code-copy { opacity: 1; }
+}
+
+/* A picture opens to whatever room the window has. Same paper behind it, one
+   hairline around it, and no interface of its own. */
+.post-body img {
+  cursor: zoom-in;
+}
+
+.image-view {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: color-mix(in srgb, var(--page) 94%, transparent);
+  cursor: zoom-out;
+}
+
+.image-view[data-open] {
+  display: flex;
+}
+
+.image-view img {
+  max-width: 100%;
+  max-height: 100%;
+  border: 1px solid var(--rule);
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .image-view[data-open] img {
+    animation: image-open 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes image-open {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Shiki is configured with two themes and no default, so the ink follows the
+   sun over Vadodara like everything else rather than the OS colour scheme. */
+.post-body .astro-code,
+.post-body .astro-code span {
+  color: var(--shiki-light);
+}
+
+:root[data-sky="night"] .post-body .astro-code,
+:root[data-sky="night"] .post-body .astro-code span {
+  color: var(--shiki-dark);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-sky]) .post-body .astro-code,
+  :root:not([data-sky]) .post-body .astro-code span {
+    color: var(--shiki-dark);
+  }
+}
+
+.post-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.post-body th,
+.post-body td {
+  padding: 0.5rem 0.75rem 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.post-body th {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+.post-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin: clamp(2.5rem, 5vw, 4rem) 0 0;
+  padding-top: 1.15rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.post-footer a { color: var(--ink-dim); }
+.post-footer a:hover { color: var(--accent); }
+
+.post-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.2rem;
+}
+
+@media (max-width: 760px) {
+  .writing-year {
+    display: block;
+  }
+
+  .writing-year > h2 {
+    position: static;
+    padding-top: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .post-body { font-size: 0.98rem; }
+}

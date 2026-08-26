@@ -1,0 +1,43 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import "../styles/interior.css";
+
+// The shell every page that is not the front page uses: same masthead, same
+// paper, one static plate of the range at the foot of the frame.
+const { title, description, ridge = true } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="page">
+    <div class="page-frame">
+      <div class="topbar">
+        <!-- Just the name here. The front page's masthead introduces him, which
+             is what a front page is for; repeating the job title at the top of
+             every post is a signature on someone else's letter. -->
+        <p class="site-name">
+          <a href="/">ayaan retiwala</a>
+        </p>
+        <nav class="hero-nav" aria-label="Site">
+          <a href="/#work">work</a>
+          <a href="/#projects">projects</a>
+          <a href="/writing/">writing</a>
+          <a href="/#contact">contact</a>
+        </nav>
+      </div>
+
+      <slot />
+    </div>
+
+    {ridge && (
+      <div class="ridge-stage" aria-hidden="true">
+        <canvas id="ridge"></canvas>
+      </div>
+    )}
+  </div>
+
+  {ridge && (
+    <script>
+      import "../scripts/ridge-strip.js";
+    </script>
+  )}
+</BaseLayout>

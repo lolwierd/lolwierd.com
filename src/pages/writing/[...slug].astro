@@ -1,0 +1,69 @@
+---
+import { render } from "astro:content";
+import PageLayout from "../../layouts/PageLayout.astro";
+import "../../styles/writing.css";
+import { formatDate, getPosts, isoDate, postUrl, readingTime } from "../../lib/writing.js";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post, index) => ({
+    params: { slug: post.id },
+    props: {
+      post,
+      // Newest first, so "next" is the newer neighbour and "previous" the older.
+      newer: posts[index - 1] ?? null,
+      older: posts[index + 1] ?? null
+    }
+  }));
+}
+
+const { post, newer, older } = Astro.props;
+const { Content } = await render(post);
+const minutes = readingTime(post.body);
+---
+
+<PageLayout title={`${post.data.title} · Ayaan Retiwala`} description={post.data.summary}>
+  <aside class="post-rail" data-post-rail aria-hidden="true">
+    <span class="post-rail-head">
+      <span class="post-rail-title">{post.data.title}</span>
+      <span class="post-rail-section" data-rail-section></span>
+    </span>
+    <span class="post-rail-spine"></span>
+  </aside>
+
+  <main class="page-body writing-column">
+    <article>
+      <header class="post-header">
+        <h1>{post.data.title}</h1>
+        <p class="post-summary">{post.data.summary}</p>
+        <p class="post-meta">
+          <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+          <span>{minutes} min</span>
+          {post.data.updated && (
+            <span>updated {formatDate(post.data.updated)}</span>
+          )}
+          {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
+          {post.data.draft && <span class="draft">draft</span>}
+        </p>
+      </header>
+
+      <div class="post-body">
+        <Content />
+      </div>
+    </article>
+
+    <footer class="post-footer">
+      <p>ayaan retiwala · vadodara</p>
+      <nav aria-label="More writing">
+        {older && <a href={postUrl(older)}>← {older.data.title}</a>}
+        {newer && <a href={postUrl(newer)}>{newer.data.title} →</a>}
+        <a href="/writing/">all writing</a>
+      </nav>
+    </footer>
+  </main>
+
+  <script>
+    import "../../scripts/post-rail.js";
+    import "../../scripts/post-media.js";
+  </script>
+</PageLayout>
