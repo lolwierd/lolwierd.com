@@ -8,17 +8,18 @@
 // decides whether content is shown, because anything the browser decides, a
 // visitor can decide differently.
 
-const HOLD_MS = 750;
+const HOLD_MS = 950;
 
 const target = document.querySelector(".site-name a") || document.querySelector(".site-name");
 const host = document.querySelector(".site-name") || target?.parentElement;
 
 let hint = null;
+let tick = 0;
 function ensureHint() {
   if (hint) return hint;
   hint = document.createElement("span");
   hint.className = "hold-hint";
-  hint.textContent = "holding…";
+  hint.textContent = "holding… 0.8s";
   hint.setAttribute("aria-hidden", "true");
   if (host) host.appendChild(hint);
   else document.body.appendChild(hint);
@@ -31,6 +32,8 @@ function showHint() {
 }
 function hideHint() {
   if (hint) hint.removeAttribute("data-visible");
+  if (tick) window.clearInterval(tick);
+  tick = 0;
 }
 
 if (target) {
@@ -41,6 +44,8 @@ if (target) {
   const clear = () => {
     if (timer) window.clearTimeout(timer);
     timer = 0;
+    if (tick) window.clearInterval(tick);
+    tick = 0;
     target.removeAttribute("data-holding");
     hideHint();
   };
@@ -52,21 +57,39 @@ if (target) {
     triggered = false;
     holding = true;
     target.setAttribute("data-holding", "");
+    const h = ensureHint();
+    const started = Date.now();
+    h.textContent = `holding… ${(HOLD_MS / 1000).toFixed(1)}s`;
     showHint();
+    if (tick) window.clearInterval(tick);
+    tick = window.setInterval(() => {
+      const elapsed = Date.now() - started;
+      const remaining = Math.max(0, HOLD_MS - elapsed);
+      if (!hint) return;
+      if (remaining > 0) hint.textContent = `holding… ${(remaining / 1000).toFixed(1)}s`;
+    }, 80);
     timer = window.setTimeout(() => {
       triggered = true;
       holding = false;
-      clear();
-      // Tiny feedback via existing toast system if present, otherwise just go.
+      if (tick) window.clearInterval(tick);
+      tick = 0;
+      // send-off in the pill itself, then go
+      if (hint) {
+        hint.textContent = "time to work →";
+        hint.setAttribute("data-visible", "");
+      }
       try {
         const toast = document.createElement("p");
         toast.className = "sky-toast";
         toast.setAttribute("data-visible", "");
         toast.textContent = "editor → /admin";
         document.body.appendChild(toast);
-        window.setTimeout(() => toast.remove(), 900);
+        window.setTimeout(() => toast.remove(), 1100);
       } catch {}
-      window.location.href = "/admin";
+      window.setTimeout(() => {
+        clear();
+        window.location.href = "/admin";
+      }, 320);
     }, HOLD_MS);
   };
 
