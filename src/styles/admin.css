@@ -72,9 +72,13 @@ body.admin {
 /* One column, centred, at the measure the post page uses -- the same token, so
    the two cannot drift. Nothing flanks it. */
 .sheet {
-  width: min(100%, var(--measure));
+  /* The gutter is added to the measure rather than taken out of it, so the text
+     column here is exactly as wide as the post page's -- 42rem of prose either
+     way, not 42rem minus this page's padding. */
+  --sheet-gutter: clamp(1rem, 3vw, 2rem);
+  width: min(100%, calc(var(--measure) + 2 * var(--sheet-gutter)));
   margin: 0 auto;
-  padding: 0 clamp(1rem, 3vw, 2rem) 8rem;
+  padding: 0 var(--sheet-gutter) 8rem;
 }
 
 .sheet-head {
@@ -383,7 +387,7 @@ button[aria-pressed="true"] { color: var(--accent); }
 
 /* ----------------------------------------------------------------- the prose */
 
-.prose { padding-top: 1.1rem; }
+.editor-prose { padding-top: 1.1rem; }
 
 /* The toast is styled in global.css. A failure is the one thing that stays up
    until it is read, and says so in the accent. */

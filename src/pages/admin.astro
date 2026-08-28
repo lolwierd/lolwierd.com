@@ -129,7 +129,10 @@ import "../styles/admin.css";
           </div>
         </form>
 
-        <div id="editor" class="prose"></div>
+        <!-- Not `prose`: global.css already owns that class for the front page's
+             intro copy, at its own 36rem measure, and the editor was quietly
+             inheriting it. -->
+        <div id="editor" class="editor-prose"></div>
       </div>
     </main>
 

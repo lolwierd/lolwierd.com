@@ -67,7 +67,7 @@
 .entry-slug .draft { color: var(--accent); }
 
 .entry-title {
-  max-width: 28ch;
+  max-width: 24ch;
   margin: 0.5rem 0 0;
   font: 400 clamp(1.5rem, 2.6vw, 2rem) / 1.1 var(--serif);
   letter-spacing: -0.03em;
@@ -94,7 +94,7 @@
 }
 
 .entry-summary {
-  max-width: var(--measure);
+  max-width: 33rem;
   margin: 0.7rem 0 0;
   color: var(--ink-dim);
   font-size: 0.97rem;
@@ -313,7 +313,7 @@
 .entry-slug .owner-edit:hover { color: var(--accent); }
 
 .post-header .post-summary {
-  max-width: var(--measure);
+  max-width: 33rem;
   margin: 0.9rem 0 0;
   color: var(--ink-dim);
   font-size: clamp(0.94rem, 1.12vw, 1.02rem);

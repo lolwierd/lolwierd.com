@@ -47,7 +47,7 @@ const heading = (level, size) => ({
   }
 });
 
-const theme = EditorView.theme({
+const themeSpec = {
   "&": {
     color: "var(--ink)",
     backgroundColor: "transparent",
@@ -69,8 +69,18 @@ const theme = EditorView.theme({
   ".cm-line": { padding: "0" },
   "&.cm-focused": { outline: "none" },
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)", borderLeftWidth: "2px" },
-  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-    backgroundColor: "color-mix(in srgb, var(--accent) 22%, transparent)"
+  // Every selector CodeMirror's own base themes use for this, so neither the
+  // light nor the dark one can show through with its grey or its lavender. The
+  // site has no selection colour of its own; this is the accent at a weight that
+  // stays legible on paper and on near-black alike.
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+    background: "color-mix(in srgb, var(--accent) 26%, transparent) !important"
+  },
+  "&.cm-focused .cm-selectionLayer .cm-selectionBackground, .cm-selectionLayer .cm-selectionBackground": {
+    background: "color-mix(in srgb, var(--accent) 26%, transparent) !important"
+  },
+  ".cm-content ::selection, .cm-line::selection, .cm-line ::selection": {
+    background: "color-mix(in srgb, var(--accent) 26%, transparent)"
   },
   ".cm-placeholder": { color: "var(--ink-faint)", fontStyle: "italic" },
   ...heading(1, "clamp(1.7rem, 3vw, 2.1rem)"),
@@ -145,11 +155,13 @@ const theme = EditorView.theme({
   ".cm-line.cm-hr": {
     paddingTop: "1.6rem",
     paddingBottom: "0.4rem",
+    color: "var(--ink-faint)"
+  },
+  ".cm-line.cm-hr-drawn": {
     backgroundImage: "linear-gradient(var(--rule), var(--rule))",
     backgroundRepeat: "no-repeat",
     backgroundSize: "100% 1px",
-    backgroundPosition: "0 1.6rem",
-    color: "var(--ink-faint)"
+    backgroundPosition: "0 1.6rem"
   },
 
   // The two things the post page draws that plain highlighting cannot: a link
@@ -173,7 +185,17 @@ const theme = EditorView.theme({
     fontSize: "var(--prose-code)",
     color: "var(--ink)"
   }
-});
+};
+
+// The page follows the OS theme, and CodeMirror decides between its light and
+// dark base themes from a flag given when the theme is built -- so it has to be
+// told which one this is, or a dark page gets light defaults underneath.
+const prefersDark =
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+const theme = EditorView.theme(themeSpec, { dark: prefersDark });
 
 const highlight = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "700", color: "var(--ink-strong)" },
@@ -223,10 +245,16 @@ const lineStyles = ViewPlugin.fromClass(
       this.decorations = this.build(view);
     }
     update(update) {
-      if (update.docChanged || update.viewportChanged) this.decorations = this.build(update.view);
+      // selectionSet included for the horizontal rule: it is the one construct
+      // whose drawn form replaces its source rather than sitting beside it, so
+      // moving the caret onto it has to stop the rule being drawn.
+      if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        this.decorations = this.build(update.view);
+      }
     }
     build(view) {
       const marks = [];
+      const live = activeLines(view.state);
       for (const { from, to } of view.visibleRanges) {
         syntaxTree(view.state).iterate({
           from,
@@ -241,7 +269,12 @@ const lineStyles = ViewPlugin.fromClass(
                 : fenced
                   ? "cm-codeline"
                   : node.name === "HorizontalRule"
-                    ? "cm-hr"
+                    ? // Drawn only while the caret is elsewhere: the rule and
+                      // the dashes that make it are the same thing, and both on
+                      // screen at once reads as a mistake. The padding stays
+                      // either way, so stepping onto the line swaps one for the
+                      // other without the text below moving.
+                      `cm-hr${live.has(view.state.doc.lineAt(node.from).number) ? "" : " cm-hr-drawn"}`
                     : node.name === "Table"
                       ? "cm-table"
                       : "";
