@@ -70,10 +70,63 @@ const theme = EditorView.theme({
     borderLeft: "1px solid var(--rule)",
     color: "var(--ink-dim)"
   },
+  // One box around the whole fence, with the post page's padding, rule and
+  // ground. CodeMirror lays out lines, not blocks, so the block is drawn as a
+  // run of lines that share a background and close at either end.
   ".cm-line.cm-codeline": {
+    paddingLeft: "1.15rem",
+    paddingRight: "1.15rem",
+    borderLeft: "1px solid var(--rule)",
+    borderRight: "1px solid var(--rule)",
+    background: "var(--page-deep)",
     fontFamily: "var(--mono)",
     fontSize: "0.82rem",
     color: "var(--ink-dim)"
+  },
+  // The fences stay -- they are the only place a block's language is written,
+  // and hiding them would mean you could not change it. But they are the edge of
+  // the box, not a line of the program, so they are set as small as the label
+  // they amount to.
+  ".cm-line.cm-code-first, .cm-line.cm-code-last": {
+    fontSize: "10px",
+    lineHeight: "1.6",
+    color: "color-mix(in srgb, var(--ink-faint) 70%, transparent)"
+  },
+  ".cm-line.cm-code-first": {
+    marginTop: "1.25rem",
+    paddingTop: "0.7rem",
+    borderTop: "1px solid var(--rule)"
+  },
+  ".cm-line.cm-code-last": {
+    paddingBottom: "0.7rem",
+    borderBottom: "1px solid var(--rule)"
+  },
+
+  // Inline code is a box; code inside a fence is already in one. Both carry the
+  // same highlight tag, so the box is taken back off here.
+  ".cm-line.cm-codeline .cm-md-code": {
+    padding: "0",
+    border: "0",
+    background: "none",
+    fontSize: "inherit"
+  },
+
+  // A table cannot become a real table in a source editor without replacing the
+  // rows with widgets, and a widget is not editable text. What it can do is stop
+  // being illegible: pipes only line up in a monospaced face, so the rows are
+  // set in one and the header rule is drawn under the delimiter row.
+  ".cm-line.cm-table": {
+    fontFamily: "var(--mono)",
+    fontSize: "0.82rem",
+    color: "var(--ink-dim)"
+  },
+
+  // The rule the post page draws for `---`.
+  ".cm-line.cm-hr": {
+    position: "relative",
+    marginTop: "2rem",
+    borderTop: "1px solid var(--rule)",
+    color: "var(--ink-faint)"
   },
 
   // The two things the post page draws that plain highlighting cannot: a link
@@ -142,22 +195,35 @@ const lineStyles = ViewPlugin.fromClass(
           to,
           enter: (node) => {
             const level = /^(?:ATX|Setext)Heading(\d)$/.exec(node.name);
+            const fenced = node.name === "FencedCode" || node.name === "CodeBlock";
             const cls = level
               ? `cm-h${level[1]}`
               : node.name === "Blockquote"
                 ? "cm-blockquote"
-                : node.name === "FencedCode" || node.name === "CodeBlock"
+                : fenced
                   ? "cm-codeline"
-                  : "";
+                  : node.name === "HorizontalRule"
+                    ? "cm-hr"
+                    : node.name === "Table"
+                      ? "cm-table"
+                      : "";
             if (!cls) return;
             const first = view.state.doc.lineAt(node.from).number;
             const last = view.state.doc.lineAt(Math.min(node.to, view.state.doc.length)).number;
             for (let n = first; n <= last; n += 1) {
-              marks.push(Decoration.line({ class: cls }).range(view.state.doc.line(n).from));
+              // A code block is one box, not a box per line, so the first and
+              // last lines carry the top and bottom of it.
+              const edge = fenced
+                ? `${n === first ? " cm-code-first" : ""}${n === last ? " cm-code-last" : ""}`
+                : "";
+              marks.push(
+                Decoration.line({ class: `${cls}${edge}` }).range(view.state.doc.line(n).from)
+              );
             }
           }
         });
       }
+
       marks.sort((a, b) => a.from - b.from);
       return Decoration.set(marks, true);
     }
@@ -267,6 +333,14 @@ const liveSyntax = ViewPlugin.fromClass(
             }
 
             if (node.name === "QuoteMark") {
+              hideByLine(node.from, node.to);
+              return;
+            }
+
+            // The post page draws a horizontal rule. Here the line itself is
+            // the rule (see .cm-hr), so the dashes that make it are hidden the
+            // same way every other mark is.
+            if (node.name === "HorizontalRule") {
               hideByLine(node.from, node.to);
               return;
             }
