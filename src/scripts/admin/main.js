@@ -35,6 +35,8 @@ const dom = {
   date: el("f-date"),
   updated: el("f-updated"),
   addUpdated: el("add-updated"),
+  removeUpdated: el("remove-updated"),
+  renameSlug: el("rename-slug"),
   tags: el("f-tags"),
   draft: el("f-draft"),
   editor: el("editor")
@@ -64,8 +66,25 @@ function blank() {
     sha: null,
     fields: { title: "", summary: "", date: today(), updated: "", tags: [], draft: true },
     body: "",
-    dirty: false
+    dirty: false,
+    _saved: null
   };
+}
+
+function snapshot(post) {
+  return JSON.stringify({ slug: post.slug, fields: post.fields, body: post.body });
+}
+
+function updateDirty() {
+  if (!current._saved) {
+    // new post: dirty if anything is non-empty
+    const empty = !current.fields.title && !current.fields.summary && !current.body && !current.fields.tags.length;
+    current.dirty = !empty;
+  } else {
+    current.dirty = snapshot(current) !== current._saved;
+  }
+  describeIdle();
+  setTitle();
 }
 
 function today() {
@@ -180,7 +199,13 @@ function setView(name) {
 // rather than sitting permanently beside the writing.
 function showIndex(on) {
   setView(on ? "index" : "write");
-  if (on) renderList();
+  if (on) {
+    // Clear the hash so a reload while on the list stays on the list.
+    // open() sets #slug, startNew() already clears, but toggling via the
+    // posts button left #slug in the URL, so reload re-opened the post.
+    if (location.hash) history.replaceState(null, "", location.pathname);
+    renderList();
+  }
   // With the list open and nothing loaded there is no save state to report, and
   // "nothing written yet" next to a page of posts is just wrong.
   if (on && !current.sha && !current.dirty) setState("empty", "");
@@ -244,7 +269,10 @@ function fillForm() {
   dom.tags.value = current.fields.tags.join(", ");
   dom.draft.checked = current.fields.draft;
   showUpdated(Boolean(current.fields.updated));
-  dom.slug.disabled = Boolean(current.sha);
+  const isExisting = Boolean(current.sha);
+  dom.slug.disabled = isExisting;
+  dom.renameSlug.hidden = !isExisting;
+  dom.slug.placeholder = isExisting ? `${current.slug} — use rename to change` : "slug";
   autosize(dom.summary);
   // Only once the post exists in the repo: there is nothing built to look at
   // before the first save.
@@ -255,6 +283,7 @@ function fillForm() {
 function showUpdated(on) {
   dom.updated.hidden = !on;
   dom.addUpdated.hidden = on;
+  dom.removeUpdated.hidden = !on;
 }
 
 function readForm() {
@@ -269,13 +298,12 @@ function readForm() {
       .filter(Boolean),
     draft: dom.draft.checked
   };
-  if (!current.sha) current.slug = dom.slug.value.trim();
+  // slug is disabled for existing posts unless rename is active — read it whenever enabled
+  if (!dom.slug.disabled) current.slug = dom.slug.value.trim();
 }
 
 function touch() {
-  current.dirty = true;
-  describeIdle();
-  setTitle();
+  updateDirty();
   writeBuffer(current.bufferKey, {
     slug: current.slug,
     sha: current.sha,
@@ -314,8 +342,10 @@ async function open(slug) {
         draft: post.draft
       },
       body: post.body.replace(/^\n+/, ""),
-      dirty: false
+      dirty: false,
+      _saved: null
     };
+    current._saved = snapshot(current);
 
     const buffer = readBuffer(current.bufferKey);
     const differs =
@@ -418,6 +448,10 @@ async function save() {
     return;
   }
 
+  const originalSlug = current._saved ? JSON.parse(current._saved).slug : "";
+  const isRename = Boolean(originalSlug && current.slug !== originalSlug);
+  const urlSlug = isRename ? originalSlug : current.slug;
+
   // The same rules content.config.ts applies at build time. Catching them here
   // is the difference between a typo and a red deploy.
   const errors = validatePost(current.fields);
@@ -431,13 +465,15 @@ async function save() {
   setState("committing", "committing…");
 
   try {
-    const result = await savePost(current.slug, {
+    const result = await savePost(urlSlug, {
       ...current.fields,
       body: current.body,
-      sha: current.sha
+      sha: current.sha,
+      ...(isRename ? { newSlug: current.slug } : {})
     });
     current.sha = result.sha;
     current.dirty = false;
+    current._saved = snapshot(current);
     clearBuffer(current.bufferKey);
     // A new post was buffered under the new-post name; from here it is filed
     // under the slug it was saved as.
@@ -534,6 +570,22 @@ function boot() {
     readForm();
     touch();
     dom.updated.focus();
+  });
+
+  dom.removeUpdated.addEventListener("click", () => {
+    dom.updated.value = "";
+    showUpdated(false);
+    readForm();
+    touch();
+    dom.addUpdated.focus();
+  });
+
+  dom.renameSlug.addEventListener("click", () => {
+    dom.slug.disabled = false;
+    dom.slug.focus();
+    dom.slug.select();
+    dom.renameSlug.hidden = true;
+    toast("changing slug will 301 old → new", "saved");
   });
 
   // And off again. Clearing the field is the way out: without this, adding an

@@ -19,7 +19,7 @@ function ensureHint() {
   if (hint) return hint;
   hint = document.createElement("span");
   hint.className = "hold-hint";
-  hint.textContent = "holding… 0.8s";
+  hint.textContent = `holding… ${(HOLD_MS / 1000).toFixed(1)}s`;
   hint.setAttribute("aria-hidden", "true");
   if (host) host.appendChild(hint);
   else document.body.appendChild(hint);
@@ -38,14 +38,19 @@ function hideHint() {
 
 if (target) {
   let timer = 0;
+  let showTimer = 0;
   let holding = false;
+  let ready = false;
   let triggered = false;
 
   const clear = () => {
     if (timer) window.clearTimeout(timer);
+    if (showTimer) window.clearTimeout(showTimer);
     timer = 0;
+    showTimer = 0;
     if (tick) window.clearInterval(tick);
     tick = 0;
+    ready = false;
     target.removeAttribute("data-holding");
     hideHint();
   };
@@ -56,24 +61,52 @@ if (target) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     triggered = false;
     holding = true;
+    ready = false;
     target.setAttribute("data-holding", "");
     const h = ensureHint();
     const started = Date.now();
     h.textContent = `holding… ${(HOLD_MS / 1000).toFixed(1)}s`;
-    showHint();
+    // only show after a short hold — quick clicks shouldn't flash the pill
+    showTimer = window.setTimeout(showHint, 180);
     if (tick) window.clearInterval(tick);
     tick = window.setInterval(() => {
       const elapsed = Date.now() - started;
       const remaining = Math.max(0, HOLD_MS - elapsed);
       if (!hint) return;
+      if (ready) return;
       if (remaining > 0) hint.textContent = `holding… ${(remaining / 1000).toFixed(1)}s`;
     }, 80);
     timer = window.setTimeout(() => {
-      triggered = true;
-      holding = false;
+      if (!holding) return;
+      ready = true;
       if (tick) window.clearInterval(tick);
       tick = 0;
-      // send-off in the pill itself, then go
+      // armed — pill says so, but still wait for release
+      if (hint) {
+        hint.textContent = "time to work →";
+        hint.setAttribute("data-visible", "");
+      }
+      target.setAttribute("data-holding", "");
+    }, HOLD_MS);
+  };
+
+  const abort = () => {
+    if (!holding || ready) return;
+    holding = false;
+    clear();
+  };
+
+  const release = () => {
+    if (!holding) return;
+    if (ready) {
+      triggered = true;
+      holding = false;
+      ready = false;
+      if (tick) window.clearInterval(tick);
+      tick = 0;
+      if (showTimer) window.clearTimeout(showTimer);
+      showTimer = 0;
+      // keep pill visible for the send-off
       if (hint) {
         hint.textContent = "time to work →";
         hint.setAttribute("data-visible", "");
@@ -89,21 +122,18 @@ if (target) {
       window.setTimeout(() => {
         clear();
         window.location.href = "/admin";
-      }, 320);
-    }, HOLD_MS);
-  };
-
-  const cancel = () => {
-    if (!holding) return;
-    holding = false;
-    clear();
+      }, 220);
+    } else {
+      holding = false;
+      clear();
+    }
   };
 
   target.addEventListener("pointerdown", start);
-  target.addEventListener("pointerup", cancel);
-  target.addEventListener("pointerleave", cancel);
-  target.addEventListener("pointercancel", cancel);
-  target.addEventListener("lostpointercapture", cancel);
+  target.addEventListener("pointerup", release);
+  target.addEventListener("pointerleave", abort);
+  target.addEventListener("pointercancel", abort);
+  target.addEventListener("lostpointercapture", abort);
 
   // If the hold fired, swallow the click that would have gone to "/".
   target.addEventListener(
@@ -126,6 +156,7 @@ if (target) {
   });
   target.addEventListener("keyup", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
-    cancel();
+    release();
   });
+  target.addEventListener("blur", abort);
 }

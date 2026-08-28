@@ -178,3 +178,97 @@ export async function writePostFile(config, slug, text, sha, message) {
   }
   return { sha: result.content.sha, commit: result.commit.sha };
 }
+
+export async function deletePostFile(config, slug, sha, message) {
+  const body = {
+    message,
+    sha,
+    branch: config.branch
+  };
+  const result = await call(config, `/repos/${config.repo}/contents/${postPath(slug)}`, {
+    method: "DELETE",
+    body: JSON.stringify(body)
+  });
+  if (!result || !result.commit) {
+    throw new GitHubError("github refused the delete -- check GITHUB_TOKEN and GITHUB_REPO", 502);
+  }
+  return { commit: result.commit.sha };
+}
+
+// _redirects is the slug history. Published renames append there so every old
+// URL still 301s to the current slug. Draft renames skip it — drafts were
+// never indexed.
+const REDIRECTS_PATH = "public/_redirects";
+
+export async function readRedirectsFile(config) {
+  const file = await call(
+    config,
+    `/repos/${config.repo}/contents/${REDIRECTS_PATH}?ref=${encodeURIComponent(config.branch)}`
+  );
+  if (!file || !file.content) return { text: "", sha: null };
+  return { text: decodeBase64Utf8(file.content), sha: file.sha };
+}
+
+export async function writeRedirectsFile(config, text, sha, message) {
+  const body = {
+    message,
+    content: encodeUtf8Base64(text),
+    branch: config.branch,
+    ...(sha ? { sha } : {})
+  };
+  const result = await call(config, `/repos/${config.repo}/contents/${REDIRECTS_PATH}`, {
+    method: "PUT",
+    body: JSON.stringify(body)
+  });
+  if (!result || !result.commit) {
+    throw new GitHubError("github refused the redirect write", 502);
+  }
+  return { commit: result.commit.sha };
+}
+
+export function coalesceRedirects(existingText, oldSlug, newSlug) {
+  const oldPath = `/writing/${oldSlug}/`;
+  const newPath = `/writing/${newSlug}/`;
+  const lines = String(existingText || "").split(/\r?\n/);
+  const out = [];
+  let seen = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) {
+      out.push(raw);
+      continue;
+    }
+    const parts = line.split(/\s+/);
+    if (parts.length < 2) {
+      out.push(raw);
+      continue;
+    }
+    const from = parts[0];
+    const to = parts[1];
+    // Existing redirect that already points to old should now point to new
+    // Except when it's the reverse of the current rename (A->B then B->A) —
+    // that redirect is now obsolete because its `from` is the new current.
+    if (to === oldPath) {
+      if (from === newPath) continue;
+      out.push(`${from}  ${newPath}  301`);
+      continue;
+    }
+    // Existing exact old->new, don't duplicate
+    if (from === oldPath && to === newPath) {
+      seen = true;
+      out.push(raw);
+      continue;
+    }
+    // Any redirect from old to elsewhere is superseded by old->new
+    if (from === oldPath) {
+      seen = true;
+      out.push(`${oldPath}  ${newPath}  301`);
+      continue;
+    }
+    out.push(raw);
+  }
+  if (!seen) out.push(`${oldPath}  ${newPath}  301`);
+  // Trim leading + trailing empty lines and collapse, ensure single newline
+  const text = out.join("\n").replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").replace(/\n*$/, "\n");
+  return text;
+}

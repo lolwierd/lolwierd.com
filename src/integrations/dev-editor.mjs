@@ -10,6 +10,7 @@ import {
   serializePost,
   validatePost
 } from "../lib/post-file.js";
+import { coalesceRedirects } from "../lib/github.js";
 
 // Local writing goes straight to the file on disk.
 //
@@ -95,10 +96,48 @@ export default function devEditor() {
               const errors = validatePost(fields);
               if (errors.length) return send(422, { error: errors.join("; ") });
 
+              const newSlugRaw = typeof payload.newSlug === "string" ? payload.newSlug.trim() : "";
+              const isRename = Boolean(newSlugRaw && newSlugRaw !== slug);
+              if (isRename && !isValidSlug(newSlugRaw)) return send(400, { error: "that new slug is not valid" });
+
               const stat = await fs.stat(file).catch(() => null);
               if (!payload.sha && stat) return send(409, { error: "a post with that slug already exists" });
               if (payload.sha && stat && version(stat) !== payload.sha) {
                 return send(409, { error: "the file changed on disk since this was opened" });
+              }
+
+              if (isRename) {
+                const newFile = path.join(dir, `${newSlugRaw}.md`);
+                const newStat = await fs.stat(newFile).catch(() => null);
+                if (newStat) return send(409, { error: "a post with that new slug already exists" });
+                const before = stat ? readPost(slug, await fs.readFile(file, "utf8")) : null;
+                const beforeDraft = before ? before.draft : false;
+                const extra = before ? before.extra : [];
+                const kept = keepUnchangedDates(fields, before);
+                const text = serializePost(kept, payload.body ?? "", extra);
+                await fs.writeFile(newFile, text, "utf8");
+                // Only renames of published posts get history — drafts were never indexed.
+                // Gate on before draft so a published→draft rename still leaves a 301.
+                if (!beforeDraft) {
+                  try {
+                    const redirPath = path.resolve(projectRoot, "public/_redirects");
+                    let redirText = "";
+                    try { redirText = await fs.readFile(redirPath, "utf8"); } catch {}
+                    const next = coalesceRedirects(redirText, slug, newSlugRaw);
+                    if (next !== redirText) await fs.writeFile(redirPath, next, "utf8");
+                  } catch (e) { logger.error(`redirect write failed ${e.message}`); }
+                }
+                if (stat) await fs.unlink(file).catch(() => {});
+                const after = await fs.stat(newFile);
+                return send(200, {
+                  slug: newSlugRaw,
+                  sha: version(after),
+                  commit: null,
+                  created: !stat,
+                  renamed: true,
+                  oldSlug: slug,
+                  branch: "your working tree"
+                });
               }
 
               const before = stat ? readPost(slug, await fs.readFile(file, "utf8")) : null;

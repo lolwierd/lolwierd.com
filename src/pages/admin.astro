@@ -117,11 +117,13 @@ import "../styles/admin.css";
                  stays a word you can click. An empty dd/mm/yyyy sitting in the
                  meta line of every new post is furniture. -->
             <input id="f-updated" name="updated" type="date" aria-label="updated" title="updated" hidden />
+            <button type="button" id="remove-updated" class="ghost" hidden aria-label="remove updated">×</button>
             <button type="button" id="add-updated" class="ghost">+updated</button>
             <span class="f-sep">·</span>
             <input id="f-tags" name="tags" type="text" spellcheck="false" placeholder="tags" aria-label="tags" />
             <span class="f-sep">·</span>
             <input id="f-slug" name="slug" type="text" spellcheck="false" placeholder="slug" aria-label="slug" />
+            <button type="button" id="rename-slug" class="ghost" hidden>rename</button>
             <label class="f-draft">
               <input id="f-draft" name="draft" type="checkbox" />
               <span>draft</span>
