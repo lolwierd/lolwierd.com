@@ -1,270 +1,46 @@
 # lolwierd.com
 
-astro, static output, deployed to cloudflare pages. the writing lives in
-`src/content/writing/*.md` and is version-controlled next to the site that
-renders it. `DESIGN.md` is the reference for how the public pages should look
-and sound.
+Ayaan Retiwala's site. Astro, static output, deployed to Cloudflare Pages.
 
 ```bash
 npm install
 npm run dev
 ```
 
----
+Read `DESIGN.md` before changing anything visual. Most of what looks arbitrary
+in here was decided on purpose, and that file says why.
 
-# the editor
+## where things are
 
-`/admin` is a private writing surface for this repo. it is behind cloudflare
-access, it commits markdown back to `src/content/writing` through the github
-contents api, and pages rebuilds from that commit. there is no database and no
-cms: a post is a file with a history, which is the property worth keeping.
+The writing is markdown in `src/content/writing`. `src/content.config.ts` is the
+schema: a title, a summary, a date, an optional updated date, tags, and a draft
+flag. Nothing else. Posts are files with a history rather than rows in a
+database, and everything else here is arranged to keep them that way.
 
-the cost of that is honest and known — a save takes about a minute to reach the
-live site. the editor decorates the markdown in place so there is never a reason
-to wait on a deploy to see what you wrote.
+`src/pages/index.astro` is the front page and carries the scene. The sky, the
+weather and the Annapurna ridge are drawn on a canvas by the scripts in
+`src/scripts`, each of which explains itself at the top of the file.
+`src/pages/writing` is the reading side, and it deliberately has none of that:
+those pages exist to be read.
 
-## the way in
+`src/styles/global.css` holds the palette, the two faces and the measurements a
+page of prose uses. `writing.css` sets a post from those. Keeping the numbers in
+one place is why a post and anything else that sets prose stay in step.
 
-triple-click the word **writing** in the site navigation. that is a convenience,
-not a boundary: the gesture is in the page source and typing `/admin` works just
-as well. cloudflare access is the thing that actually stops anybody, and the
-pages function verifies its assertion itself.
+## light and dark
 
-## what you have to set up in dashboards
-
-none of this lives in the repo, so it has to be written down.
-
-### 1. a github fine-grained personal access token
-
-github → settings → developer settings → personal access tokens → fine-grained
-tokens → generate new token.
-
-- **resource owner**: your account
-- **repository access**: only select repositories → `lolwierd/lolwierd.com`
-- **permissions**: repository permissions → **contents: read and write**. nothing
-  else. no metadata beyond the read-only one github adds for you, no actions, no
-  workflows.
-- **expiration**: pick a date you will actually notice. a save failing with
-  "bad credentials" is the reminder.
-
-copy the token. it is shown once.
-
-### 2. a cloudflare access application
-
-cloudflare dashboard → zero trust → access → applications → add an application →
-**self-hosted**. free tier covers this.
-
-- **application name**: `lolwierd editor`
-- **session duration**: 24 hours is comfortable
-- **public hostname**: add two —
-  - `lolwierd.com` path `admin*`
-  - `lolwierd.com` path `api/*`
-- **identity providers**: google. add it under settings → authentication first if
-  it is not there yet; google's own oauth client id and secret go in that screen.
-- **policy**: one policy, action **allow**, rule: `emails` → `aretiwala@gmail.com`.
-  no other policy. no bypass policy, no service-token policy.
-
-after it saves, open the application → **overview**, and copy the
-**application audience (aud) tag**. it is a long hex string and the function
-checks it on every request.
-
-you also need the **team domain**, which is under zero trust → settings →
-custom pages / team domain, and looks like `yourteam.cloudflareaccess.com`.
-
-> preview deployments are the reason the function verifies the token itself.
-> access policies are attached to hostnames, and `*.pages.dev` is not the
-> hostname you protected. a request that reaches the worker without a valid
-> assertion for **this** application gets a 403 from the function regardless.
-
-### 3. pages environment variables
-
-cloudflare dashboard → workers & pages → your pages project → settings →
-environment variables → production. add all five, and use **encrypt** on the
-token:
-
-| name | value | notes |
-| --- | --- | --- |
-| `GITHUB_TOKEN` | the fine-grained pat | **encrypted**. never sent to the browser. |
-| `GITHUB_REPO` | `lolwierd/lolwierd.com` | owner/repo |
-| `GITHUB_BRANCH` | `main` | the branch pages builds. **production only** — see below |
-| `CF_ACCESS_TEAM_DOMAIN` | `yourteam.cloudflareaccess.com` | no scheme |
-| `CF_ACCESS_AUD` | the application audience tag | from the access application |
-
-leave `GITHUB_BRANCH` unset on the **preview** environment. the function then
-falls back to `CF_PAGES_BRANCH`, which pages sets per deployment, so the editor
-on a preview url reads and writes that preview's own branch instead of quietly
-committing to main from a page that is not main. the branch it will write to is
-printed in the editor's top line, so it is never something to infer from the url.
-
-`ADMIN_EMAIL` is optional. set it to `aretiwala@gmail.com` and the function also
-checks the email claim, so the allowed list exists somewhere you can read it in
-the repo as well as in the dashboard. leaving it unset means "trust the access
-policy", which is a real answer, not a weaker one.
-
-redeploy after adding them: pages functions read the environment at deploy time.
-
-### 4. nothing else
-
-no kv namespace, no d1, no r2, no build command change. `functions/` is picked up
-automatically by pages and deployed alongside the static build.
-
-## how it fits together
-
-```
-/admin (static page, editor js)
-   │  fetch
-   ▼
-/api/posts, /api/posts/<slug>          ← cloudflare access guards the edge
-   │                                     functions/api/_middleware.js verifies
-   │                                     the Cf-Access-Jwt-Assertion itself
-   ▼
-github contents api  →  commit on main  →  pages build  →  live in ~1 minute
-```
-
-- `functions/api/posts/index.js` lists posts, `[slug].js` reads and writes one.
-- `src/lib/post-file.js` is the only thing that knows the file format, and the
-  browser, the dev endpoint and the function all import it, so the validation in
-  the editor is the same validation the build applies.
-- `src/pages/admin/preview/[...slug].astro` builds every post, drafts included,
-  as a private page under `/admin/`.
-- `src/lib/access.js` verifies the access jwt: signature against the team's
-  public keys, `aud`, `iss`, `exp`. tested against expired, cross-application,
-  wrong-key, `alg: none` and tampered tokens.
+Neither follows the visitor's operating system. `suncalc` resolves the sun and
+moon over Vadodara, and the page is dark when it is dark there. An inline script
+in `BaseLayout.astro` sets `data-sky` before the first paint; every stylesheet
+reads that attribute. Without JavaScript the attribute never appears and the CSS
+falls back to `prefers-color-scheme`.
 
 ## drafts
 
-a post with `draft: true` is not built into `/writing/`, the sitemap or the
-feed — that has not changed. it *is* built to `/admin/preview/<slug>/`, which
-sits inside the path the access application already covers and is marked
-noindex by the page, the middleware and `_headers`. so a draft can be read on a
-phone in the real type, with the real code highlighting, without being
-published. `preview ↗` in the editor's top line opens it.
+A post with `draft: true` is not built in production. It shows on the dev server
+so it can be read in place, and it stays out of `/writing/`, the sitemap and the
+feed until the flag comes off.
 
-that page is the last build, not the buffer: instant locally, and about a minute
-behind a save in production. published posts get one too, which is the way to
-see a revision before it is live.
+## deploying
 
-the preview page is the post page: same layout, same running head, same footer,
-same measurements. the only thing added is a small mono marker fixed in the
-corner, in the register the sky's toast uses, so nothing on the page moves and a
-preview is never mistaken for the real thing.
-
-`/writing/` also lists the drafts, above the years — but only when the request
-gets an answer from `/api/posts`, which is behind access. drafts are not built
-into any public page, so there is nothing on that page for a visitor to reveal:
-the server decides what comes back, the browser only asks. `src/scripts/owner-tools.js`
-does that.
-
-the `edit` link on a post is not fetched: it ships in every post's markup and is
-revealed before first paint by a localStorage flag `BaseLayout` reads, so it
-never arrives late and shoves the meta line sideways. the flag gates nothing —
-the link goes to `/admin`, and access decides whether that page opens. the same
-flag keeps a reader who has never opened the editor from requesting the draft
-list at all.
-
-## local development
-
-`npm run dev` and open `/admin`. `src/integrations/dev-editor.mjs` answers the
-same two endpoints from disk, so local edits are instant, need no token and
-never touch github. it hangs off `astro:server:setup` and so does not exist in a
-build.
-
-the dev endpoint has no authentication, which is right for `astro dev` on
-localhost and wrong the moment you run `astro dev --host`: that publishes an
-unauthenticated write-to-disk endpoint on the local network. do not.
-
-`draft: true` posts are visible on the dev server and are not built in
-production, which is the behaviour `src/lib/writing.js` already had.
-
-## why it is not slow
-
-two things, neither of them a database:
-
-- **one request to github, not one per post.** the list is a single graphql
-  query for the folder — names, blob shas and text together — with the contents
-  api (one call, then one per file) still there as a fallback if graphql is
-  unavailable. those n calls were the editor's slowest moment.
-- **the list is drawn from what this browser saw last time**, out of
-  localStorage, before the request is even sent, and replaced when the real one
-  lands. at worst it is one save out of date for a moment, which is a better
-  thing to look at than a skeleton. opening a post shows the shape of a post
-  while it arrives, rather than an empty form that reads as a new one.
-
-## keys
-
-| | |
-| --- | --- |
-| `⌘S` | save — commits, or writes to disk locally |
-| `⌘K` | wrap the selection in a link |
-| `⌘⇧F` | focus mode |
-| `esc` | leave focus mode, or close the post list |
-| `tab` | indents in the editor rather than moving on — `esc` first to leave |
-
-## what it deliberately does not do
-
-- **no image or file uploads.** out of scope. put images in `public/assets/` and
-  reference them from the markdown as you always have. half an upload flow —
-  one that can add a file but not replace, rename or delete one — would be worse
-  than none.
-- **no delete.** removing a post is `git rm`, which is the right amount of
-  friction for the one action that is not undoable from the editor.
-- **no rename.** the slug is fixed once a post exists, because a live url is a
-  promise. move the file in git if you mean it.
-- **no editor javascript on public pages.** the codemirror bundle is imported by
-  `/admin` only; astro scopes it to that page. the one script the public pages
-  gained is the ~1kb nav gesture.
-
-## decisions worth knowing
-
-- **the frontmatter form looks like the post header**, not like a settings
-  panel: title, summary, then one mono line of date, tags, slug and the draft
-  toggle. it is the same three elements in the same order as `/writing/<slug>`,
-  and it costs three lines instead of a screenful.
-- **no sidebar.** the post list is a view you go to (`posts`) and come back
-  from, printed in the same shape `/writing/` uses — mono line, serif title,
-  summary. a permanent rail beside the writing is furniture that never earns its
-  width, and the editor is one column because the page it writes for is one
-  column.
-- **code in the editor is highlighted in shiki's colours.** the post pages use
-  vitesse-light and vitesse-dark through shiki at build time; the editor is
-  highlighting live source and cannot run shiki, so the token colours were read
-  out of a built post's html and written into `admin.css` as light/dark pairs. a
-  keyword is the same green in both places. go and json are loaded on demand —
-  they are the only languages the posts fence, and another is one entry in
-  `codeLanguages`.
-- **paragraphs are one line in the file.** the editor shows the source, so a
-  paragraph hard-wrapped at 76 characters shows as those lines rather than as a
-  paragraph. `the-spec-was-lying.md` was rewrapped to match the other two posts
-  (the built html is identical — markdown was joining the lines anyway). keep
-  writing them that way and the editor reads like the page.
-- **prose measurements live in global.css.** `--prose-size`, `--prose-leading`,
-  `--prose-h2`, `--prose-h3`, `--prose-code` and `--prose-indent` are read by
-  both `writing.css` and the editor's codemirror theme, so what is written and
-  what is read cannot drift. `--measure` is the width of a page of prose and is
-  read by the post page and the editor alike. the editor is still styled source text rather than
-  rendered html — a link is coloured and ruled like a post's link, it is not an
-  `<a>` — but every measurement behind it is the same one.
-- **live preview, no preview pane.** the line the caret is on shows its
-  markdown; every other line shows the result. an inline mark reveals with the
-  *element*, not the line: these posts have paragraphs written as one long
-  source line, and revealing a whole line would drop six lines of prose back to
-  source because the caret landed somewhere in the paragraph. it is still one document of
-  markdown — nothing is parsed into a second rendered view, so nothing can drift
-  out of sync with the file. the markers are simply not painted where you are
-  not editing.
-- **the editor follows your os theme.** the public pages follow the sun over
-  vadodara; this is a tool, opened at whatever hour, and giving it a night mode
-  because it is dark in gujarat would be a costume.
-- **the header never reflows.** the save state is one word — unsaved,
-  committing…, saved, failed. the sha, the error, and what was restored go to a
-  toast, the same element and styling the sky's cheat codes use. a commit
-  landing must not move the line above the writing.
-- **a date the form did not change is written back exactly as it was found**, so
-  a post carrying `2022-09-12T08:58:00` keeps its time through a save that was
-  about the prose.
-- **conflicts are detected, not merged.** every save carries the blob sha it was
-  opened at. if the file moved on in the repo the save is refused with that in
-  words, and your text stays in the buffer.
-- **the post list reads every file.** one contents call per post. at this size
-  that is a few parallel requests; if the archive gets big enough for it to
-  hurt, the fix is a single graphql query for the tree, not a cache.
+Push to `main`. Cloudflare Pages builds the site and serves `dist`.
