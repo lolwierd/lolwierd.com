@@ -11,6 +11,10 @@
    keyboard, so this page opts out. */
 html:has(body.admin) { scroll-behavior: auto; }
 
+/* Several things on this page are laid out with flex or grid, and a display
+   rule beats the hidden attribute. Every "hidden" in the markup means it. */
+body.admin [hidden] { display: none !important; }
+
 body.admin {
   margin: 0;
   min-height: 100svh;
@@ -39,9 +43,37 @@ body.admin {
   background: var(--page);
 }
 
-.branch-mark {
-  flex: 0 0 auto;
+.head-left {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  gap: 0.9rem;
+  min-width: 0;
   margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site-link,
+.branch-mark {
+  color: var(--ink-faint);
+  text-decoration-color: transparent;
+}
+
+.site-link:hover,
+.branch-mark:hover { color: var(--accent); }
+
+.branch-mark:empty { display: none; }
+
+/* The state, in one word. Anything longer -- a sha, an error, a restore notice
+   -- goes to the toast, because this line frames the writing and must not
+   reflow when a commit lands. */
+.save-state {
+  margin: 0 0.3rem 0 0;
   color: var(--ink-faint);
   font-family: var(--mono);
   font-size: 11px;
@@ -49,26 +81,6 @@ body.admin {
   white-space: nowrap;
 }
 
-.branch-mark:not(:empty)::after {
-  content: "·";
-  margin-left: 0.5rem;
-  color: var(--rule);
-}
-
-.save-state {
-  /* Takes what is left and wraps if it has to; the actions never do. */
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  line-height: 1.5;
-}
-
-/* The state says what happened, in the colour of what happened. There is no
-   spinner: "committing…" is a word that stops when the request does. */
 .save-state[data-kind="unsaved"] { color: var(--ink-dim); }
 .save-state[data-kind="committing"] { color: var(--ink); }
 .save-state[data-kind="saved"] { color: var(--ink-faint); }
@@ -275,14 +287,72 @@ button[aria-pressed="true"] { color: var(--accent); }
 
 .keys { margin-top: clamp(3rem, 10vh, 5rem); }
 
+/* ------------------------------------------------------------- waiting */
+
+/* The shape of the thing that is coming, drawn in the one material this site
+   has: a rule. No spinner, because a spinner says "something is happening" and
+   this says "a post is about to be here, and it is about this big". */
+.loading-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.4rem;
+}
+
+.bar {
+  display: block;
+  height: 0.62rem;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--ink-faint) 16%, transparent);
+}
+
+.bar.short { width: 62%; }
+.bar-heading { height: 1.7rem; width: 58%; margin-bottom: 0.35rem; }
+.bar-summary { height: 0.8rem; width: 82%; }
+.bar-meta { height: 0.55rem; width: 34%; }
+.bar-rule { height: 1px; width: 100%; margin: 0.9rem 0 0.5rem; background: var(--rule); }
+.bar-line { width: 100%; }
+.bar-title { height: 1.15rem; width: 46%; }
+
+.skeleton-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.skeleton-entry + .skeleton-entry { margin-top: clamp(2rem, 5vh, 3rem); }
+
+/* Alive, barely. A skeleton that pulses like a heartbeat is an animation
+   demanding attention; this just keeps the page from looking frozen. */
+@media (prefers-reduced-motion: no-preference) {
+  .bar:not(.bar-rule) { animation: bar-breathe 2.4s ease-in-out infinite; }
+  .skeleton-entry:nth-child(2) .bar { animation-delay: 160ms; }
+  .skeleton-entry:nth-child(3) .bar { animation-delay: 320ms; }
+}
+
+@keyframes bar-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
 /* ----------------------------------------------------------------- the prose */
 
 .prose { padding-top: 1.1rem; }
 
+/* The toast is styled in global.css. A failure is the one thing that stays up
+   until it is read, and says so in the accent. */
+#toast[data-kind="failed"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--rule));
+}
+
+#toast[data-visible] { pointer-events: auto; cursor: pointer; }
+
 /* ------------------------------------------------------------- focus mode */
 
 /* Everything that is not the sentence goes away. Esc brings it back. */
-:root[data-focus-mode="true"] .frontmatter { display: none; }
+:root[data-focus-mode="true"] .frontmatter,
+:root[data-focus-mode="true"] .head-left { display: none; }
 
 :root[data-focus-mode="true"] .sheet { padding-top: 8vh; }
 

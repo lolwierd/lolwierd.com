@@ -74,6 +74,68 @@ async function call(config, path, init = {}) {
   return response.json();
 }
 
+// One request for the whole folder: names, blob shas and text together.
+//
+// The Contents API can only do this as one call for the directory and then one
+// per file, and those N calls are the editor's slowest moment -- every one of
+// them is a round trip from a Cloudflare worker to GitHub before the list can
+// be drawn. GraphQL answers the same question once. If it is unavailable for
+// any reason the REST path below still works, so this is a shortcut and not a
+// dependency.
+const TREE_QUERY = `query ($owner: String!, $name: String!, $expr: String!) {
+  repository(owner: $owner, name: $name) {
+    object(expression: $expr) {
+      ... on Tree {
+        entries {
+          name
+          oid
+          type
+          object { ... on Blob { text isTruncated } }
+        }
+      }
+    }
+  }
+}`;
+
+export async function listPostsFast(config) {
+  const [owner, name] = config.repo.split("/");
+  if (!owner || !name) return null;
+
+  let body;
+  try {
+    const response = await fetch(`${API}/graphql`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "lolwierd.com-editor"
+      },
+      body: JSON.stringify({
+        query: TREE_QUERY,
+        variables: { owner, name, expr: `${config.branch}:${WRITING_DIR}` }
+      })
+    });
+    if (!response.ok) return null;
+    body = await response.json();
+  } catch {
+    return null;
+  }
+
+  if (!body || body.errors) return null;
+  const tree = body.data && body.data.repository && body.data.repository.object;
+  if (!tree || !Array.isArray(tree.entries)) return null;
+
+  const files = [];
+  for (const entry of tree.entries) {
+    if (entry.type !== "blob" || !entry.name.endsWith(".md")) continue;
+    // A truncated blob is a file too big for one response. Fall back rather
+    // than list a post from half its frontmatter.
+    if (!entry.object || typeof entry.object.text !== "string" || entry.object.isTruncated) return null;
+    files.push({ slug: entry.name.replace(/\.md$/, ""), text: entry.object.text, sha: entry.oid });
+  }
+  return files;
+}
+
 export async function listPostFiles(config) {
   const entries = await call(
     config,

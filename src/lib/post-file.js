@@ -128,6 +128,16 @@ export function serializePost(fields, body, extra = []) {
   return `${lines.join("\n")}\n${text}\n`;
 }
 
+// Puts back the file's own value for a date the form did not change, so a
+// `2022-09-12T08:58:00` survives a save that was about the prose.
+export function keepUnchangedDates(fields, existing) {
+  if (!existing) return fields;
+  const kept = { ...fields };
+  if (existing.dateRaw && existing.date === fields.date) kept.date = existing.dateRaw;
+  if (existing.updatedRaw && existing.updated === fields.updated) kept.updated = existing.updatedRaw;
+  return kept;
+}
+
 // The same checks src/content.config.ts would apply at build time, run before a
 // save instead of after a failed deploy.
 export function validatePost(fields) {
@@ -160,6 +170,11 @@ export function readPost(slug, text) {
     summary: typeof data.summary === "string" ? data.summary : "",
     date: normalizeDate(data.date),
     updated: data.updated ? normalizeDate(data.updated) : "",
+    // What the file actually says. The form is date-only, so a post whose date
+    // carries a time of day would lose it on every save that did not touch the
+    // date -- keeping the raw value lets a save put back exactly what it read.
+    dateRaw: data.date ? String(data.date).trim() : "",
+    updatedRaw: data.updated ? String(data.updated).trim() : "",
     tags: Array.isArray(data.tags) ? data.tags : data.tags ? [String(data.tags)] : [],
     draft: data.draft === true || data.draft === "true",
     extra,

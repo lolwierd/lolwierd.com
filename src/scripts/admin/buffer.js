@@ -45,6 +45,30 @@ export function clearBuffer(slug) {
   }
 }
 
+// The last list this browser saw. /admin draws it immediately and replaces it
+// when the real one lands, so opening the editor is not a blank wait on a round
+// trip to GitHub. It is a cache of what to draw, never of what to save: every
+// save still carries the sha the API gave it.
+const LIST_KEY = `${PREFIX}list`;
+
+export function readList() {
+  try {
+    const raw = localStorage.getItem(LIST_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && Array.isArray(parsed.posts) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeList(value) {
+  try {
+    localStorage.setItem(LIST_KEY, JSON.stringify(value));
+  } catch {
+    /* the editor simply starts empty next time */
+  }
+}
+
 // Every buffer the browser is still holding, so the rail can mark the posts
 // with unsaved work on another device or after a crash.
 export function bufferedSlugs() {
@@ -52,7 +76,9 @@ export function bufferedSlugs() {
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const name = localStorage.key(i);
-      if (name && name.startsWith(PREFIX)) slugs.push(name.slice(PREFIX.length));
+      if (name && name.startsWith(PREFIX) && name !== LIST_KEY) {
+        slugs.push(name.slice(PREFIX.length));
+      }
     }
   } catch {
     /* no storage, no list */

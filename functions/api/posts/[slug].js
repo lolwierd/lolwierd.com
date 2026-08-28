@@ -1,5 +1,11 @@
 import { json, fail } from "../../../src/lib/http.js";
-import { isValidSlug, readPost, serializePost, validatePost } from "../../../src/lib/post-file.js";
+import {
+  isValidSlug,
+  keepUnchangedDates,
+  readPost,
+  serializePost,
+  validatePost
+} from "../../../src/lib/post-file.js";
 import { GitHubError, repoConfig, readPostFile, writePostFile } from "../../../src/lib/github.js";
 
 export const onRequestGet = async ({ env, params }) => {
@@ -56,8 +62,10 @@ export const onRequestPut = async ({ env, params, request }) => {
     // Any frontmatter key this editor does not manage is carried over from the
     // file as it stands, rather than trusted from the browser, so a save can
     // never invent one.
-    const extra = existing ? readPost(slug, existing.text).extra : [];
-    const text = serializePost(fields, payload.body ?? "", extra);
+    const before = existing ? readPost(slug, existing.text) : null;
+    const extra = before ? before.extra : [];
+    const kept = keepUnchangedDates(fields, before);
+    const text = serializePost(kept, payload.body ?? "", extra);
 
     const written = await writePostFile(
       config,
@@ -72,7 +80,8 @@ export const onRequestPut = async ({ env, params, request }) => {
       sha: written.sha,
       commit: written.commit,
       created: !existing,
-      branch: config.branch
+      branch: config.branch,
+      repo: config.repo
     });
   } catch (error) {
     return fail(error.message, error instanceof GitHubError ? error.status : 500);

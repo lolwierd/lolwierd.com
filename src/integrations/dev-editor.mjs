@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   WRITING_DIR,
   isValidSlug,
+  keepUnchangedDates,
   readPost,
   serializePost,
   validatePost
@@ -100,8 +101,10 @@ export default function devEditor() {
                 return send(409, { error: "the file changed on disk since this was opened" });
               }
 
-              const extra = stat ? readPost(slug, await fs.readFile(file, "utf8")).extra : [];
-              await fs.writeFile(file, serializePost(fields, payload.body ?? "", extra), "utf8");
+              const before = stat ? readPost(slug, await fs.readFile(file, "utf8")) : null;
+              const extra = before ? before.extra : [];
+              const kept = keepUnchangedDates(fields, before);
+              await fs.writeFile(file, serializePost(kept, payload.body ?? "", extra), "utf8");
               const after = await fs.stat(file);
               return send(200, {
                 slug,

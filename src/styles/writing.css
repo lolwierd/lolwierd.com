@@ -296,8 +296,13 @@
 
 .post-meta .draft { color: var(--accent); }
 
-/* Added by owner-tools.js for a signed-in request, and by nothing else. It sits
-   in the meta line because that is where the facts about a post are printed. */
+/* In the markup of every post, shown only to a browser that has opened the
+   editor -- see the flag in BaseLayout. It is a link to /admin and gates
+   nothing: Cloudflare Access decides whether that page opens. It sits in the
+   meta line because that is where the facts about a post are printed. */
+.owner-edit { display: none; }
+:root[data-owner] .owner-edit { display: inline; }
+
 .owner-edit,
 .entry-slug .owner-edit {
   color: var(--ink-faint);

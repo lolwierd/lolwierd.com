@@ -84,6 +84,19 @@ const ogImage = new URL("/og.jpg", SITE).href;
       window.__isNight = function () {
         return document.documentElement.dataset.sky === "night";
       };
+
+      // Whether this browser has ever opened the editor. It reveals an "edit"
+      // link that is already in the html, and nothing else -- the link goes to
+      // /admin, which Cloudflare Access guards, so forging this shows you a link
+      // to a page you cannot open. Read before first paint so the link does not
+      // arrive late and shove the meta line sideways.
+      try {
+        if (localStorage.getItem("lolwierd.editor") === "1") {
+          document.documentElement.dataset.owner = "";
+        }
+      } catch (error) {
+        // No storage: no link, and the page is correct without it.
+      }
     </script>
     {ambient && (
       <script is:inline>

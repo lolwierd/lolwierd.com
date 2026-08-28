@@ -1,6 +1,13 @@
 import { createEditor } from "./markdown-view.js";
 import { listPosts, getPost, savePost } from "./api.js";
-import { readBuffer, writeBuffer, clearBuffer, bufferedSlugs } from "./buffer.js";
+import {
+  readBuffer,
+  writeBuffer,
+  clearBuffer,
+  bufferedSlugs,
+  readList,
+  writeList
+} from "./buffer.js";
 import { slugify, isValidSlug, validatePost } from "../../lib/post-file.js";
 
 const el = (id) => document.getElementById(id);
@@ -11,6 +18,8 @@ const dom = {
   writeView: el("write-view"),
   postsToggle: el("posts-toggle"),
   branch: el("branch-mark"),
+  loadingView: el("loading-view"),
+  toast: el("toast"),
   preview: el("preview-link"),
   newPost: el("new-post"),
   state: el("save-state"),
@@ -35,6 +44,8 @@ let slugTouched = false;
 let saving = false;
 let pendingRestore = null;
 let branch = "";
+let repo = "";
+let toastTimer = 0;
 // Set while the editor's document is being replaced from the repo, so the
 // change listener does not mistake loading a post for typing in it.
 let applying = false;
@@ -57,15 +68,35 @@ function today() {
 
 /* ---------------------------------------------------------------- save state */
 
-// Four states and no fifth. A spinner that keeps spinning after a failed request
-// is a lie, and the one thing I need from this box is to know whether the words
-// are somewhere other than this tab.
-function setState(kind, text) {
+// Four states and no fifth. A spinner that keeps spinning after a failed
+// request is a lie, and the one thing this box has to tell me is whether the
+// words are somewhere other than this tab.
+//
+// The word stays in the header; anything longer than a word -- the sha, the
+// error, what was restored -- goes to the toast, so a commit landing never
+// reflows the line above the writing.
+function setState(kind, text, detail) {
   dom.state.dataset.kind = kind;
   dom.state.textContent = text;
+  if (detail) toast(detail, kind);
   setTitle();
 }
 
+// A failure stays up until it is read or clicked away; everything else is news
+// for a few seconds.
+function toast(text, kind = "") {
+  window.clearTimeout(toastTimer);
+  dom.toast.textContent = text;
+  dom.toast.dataset.kind = kind;
+  dom.toast.setAttribute("data-visible", "");
+  if (kind !== "failed") {
+    toastTimer = window.setTimeout(() => dom.toast.removeAttribute("data-visible"), 6000);
+  }
+}
+
+// The tab says what is open in it, the way any editor's does -- with a dot in
+// front while there is something unsaved, so a row of tabs still tells me which
+// one I walked away from.
 // The tab says what is open in it, the way any editor's does -- with a dot in
 // front while there is something unsaved, so a row of tabs still tells me which
 // one I walked away from.
@@ -79,12 +110,8 @@ function setTitle() {
 
 function describeIdle() {
   if (current.dirty) setState("unsaved", "unsaved");
-  else if (current.sha) setState("saved", `saved · ${short(current.sha)}`);
+  else if (current.sha) setState("saved", "saved");
   else setState("empty", "nothing written yet");
-}
-
-function short(sha) {
-  return String(sha).startsWith("mtime:") ? "on disk" : String(sha).slice(0, 7);
 }
 
 /* --------------------------------------------------------------------- rail */
@@ -136,32 +163,52 @@ function renderList() {
   }
 }
 
+// Three things this column can be showing, and exactly one at a time.
+function setView(name) {
+  dom.indexView.hidden = name !== "index";
+  dom.writeView.hidden = name !== "write";
+  dom.loadingView.hidden = name !== "loading";
+  dom.postsToggle.setAttribute("aria-pressed", name === "index" ? "true" : "false");
+  setTitle();
+}
+
 // The list is a place you go to and come back from, so it takes the column
 // rather than sitting permanently beside the writing.
 function showIndex(on) {
-  dom.indexView.hidden = !on;
-  dom.writeView.hidden = on;
-  dom.postsToggle.setAttribute("aria-pressed", on ? "true" : "false");
+  setView(on ? "index" : "write");
   if (on) renderList();
   // With the list open and nothing loaded there is no save state to report, and
   // "nothing written yet" next to a page of posts is just wrong.
   if (on && !current.sha && !current.dirty) setState("empty", "");
-  setTitle();
 }
 
 function indexOpen() {
   return !dom.indexView.hidden;
 }
 
+function setBranch(name, repository) {
+  branch = name || "";
+  repo = repository || repo;
+  dom.branch.textContent = branch;
+  if (repo && branch) {
+    dom.branch.href = `https://github.com/${repo}/tree/${encodeURIComponent(branch)}`;
+    dom.branch.title = `${repo} · ${branch}`;
+  } else {
+    // Locally there is no branch to open, only the files in front of me.
+    dom.branch.removeAttribute("href");
+    dom.branch.removeAttribute("title");
+  }
+}
+
 async function refreshList() {
   try {
     const listed = await listPosts();
     posts = listed.posts;
-    branch = listed.branch;
-    dom.branch.textContent = branch;
+    setBranch(listed.branch, listed.repo);
+    writeList(listed);
     renderList();
   } catch (error) {
-    setState("failed", `could not read the list: ${error.message}`);
+    setState("failed", "failed", `could not read the list: ${error.message}`);
   }
 }
 
@@ -242,7 +289,7 @@ async function open(slug) {
   if (!(await leaveCurrent())) return;
 
   setState("loading", "opening…");
-  showIndex(false);
+  setView("loading");
   pendingRestore = null;
   dom.restore.hidden = true;
   try {
@@ -273,9 +320,10 @@ async function open(slug) {
       current.fields = buffer.fields;
       current.body = buffer.body;
       current.dirty = true;
+      setView("write");
       fillForm();
       setDoc(current.body);
-      setState("unsaved", `restored what was open here ${when(buffer.savedAt)} · unsaved`);
+      setState("unsaved", "unsaved", `restored what was open here ${when(buffer.savedAt)}`);
       renderList();
       location.hash = slug;
       return;
@@ -286,18 +334,23 @@ async function open(slug) {
       // wins by default; taking the older draft is a decision, so it is a button.
       pendingRestore = buffer;
       dom.restore.hidden = false;
-      dom.restore.textContent = `restore local draft from ${when(buffer.savedAt)}`;
+      dom.restore.title = `written here ${when(buffer.savedAt)}`;
+      toast(`there is a local draft from ${when(buffer.savedAt)}, written against an older version`);
     } else {
       clearBuffer(slug);
     }
 
+    setView("write");
     fillForm();
     setDoc(current.body);
     describeIdle();
     renderList();
     location.hash = slug;
   } catch (error) {
-    setState("failed", error.message);
+    // Back to the list rather than stranding me on the shape of a post that
+    // never arrived.
+    setView("index");
+    setState("failed", "failed", error.message);
   }
 }
 
@@ -320,7 +373,7 @@ function startNew() {
       fillForm();
       setDoc(current.body);
       current.dirty = true;
-      setState("unsaved", `restored an unsaved new post from ${when(buffer.savedAt)}`);
+      setState("unsaved", "unsaved", `restored an unsaved new post from ${when(buffer.savedAt)}`);
     } else {
       describeIdle();
     }
@@ -353,7 +406,7 @@ async function save() {
 
   if (!current.slug) current.slug = slugify(current.fields.title);
   if (!isValidSlug(current.slug)) {
-    setState("failed", "the slug has to be lowercase words joined by hyphens");
+    setState("failed", "failed", "the slug has to be lowercase words joined by hyphens");
     return;
   }
 
@@ -361,13 +414,13 @@ async function save() {
   // is the difference between a typo and a red deploy.
   const errors = validatePost(current.fields);
   if (errors.length) {
-    setState("failed", errors.join(" · "));
+    setState("failed", "failed", errors.join(" · "));
     return;
   }
 
   saving = true;
   dom.save.disabled = true;
-  setState("committing", current.sha ? "committing…" : "committing a new post…");
+  setState("committing", "committing…");
 
   try {
     const result = await savePost(current.slug, {
@@ -383,16 +436,17 @@ async function save() {
     pendingRestore = null;
     fillForm();
 
-    if (result.branch) {
-      branch = result.branch;
-      dom.branch.textContent = branch;
-    }
+    if (result.branch) setBranch(result.branch, result.repo);
+
     setState(
+      "saved",
       "saved",
       result.commit
         ? // Only main publishes. Saying "live in about a minute" from a preview
           // deployment writing to its own branch would be a lie.
-          `committed ${result.commit.slice(0, 7)} to ${branch}${branch === "main" ? " · live in about a minute" : ""}`
+          `committed ${result.commit.slice(0, 7)} to ${branch}${
+            branch === "main" ? " · live in about a minute" : ""
+          }`
         : "written to src/content/writing"
     );
     location.hash = current.slug;
@@ -400,7 +454,7 @@ async function save() {
   } catch (error) {
     // The buffer is deliberately left alone: a failed save is exactly when the
     // local copy matters.
-    setState("failed", error.message);
+    setState("failed", "failed", error.message);
   } finally {
     saving = false;
     dom.save.disabled = false;
@@ -457,6 +511,7 @@ function boot() {
     save();
   });
   dom.save.addEventListener("click", save);
+  dom.toast.addEventListener("click", () => dom.toast.removeAttribute("data-visible"));
   dom.addUpdated.addEventListener("click", () => {
     showUpdated(true);
     dom.updated.value = today();
@@ -483,7 +538,7 @@ function boot() {
     setDoc(current.body);
     dom.restore.hidden = true;
     pendingRestore = null;
-    setState("unsaved", "restored the local draft · unsaved");
+    setState("unsaved", "unsaved", "restored the local draft");
   });
 
   document.addEventListener("keydown", (event) => {
@@ -515,6 +570,18 @@ function boot() {
   describeIdle();
 
   const wanted = location.hash.replace(/^#/, "");
+  if (wanted && isValidSlug(wanted)) setView("loading");
+
+  // What this browser saw last time, drawn before the request is even sent. The
+  // fetch below replaces it a moment later; until then the list is at worst one
+  // save out of date, which is a better thing to look at than a skeleton.
+  const remembered = readList();
+  if (remembered) {
+    posts = remembered.posts;
+    setBranch(remembered.branch, remembered.repo);
+    if (!wanted) renderList();
+  }
+
   refreshList().then(() => {
     if (wanted && isValidSlug(wanted)) open(wanted);
     else showIndex(true);

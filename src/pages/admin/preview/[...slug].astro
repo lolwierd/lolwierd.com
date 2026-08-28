@@ -31,10 +31,17 @@ const minutes = readingTime(post.body);
   description={post.data.summary}
   noindex
 >
-  <p class="preview-note">
-    preview{post.data.draft && <span class="draft"> · draft, not on the live site</span>}
-    {" · "}<a href={`/admin#${post.id}`}>edit</a>
-  </p>
+  <!-- The running head, the column, the footer: the post page's own markup,
+       because a preview whose layout differs from the page it is previewing is
+       not a preview. The only thing added is the marker below, and it floats so
+       that it moves nothing. -->
+  <aside class="post-rail" data-post-rail aria-hidden="true">
+    <span class="post-rail-head">
+      <span class="post-rail-title">{post.data.title}</span>
+      <span class="post-rail-section" data-rail-section></span>
+    </span>
+    <span class="post-rail-spine"></span>
+  </aside>
 
   <article class="writing-column">
     <header class="post-header">
@@ -46,31 +53,53 @@ const minutes = readingTime(post.body);
         {post.data.updated && <span>updated {formatDate(post.data.updated)}</span>}
         {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
         {post.data.draft && <span class="draft">draft</span>}
+        <a class="preview-edit" href={`/admin#${post.id}`}>edit</a>
       </p>
     </header>
 
     <div class="post-body">
       <Content />
     </div>
+
+    <footer class="post-footer">
+      <p>ayaan retiwala · vadodara</p>
+      <nav aria-label="More writing">
+        <a href={`/admin#${post.id}`}>edit this post</a>
+        <a href="/writing/">all writing</a>
+      </nav>
+    </footer>
   </article>
 
+  <!-- In the same register as the sky's toast: mono, bordered, page-coloured,
+       out of the flow. Without it a preview and the real thing are
+       indistinguishable, which is how a draft ends up linked to somebody. -->
+  <p class="preview-mark">
+    preview{post.data.draft && <span class="draft"> · draft</span>}
+  </p>
+
   <script>
+    import "../../../scripts/post-rail.js";
     import "../../../scripts/post-media.js";
   </script>
+
 </PageLayout>
 
 <style>
-  /* One line, in the mono the rest of the chrome uses, saying which page this
-     is. Without it a preview and the real thing are indistinguishable, which is
-     exactly the confusion that gets a draft linked to somebody. */
-  .preview-note {
-    width: min(100%, 40rem);
-    margin: 0 auto clamp(1.5rem, 4vh, 2.5rem);
-    color: var(--ink-faint);
-    font-family: var(--mono);
-    font-size: 11px;
+  .preview-mark {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 1.25rem;
+    z-index: 30;
+    margin: 0;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--rule);
+    background: var(--page);
+    color: var(--ink-dim);
+    font: 0.62rem/1 var(--mono);
     letter-spacing: 0.02em;
   }
 
-  .preview-note .draft { color: var(--accent); }
+  .preview-mark .draft { color: var(--accent); }
+
+  .preview-edit { margin-left: auto; }
 </style>

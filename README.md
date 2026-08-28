@@ -144,14 +144,23 @@ that page is the last build, not the buffer: instant locally, and about a minute
 behind a save in production. published posts get one too, which is the way to
 see a revision before it is live.
 
+the preview page is the post page: same layout, same running head, same footer,
+same measurements. the only thing added is a small mono marker fixed in the
+corner, in the register the sky's toast uses, so nothing on the page moves and a
+preview is never mistaken for the real thing.
+
 `/writing/` also lists the drafts, above the years — but only when the request
 gets an answer from `/api/posts`, which is behind access. drafts are not built
 into any public page, so there is nothing on that page for a visitor to reveal:
 the server decides what comes back, the browser only asks. `src/scripts/owner-tools.js`
-does that, and adds an `edit` link to a post's meta line while it is there. a
-localStorage flag set by `/admin` keeps a reader who has never opened the editor
-from making the request at all — it gates nothing, and forging it gets you a 403
-and a page that looks exactly the same.
+does that.
+
+the `edit` link on a post is not fetched: it ships in every post's markup and is
+revealed before first paint by a localStorage flag `BaseLayout` reads, so it
+never arrives late and shoves the meta line sideways. the flag gates nothing —
+the link goes to `/admin`, and access decides whether that page opens. the same
+flag keeps a reader who has never opened the editor from requesting the draft
+list at all.
 
 ## local development
 
@@ -162,6 +171,20 @@ build.
 
 `draft: true` posts are visible on the dev server and are not built in
 production, which is the behaviour `src/lib/writing.js` already had.
+
+## why it is not slow
+
+two things, neither of them a database:
+
+- **one request to github, not one per post.** the list is a single graphql
+  query for the folder — names, blob shas and text together — with the contents
+  api (one call, then one per file) still there as a fallback if graphql is
+  unavailable. those n calls were the editor's slowest moment.
+- **the list is drawn from what this browser saw last time**, out of
+  localStorage, before the request is even sent, and replaced when the real one
+  lands. at worst it is one save out of date for a moment, which is a better
+  thing to look at than a skeleton. opening a post shows the shape of a post
+  while it arrives, rather than an empty form that reads as a new one.
 
 ## keys
 
@@ -185,9 +208,6 @@ production, which is the behaviour `src/lib/writing.js` already had.
 - **no editor javascript on public pages.** the codemirror bundle is imported by
   `/admin` only; astro scopes it to that page. the one script the public pages
   gained is the ~1kb nav gesture.
-- **no time of day on dates.** the form is date-only, so a post whose
-  frontmatter carried a `2022-09-12T08:58:00` keeps the date and loses the time
-  the first time it is saved from the editor.
 
 ## decisions worth knowing
 
@@ -217,6 +237,13 @@ production, which is the behaviour `src/lib/writing.js` already had.
 - **the editor follows your os theme.** the public pages follow the sun over
   vadodara; this is a tool, opened at whatever hour, and giving it a night mode
   because it is dark in gujarat would be a costume.
+- **the header never reflows.** the save state is one word — unsaved,
+  committing…, saved, failed. the sha, the error, and what was restored go to a
+  toast, the same element and styling the sky's cheat codes use. a commit
+  landing must not move the line above the writing.
+- **a date the form did not change is written back exactly as it was found**, so
+  a post carrying `2022-09-12T08:58:00` keeps its time through a save that was
+  about the prose.
 - **conflicts are detected, not merged.** every save carries the blob sha it was
   opened at. if the file moved on in the repo the save is refused with that in
   words, and your text stays in the buffer.

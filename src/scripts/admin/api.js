@@ -41,7 +41,8 @@ async function request(url, init) {
 export function listPosts() {
   return request("/api/posts").then((data) => ({
     posts: data.posts || [],
-    branch: data.branch || ""
+    branch: data.branch || "",
+    repo: data.repo || ""
   }));
 }
 

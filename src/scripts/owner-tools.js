@@ -1,6 +1,10 @@
-// The two things that are only useful to the person who writes the posts: a way
-// into the editor from a post, and the drafts listed alongside the published
-// writing.
+// The drafts, listed alongside the published writing for whoever Access lets
+// through.
+//
+// The "edit" link on a post is not here: it needs no data, so it ships in the
+// markup and is revealed before first paint by the flag BaseLayout reads. Only
+// the draft list has to be fetched, because a draft is genuinely not on the
+// page.
 //
 // Nothing here decides whether content is shown. Drafts are not built into any
 // public page, so there is nothing on this page for a visitor to reveal -- the
@@ -41,13 +45,6 @@ function editLink(slug, text = "edit") {
   link.href = `/admin#${slug}`;
   link.textContent = text;
   return link;
-}
-
-// On a post: one word in the meta line, in the mono everything else there uses.
-function addPostEdit(slug) {
-  const meta = document.querySelector(".post-meta");
-  if (!meta || meta.querySelector(".owner-edit")) return;
-  meta.append(editLink(slug));
 }
 
 // On /writing/: the drafts, above the years, in the markup the published
@@ -114,9 +111,8 @@ function addDrafts(posts) {
 (async function () {
   if (!hasUsedEditor()) return;
 
-  const post = document.querySelector("[data-post-slug]");
   const index = document.querySelector(".entries");
-  if (!post && !index) return;
+  if (!index) return;
 
   let posts;
   try {
@@ -127,6 +123,5 @@ function addDrafts(posts) {
   }
   if (!posts) return;
 
-  if (post) addPostEdit(post.dataset.postSlug);
-  if (index) addDrafts(posts);
+  addDrafts(posts);
 })();

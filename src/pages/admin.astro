@@ -33,32 +33,51 @@ import "../styles/admin.css";
            to, in the same shape /writing/ already uses, not a thing that sits
            beside every sentence you write. -->
       <header class="sheet-head">
-        <!-- Which branch this deployment writes to. On a preview url that is
-             the preview's own branch, and knowing that should not require
-             reading the url bar. -->
-        <p id="branch-mark" class="branch-mark"></p>
-        <p id="save-state" class="save-state" role="status" aria-live="polite" data-kind="empty"></p>
+        <p class="head-left">
+          <!-- The way back out. An editor you cannot leave from is a trap. -->
+          <a class="site-link" href="/">ayaan retiwala</a>
+          <!-- Which branch this deployment writes to, linked to that branch on
+               github. On a preview url this is the preview's own branch, and it
+               should not be something to infer from the url bar. -->
+          <a id="branch-mark" class="branch-mark" target="_blank" rel="noopener"></a>
+        </p>
+
         <div class="sheet-actions">
-          <button type="button" id="restore-draft" class="ghost" hidden></button>
+          <!-- One word, and never a long one: this line is the frame around the
+               writing and it must not reflow when a commit lands. The sha, the
+               error and the restore notice go to the toast. -->
+          <span id="save-state" class="save-state" role="status" aria-live="polite" data-kind="empty"></span>
+          <button type="button" id="restore-draft" class="ghost" hidden>restore draft</button>
           <button type="button" id="posts-toggle" class="ghost" aria-pressed="false">posts</button>
           <button type="button" id="new-post" class="ghost">new</button>
-          <!-- Opens the post as the site builds it, drafts included. It shows
-               the last build, not the buffer: instant locally, one deploy
-               behind in production. -->
           <a id="preview-link" class="ghost" href="/admin/preview/" target="_blank" rel="noopener" hidden>preview ↗</a>
           <button type="button" id="focus-toggle" class="ghost" aria-pressed="false">focus</button>
           <button type="button" id="save" class="primary">save</button>
         </div>
       </header>
 
-      <!-- Visible in the markup, because opening /admin without a post in the
-           url shows the list. Starting on the write view and swapping once the
-           fetch lands flashed an empty new post at me every time. -->
       <section id="index-view" class="post-index" aria-label="Posts">
         <ul id="post-list" class="index-list">
-          <li class="index-empty">reading the repo…</li>
+          <li class="skeleton-entry" aria-hidden="true"><span class="bar bar-meta"></span><span class="bar bar-title"></span><span class="bar bar-line"></span></li>
+          <li class="skeleton-entry" aria-hidden="true"><span class="bar bar-meta"></span><span class="bar bar-title short"></span><span class="bar bar-line"></span></li>
+          <li class="skeleton-entry" aria-hidden="true"><span class="bar bar-meta"></span><span class="bar bar-title"></span><span class="bar bar-line short"></span></li>
         </ul>
         <p class="keys">⌘S saves · ⌘K links a selection · ⌘⇧F focuses · esc closes</p>
+      </section>
+
+      <!-- The shape of a post, while the post is on its way. An empty form with
+           placeholders in it looked like a new post every time /admin opened,
+           which is the opposite of what was happening. -->
+      <section id="loading-view" class="loading-view" aria-hidden="true" hidden>
+        <span class="bar bar-heading"></span>
+        <span class="bar bar-summary"></span>
+        <span class="bar bar-meta"></span>
+        <span class="bar bar-rule"></span>
+        <span class="bar bar-line"></span>
+        <span class="bar bar-line"></span>
+        <span class="bar bar-line short"></span>
+        <span class="bar bar-line"></span>
+        <span class="bar bar-line short"></span>
       </section>
 
       <div id="write-view" hidden>
@@ -100,6 +119,11 @@ import "../styles/admin.css";
         <div id="editor" class="prose"></div>
       </div>
     </main>
+
+    <!-- Same element the sky's cheat codes use, same class, same styling in
+         global.css. A commit sha is news for a moment, not a permanent fixture
+         of the header. -->
+    <p id="toast" class="sky-toast" role="status" aria-live="polite"></p>
 
     <script>
       import "../scripts/admin/main.js";
