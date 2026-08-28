@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+# The editor. Behind Cloudflare Access, so a crawler could not read it anyway,
+# but there is no reason to leave the path in a log for someone to try.
+Disallow: /admin
 
 Sitemap: https://lolwierd.com/sitemap.xml

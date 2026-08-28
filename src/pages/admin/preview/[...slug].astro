@@ -1,0 +1,105 @@
+---
+import { getCollection, render } from "astro:content";
+import PageLayout from "../../../layouts/PageLayout.astro";
+import "../../../styles/writing.css";
+import { formatDate, isoDate, readingTime } from "../../../lib/writing.js";
+
+// A draft, rendered exactly as the site would render it.
+//
+// `draft: true` posts are not built into /writing/, which is the right default
+// and also means there is nowhere to read one. This builds every post -- drafts
+// included -- under /admin/preview/, which the same Cloudflare Access rule
+// already covers (`lolwierd.com/admin*`) and which the middleware, _headers and
+// this page all mark noindex. So a draft can be read on a phone, in the real
+// type, with the real code highlighting, without being published.
+//
+// It is the last build, not the buffer: locally that is the file on disk and so
+// it is instant, and in production it is one deploy behind the save.
+export async function getStaticPaths() {
+  const posts = await getCollection("writing");
+  posts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const minutes = readingTime(post.body);
+---
+
+<PageLayout
+  title={`${post.data.title} · preview`}
+  description={post.data.summary}
+  noindex
+>
+  <!-- The running head, the column, the footer: the post page's own markup,
+       because a preview whose layout differs from the page it is previewing is
+       not a preview. The only thing added is the marker below, and it floats so
+       that it moves nothing. -->
+  <aside class="post-rail" data-post-rail aria-hidden="true">
+    <span class="post-rail-head">
+      <span class="post-rail-title">{post.data.title}</span>
+      <span class="post-rail-section" data-rail-section></span>
+    </span>
+    <span class="post-rail-spine"></span>
+  </aside>
+
+  <article class="writing-column">
+    <header class="post-header">
+      <h1>{post.data.title}</h1>
+      <p class="post-summary">{post.data.summary}</p>
+      <p class="post-meta">
+        <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+        <span>{minutes} min</span>
+        {post.data.updated && <span>updated {formatDate(post.data.updated)}</span>}
+        {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
+        {post.data.draft && <span class="draft">draft</span>}
+        <a class="preview-edit" href={`/admin#${post.id}`}>edit</a>
+      </p>
+    </header>
+
+    <div class="post-body">
+      <Content />
+    </div>
+
+    <footer class="post-footer">
+      <p>ayaan retiwala · vadodara</p>
+      <nav aria-label="More writing">
+        <a href={`/admin#${post.id}`}>edit this post</a>
+        <a href="/writing/">all writing</a>
+      </nav>
+    </footer>
+  </article>
+
+  <!-- In the same register as the sky's toast: mono, bordered, page-coloured,
+       out of the flow. Without it a preview and the real thing are
+       indistinguishable, which is how a draft ends up linked to somebody. -->
+  <p class="preview-mark">
+    preview{post.data.draft && <span class="draft"> · draft</span>}
+  </p>
+
+  <script>
+    import "../../../scripts/post-rail.js";
+    import "../../../scripts/post-media.js";
+  </script>
+
+</PageLayout>
+
+<style>
+  .preview-mark {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 1.25rem;
+    z-index: 30;
+    margin: 0;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--rule);
+    background: var(--page);
+    color: var(--ink-dim);
+    font: 0.62rem/1 var(--mono);
+    letter-spacing: 0.02em;
+  }
+
+  .preview-mark .draft { color: var(--accent); }
+
+  .preview-edit { margin-left: auto; }
+</style>

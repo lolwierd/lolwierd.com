@@ -1,8 +1,13 @@
 import { defineConfig } from "astro/config";
 
+import devEditor from "./src/integrations/dev-editor.mjs";
+
 export default defineConfig({
   site: "https://lolwierd.com",
   output: "static",
+  // The editor's local storage layer. It only hangs off astro:server:setup, so
+  // it exists while `astro dev` is running and contributes nothing to a build.
+  integrations: [devEditor()],
   markdown: {
     // Two themes, no default: the highlighter emits both as CSS variables and
     // writing.css picks between them from data-sky, so code follows the sun over
