@@ -220,10 +220,23 @@ two things, neither of them a database:
   summary. a permanent rail beside the writing is furniture that never earns its
   width, and the editor is one column because the page it writes for is one
   column.
+- **code in the editor is highlighted in shiki's colours.** the post pages use
+  vitesse-light and vitesse-dark through shiki at build time; the editor is
+  highlighting live source and cannot run shiki, so the token colours were read
+  out of a built post's html and written into `admin.css` as light/dark pairs. a
+  keyword is the same green in both places. go and json are loaded on demand —
+  they are the only languages the posts fence, and another is one entry in
+  `codeLanguages`.
+- **paragraphs are one line in the file.** the editor shows the source, so a
+  paragraph hard-wrapped at 76 characters shows as those lines rather than as a
+  paragraph. `the-spec-was-lying.md` was rewrapped to match the other two posts
+  (the built html is identical — markdown was joining the lines anyway). keep
+  writing them that way and the editor reads like the page.
 - **prose measurements live in global.css.** `--prose-size`, `--prose-leading`,
   `--prose-h2`, `--prose-h3`, `--prose-code` and `--prose-indent` are read by
   both `writing.css` and the editor's codemirror theme, so what is written and
-  what is read cannot drift. the editor is still styled source text rather than
+  what is read cannot drift. `--measure` is the width of a page of prose and is
+  read by the post page and the editor alike. the editor is still styled source text rather than
   rendered html — a link is coloured and ruled like a post's link, it is not an
   `<a>` — but every measurement behind it is the same one.
 - **live preview, no preview pane.** the line the caret is on shows its

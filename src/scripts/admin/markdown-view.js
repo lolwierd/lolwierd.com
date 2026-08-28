@@ -12,7 +12,23 @@ import {
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { syntaxHighlighting, HighlightStyle, syntaxTree, bracketMatching } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { LanguageDescription } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
+
+// The languages the posts actually fence: go and json. Loaded on demand, so
+// they are separate chunks rather than weight the editor carries to open a
+// post with no code in it. Adding another is one entry here.
+const codeLanguages = [
+  LanguageDescription.of({
+    name: "go",
+    alias: ["golang"],
+    load: () => import("@codemirror/lang-go").then((m) => m.go())
+  }),
+  LanguageDescription.of({
+    name: "json",
+    load: () => import("@codemirror/lang-json").then((m) => m.json())
+  })
+];
 
 // The editor is decorated in place rather than split into a preview pane.
 //
@@ -49,7 +65,7 @@ const theme = EditorView.theme({
     padding: "0",
     caretColor: "var(--accent)",
     // The reading measure, so what I write is the width it will be read at.
-    maxWidth: "33rem"
+    maxWidth: "var(--measure)"
   },
   ".cm-line": { padding: "0" },
   "&.cm-focused": { outline: "none" },
@@ -165,6 +181,21 @@ const highlight = HighlightStyle.define([
   { tag: tags.quote, color: "var(--ink-dim)" },
   { tag: tags.contentSeparator, color: "var(--ink-faint)", fontFamily: "var(--mono)" },
   { tag: tags.atom, color: "var(--accent)" },
+  // Code inside a fence, in the colours Shiki gives it on the post page. The
+  // values are lifted from the built html of a post -- vitesse-light and
+  // vitesse-dark -- so a keyword is the same green in the editor as it is in
+  // the thing that gets read. admin.css holds the light and dark pairs.
+  { tag: [tags.keyword, tags.moduleKeyword, tags.controlKeyword, tags.definitionKeyword], color: "var(--code-keyword)" },
+  { tag: [tags.typeName, tags.className, tags.namespace], color: "var(--code-type)" },
+  { tag: [tags.standard(tags.typeName), tags.bool, tags.null, tags.self], color: "var(--code-builtin)" },
+  { tag: [tags.string, tags.special(tags.string), tags.regexp], color: "var(--code-string)" },
+  { tag: [tags.number, tags.integer, tags.float], color: "var(--code-number)" },
+  { tag: [tags.comment, tags.lineComment, tags.blockComment], color: "var(--code-comment)", fontStyle: "italic" },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: "var(--code-function)" },
+  { tag: [tags.propertyName, tags.attributeName], color: "var(--code-property)" },
+  { tag: [tags.variableName, tags.definition(tags.variableName)], color: "var(--code-variable)" },
+  { tag: [tags.operator, tags.punctuation, tags.separator, tags.bracket, tags.derefOperator], color: "var(--code-punct)" },
+
   // Every markdown marker: **, #, >, -, `. On the line the caret is on they are
   // visible so I can edit them, and faint so they read as marks rather than as
   // words. Off that line they are not drawn at all -- see liveSyntax below.
@@ -413,7 +444,7 @@ export function createEditor({ parent, doc, onChange, onSave, onEscape }) {
         bracketMatching(),
         EditorState.allowMultipleSelections.of(true),
         EditorView.lineWrapping,
-        markdown({ base: markdownLanguage }),
+        markdown({ base: markdownLanguage, codeLanguages }),
         syntaxHighlighting(highlight),
         lineStyles,
         liveSyntax,

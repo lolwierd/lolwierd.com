@@ -15,6 +15,51 @@ html:has(body.admin) { scroll-behavior: auto; }
    rule beats the hidden attribute. Every "hidden" in the markup means it. */
 body.admin [hidden] { display: none !important; }
 
+/* Shiki's vitesse-light and vitesse-dark, the two themes astro.config.mjs gives
+   the post pages, read straight out of a built post's html. The editor cannot
+   run Shiki -- it is highlighting live source, not a build artefact -- but it
+   can use the same numbers, so code is the same colour in both places. */
+body.admin {
+  --code-keyword: #1e754f;
+  --code-type: #2e8f82;
+  --code-builtin: #ab5959;
+  --code-string: #b56959;
+  --code-number: #2f798a;
+  --code-comment: #a0ada0;
+  --code-function: #59873a;
+  --code-property: #998418;
+  --code-variable: #b07d48;
+  --code-punct: #999999;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-sky]) body.admin {
+    --code-keyword: #4d9375;
+    --code-type: #5da994;
+    --code-builtin: #cb7676;
+    --code-string: #c98a7d;
+    --code-number: #4c9a91;
+    --code-comment: #758575;
+    --code-function: #80a665;
+    --code-property: #b8a965;
+    --code-variable: #bd976a;
+    --code-punct: #666666;
+  }
+}
+
+:root[data-sky="night"] body.admin {
+  --code-keyword: #4d9375;
+  --code-type: #5da994;
+  --code-builtin: #cb7676;
+  --code-string: #c98a7d;
+  --code-number: #4c9a91;
+  --code-comment: #758575;
+  --code-function: #80a665;
+  --code-property: #b8a965;
+  --code-variable: #bd976a;
+  --code-punct: #666666;
+}
+
 body.admin {
   margin: 0;
   min-height: 100svh;
@@ -24,9 +69,10 @@ body.admin {
 
 /* ----------------------------------------------------------------- the sheet */
 
-/* One column, centred, at the measure the post page uses. Nothing flanks it. */
+/* One column, centred, at the measure the post page uses -- the same token, so
+   the two cannot drift. Nothing flanks it. */
 .sheet {
-  width: min(100%, 40rem);
+  width: min(100%, var(--measure));
   margin: 0 auto;
   padding: 0 clamp(1rem, 3vw, 2rem) 8rem;
 }

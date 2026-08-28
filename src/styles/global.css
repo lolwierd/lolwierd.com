@@ -34,6 +34,9 @@
   --prose-h3: 1.15rem;
   --prose-code: 0.85em;
   --prose-indent: 1.15rem;
+  /* One measure for a page of prose, wherever it is set: a post, and the editor
+     the post is written in. Changing it changes both, which is the point. */
+  --measure: 42rem;
 }
 
 /* Night follows the sun over Vadodara, not the visitor's OS theme: the scene is a

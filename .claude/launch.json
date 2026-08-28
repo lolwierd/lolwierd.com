@@ -4,30 +4,8 @@
     {
       "name": "astro dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "4321"
-      ],
+      "runtimeArgs": ["run", "dev", "--", "--host", "127.0.0.1", "--port", "4321"],
       "port": 4321
-    },
-    {
-      "name": "astro dev 4322",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "4322"
-      ],
-      "port": 4322
     }
   ]
 }
