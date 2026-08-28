@@ -11,7 +11,7 @@ export const onRequestGet = async ({ env, params }) => {
     const found = await readPostFile(config, slug);
     if (!found) return fail("no post with that slug", 404);
     const post = readPost(slug, found.text);
-    return json({ post: { ...post, sha: found.sha } });
+    return json({ post: { ...post, sha: found.sha }, branch: config.branch });
   } catch (error) {
     return fail(error.message, error instanceof GitHubError ? error.status : 500);
   }
@@ -67,7 +67,13 @@ export const onRequestPut = async ({ env, params, request }) => {
       `${existing ? "edit" : "new post"}: ${fields.title}`
     );
 
-    return json({ slug, sha: written.sha, commit: written.commit, created: !existing });
+    return json({
+      slug,
+      sha: written.sha,
+      commit: written.commit,
+      created: !existing,
+      branch: config.branch
+    });
   } catch (error) {
     return fail(error.message, error instanceof GitHubError ? error.status : 500);
   }

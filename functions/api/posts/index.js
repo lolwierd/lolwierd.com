@@ -29,7 +29,9 @@ export const onRequestGet = async ({ env }) => {
     );
 
     const listed = posts.filter(Boolean).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    return json({ posts: listed });
+    // The editor prints this. Which branch a save lands on should never be
+    // something I have to infer from the url I happen to be on.
+    return json({ posts: listed, branch: config.branch });
   } catch (error) {
     return fail(error.message, error instanceof GitHubError ? error.status : 500);
   }

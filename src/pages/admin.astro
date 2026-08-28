@@ -20,7 +20,9 @@ import "../styles/admin.css";
          Disallow in robots.txt. The page is behind Cloudflare Access and is in
          neither sitemap.xml nor rss.xml, so no crawler should ever see it. -->
     <meta name="robots" content="noindex, nofollow" />
-    <title>editor</title>
+    <!-- Replaced by the editor with whatever is open. This is what a tab that
+         has not finished loading says. -->
+    <title>posts · editor</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preload" as="font" type="font/woff2" href="/DepartureMono-Regular.woff2" crossorigin />
   </head>
@@ -31,6 +33,10 @@ import "../styles/admin.css";
            to, in the same shape /writing/ already uses, not a thing that sits
            beside every sentence you write. -->
       <header class="sheet-head">
+        <!-- Which branch this deployment writes to. On a preview url that is
+             the preview's own branch, and knowing that should not require
+             reading the url bar. -->
+        <p id="branch-mark" class="branch-mark"></p>
         <p id="save-state" class="save-state" role="status" aria-live="polite" data-kind="empty"></p>
         <div class="sheet-actions">
           <button type="button" id="restore-draft" class="ghost" hidden></button>
@@ -45,12 +51,17 @@ import "../styles/admin.css";
         </div>
       </header>
 
-      <section id="index-view" class="post-index" aria-label="Posts" hidden>
-        <ul id="post-list" class="index-list"></ul>
+      <!-- Visible in the markup, because opening /admin without a post in the
+           url shows the list. Starting on the write view and swapping once the
+           fetch lands flashed an empty new post at me every time. -->
+      <section id="index-view" class="post-index" aria-label="Posts">
+        <ul id="post-list" class="index-list">
+          <li class="index-empty">reading the repo…</li>
+        </ul>
         <p class="keys">⌘S saves · ⌘K links a selection · ⌘⇧F focuses · esc closes</p>
       </section>
 
-      <div id="write-view">
+      <div id="write-view" hidden>
         <!-- Not a form stacked in labelled rows: the same three things a post
              page puts at its top, in the same order and the same faces. Title,
              summary, then one mono line of metadata. Editing the post looks like

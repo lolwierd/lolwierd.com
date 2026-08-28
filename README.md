@@ -86,9 +86,15 @@ token:
 | --- | --- | --- |
 | `GITHUB_TOKEN` | the fine-grained pat | **encrypted**. never sent to the browser. |
 | `GITHUB_REPO` | `lolwierd/lolwierd.com` | owner/repo |
-| `GITHUB_BRANCH` | `main` | the branch pages builds |
+| `GITHUB_BRANCH` | `main` | the branch pages builds. **production only** — see below |
 | `CF_ACCESS_TEAM_DOMAIN` | `yourteam.cloudflareaccess.com` | no scheme |
 | `CF_ACCESS_AUD` | the application audience tag | from the access application |
+
+leave `GITHUB_BRANCH` unset on the **preview** environment. the function then
+falls back to `CF_PAGES_BRANCH`, which pages sets per deployment, so the editor
+on a preview url reads and writes that preview's own branch instead of quietly
+committing to main from a page that is not main. the branch it will write to is
+printed in the editor's top line, so it is never something to infer from the url.
 
 `ADMIN_EMAIL` is optional. set it to `aretiwala@gmail.com` and the function also
 checks the email claim, so the allowed list exists somewhere you can read it in
@@ -138,6 +144,15 @@ that page is the last build, not the buffer: instant locally, and about a minute
 behind a save in production. published posts get one too, which is the way to
 see a revision before it is live.
 
+`/writing/` also lists the drafts, above the years — but only when the request
+gets an answer from `/api/posts`, which is behind access. drafts are not built
+into any public page, so there is nothing on that page for a visitor to reveal:
+the server decides what comes back, the browser only asks. `src/scripts/owner-tools.js`
+does that, and adds an `edit` link to a post's meta line while it is there. a
+localStorage flag set by `/admin` keeps a reader who has never opened the editor
+from making the request at all — it gates nothing, and forging it gets you a 403
+and a page that looks exactly the same.
+
 ## local development
 
 `npm run dev` and open `/admin`. `src/integrations/dev-editor.mjs` answers the
@@ -185,8 +200,17 @@ production, which is the behaviour `src/lib/writing.js` already had.
   summary. a permanent rail beside the writing is furniture that never earns its
   width, and the editor is one column because the page it writes for is one
   column.
+- **prose measurements live in global.css.** `--prose-size`, `--prose-leading`,
+  `--prose-h2`, `--prose-h3`, `--prose-code` and `--prose-indent` are read by
+  both `writing.css` and the editor's codemirror theme, so what is written and
+  what is read cannot drift. the editor is still styled source text rather than
+  rendered html — a link is coloured and ruled like a post's link, it is not an
+  `<a>` — but every measurement behind it is the same one.
 - **live preview, no preview pane.** the line the caret is on shows its
-  markdown; every other line shows the result. it is still one document of
+  markdown; every other line shows the result. an inline mark reveals with the
+  *element*, not the line: these posts have paragraphs written as one long
+  source line, and revealing a whole line would drop six lines of prose back to
+  source because the caret landed somewhere in the paragraph. it is still one document of
   markdown — nothing is parsed into a second rendered view, so nothing can drift
   out of sync with the file. the markers are simply not painted where you are
   not editing.

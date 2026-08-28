@@ -33,7 +33,14 @@ export function repoConfig(env) {
   const repo = env.GITHUB_REPO;
   const token = env.GITHUB_TOKEN;
   if (!repo || !token) throw new GitHubError("server is missing GITHUB_REPO or GITHUB_TOKEN", 500);
-  return { repo, token, branch: env.GITHUB_BRANCH || "main" };
+
+  // A deployment edits the branch it was built from. Pages sets CF_PAGES_BRANCH
+  // on every deployment, so the editor on a preview URL reads and writes that
+  // preview's branch rather than quietly committing to main from a page that is
+  // not main. GITHUB_BRANCH overrides it where that is wanted -- production sets
+  // it to main explicitly -- and "main" is the fallback if neither exists.
+  const branch = env.GITHUB_BRANCH || env.CF_PAGES_BRANCH || "main";
+  return { repo, token, branch };
 }
 
 async function call(config, path, init = {}) {

@@ -10,6 +10,7 @@ const dom = {
   indexView: el("index-view"),
   writeView: el("write-view"),
   postsToggle: el("posts-toggle"),
+  branch: el("branch-mark"),
   preview: el("preview-link"),
   newPost: el("new-post"),
   state: el("save-state"),
@@ -33,6 +34,7 @@ let current = blank();
 let slugTouched = false;
 let saving = false;
 let pendingRestore = null;
+let branch = "";
 // Set while the editor's document is being replaced from the repo, so the
 // change listener does not mistake loading a post for typing in it.
 let applying = false;
@@ -61,6 +63,18 @@ function today() {
 function setState(kind, text) {
   dom.state.dataset.kind = kind;
   dom.state.textContent = text;
+  setTitle();
+}
+
+// The tab says what is open in it, the way any editor's does -- with a dot in
+// front while there is something unsaved, so a row of tabs still tells me which
+// one I walked away from.
+function setTitle() {
+  const showing = dom.indexView && !dom.indexView.hidden;
+  const name = showing
+    ? "posts"
+    : current.fields.title || (current.sha ? current.slug : "new post");
+  document.title = `${!showing && current.dirty ? "• " : ""}${name} · editor`;
 }
 
 function describeIdle() {
@@ -95,6 +109,7 @@ function renderList() {
       meta.append(draft);
     }
     if (buffered.has(post.slug)) meta.append(" · local edit");
+    if (post.slug === current.slug) meta.append(" · open");
 
     const title = document.createElement("h2");
     title.className = "index-title";
@@ -131,6 +146,7 @@ function showIndex(on) {
   // With the list open and nothing loaded there is no save state to report, and
   // "nothing written yet" next to a page of posts is just wrong.
   if (on && !current.sha && !current.dirty) setState("empty", "");
+  setTitle();
 }
 
 function indexOpen() {
@@ -139,7 +155,10 @@ function indexOpen() {
 
 async function refreshList() {
   try {
-    posts = await listPosts();
+    const listed = await listPosts();
+    posts = listed.posts;
+    branch = listed.branch;
+    dom.branch.textContent = branch;
     renderList();
   } catch (error) {
     setState("failed", `could not read the list: ${error.message}`);
@@ -202,6 +221,7 @@ function readForm() {
 function touch() {
   current.dirty = true;
   describeIdle();
+  setTitle();
   writeBuffer(current.slug, {
     slug: current.slug,
     sha: current.sha,
@@ -363,10 +383,16 @@ async function save() {
     pendingRestore = null;
     fillForm();
 
+    if (result.branch) {
+      branch = result.branch;
+      dom.branch.textContent = branch;
+    }
     setState(
       "saved",
       result.commit
-        ? `committed ${result.commit.slice(0, 7)} · live in about a minute`
+        ? // Only main publishes. Saying "live in about a minute" from a preview
+          // deployment writing to its own branch would be a lie.
+          `committed ${result.commit.slice(0, 7)} to ${branch}${branch === "main" ? " · live in about a minute" : ""}`
         : "written to src/content/writing"
     );
     location.hash = current.slug;
@@ -389,6 +415,14 @@ function setFocusMode(on) {
 }
 
 function boot() {
+  // Tells the public pages it is worth asking /api/posts who is looking. It
+  // gates nothing -- see scripts/owner-tools.js.
+  try {
+    localStorage.setItem("lolwierd.editor", "1");
+  } catch {
+    /* the pages simply will not ask */
+  }
+
   view = createEditor({
     parent: dom.editor,
     doc: "",

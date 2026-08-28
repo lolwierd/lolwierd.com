@@ -39,7 +39,26 @@ body.admin {
   background: var(--page);
 }
 
+.branch-mark {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.branch-mark:not(:empty)::after {
+  content: "·";
+  margin-left: 0.5rem;
+  color: var(--rule);
+}
+
 .save-state {
+  /* Takes what is left and wraps if it has to; the actions never do. */
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   color: var(--ink-faint);
   font-family: var(--mono);
@@ -57,7 +76,11 @@ body.admin {
 
 .sheet-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
+  /* "preview ↗" is one word. Left to itself the row breaks between the two and
+     the arrow ends up on a line of its own. */
+  white-space: nowrap;
   /* Spaced rather than separated: dots between them only work if none of them
      can be hidden, and `restore` is hidden most of the time. */
   gap: 0.9rem;
@@ -229,9 +252,10 @@ button[aria-pressed="true"] { color: var(--accent); }
 
 .index-title button:hover { color: var(--accent); }
 
-.index-entry[data-current="true"] .index-title button {
-  box-shadow: inset 0 -1px 0 var(--accent);
-}
+/* The post that is open. A rust underline read as a spellcheck error, which is
+   the one thing a title should never look like, so it is a word in the meta
+   line instead -- the same place everything else about a post is said. */
+.index-entry[data-current="true"] .index-title button { color: var(--ink-strong); }
 
 .index-summary {
   max-width: 33rem;

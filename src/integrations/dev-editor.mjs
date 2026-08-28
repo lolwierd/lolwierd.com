@@ -64,7 +64,7 @@ export default function devEditor() {
                 })
               );
               posts.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-              return send(200, { posts });
+              return send(200, { posts, branch: "your working tree" });
             }
 
             const slug = decodeURIComponent(rest);
@@ -75,7 +75,10 @@ export default function devEditor() {
               const stat = await fs.stat(file).catch(() => null);
               if (!stat) return send(404, { error: "no post with that slug" });
               const text = await fs.readFile(file, "utf8");
-              return send(200, { post: { ...readPost(slug, text), sha: version(stat) } });
+              return send(200, {
+                post: { ...readPost(slug, text), sha: version(stat) },
+                branch: "your working tree"
+              });
             }
 
             if (req.method === "PUT") {
@@ -105,7 +108,7 @@ export default function devEditor() {
                 sha: version(after),
                 commit: null,
                 created: !stat,
-                where: "disk"
+                branch: "your working tree"
               });
             }
 

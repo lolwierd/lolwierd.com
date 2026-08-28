@@ -49,4 +49,10 @@ for (const post of posts) {
 
     <p class="entries-feed"><a href="/rss.xml">rss</a></p>
   </section>
+
+  <script>
+    // Adds the drafts to the list, but only for a request Cloudflare Access
+    // lets through to /api/posts. Nothing about the page changes for a reader.
+    import "../../scripts/owner-tools.js";
+  </script>
 </PageLayout>

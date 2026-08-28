@@ -37,11 +37,12 @@ const theme = EditorView.theme({
     color: "var(--ink)",
     backgroundColor: "transparent",
     fontFamily: "var(--serif)",
-    fontSize: "1.02rem"
+    // The post page's measurements, from the tokens writing.css also reads.
+    fontSize: "var(--prose-size)"
   },
   ".cm-scroller": {
     fontFamily: "var(--serif)",
-    lineHeight: "1.65",
+    lineHeight: "var(--prose-leading)",
     overflow: "visible"
   },
   ".cm-content": {
@@ -59,21 +60,42 @@ const theme = EditorView.theme({
   ".cm-activeLine": { backgroundColor: "transparent" },
   ".cm-placeholder": { color: "var(--ink-faint)", fontStyle: "italic" },
   ...heading(1, "clamp(1.7rem, 3vw, 2.1rem)"),
-  ...heading(2, "clamp(1.35rem, 2vw, 1.65rem)"),
-  ...heading(3, "1.15rem"),
+  ...heading(2, "var(--prose-h2)"),
+  ...heading(3, "var(--prose-h3)"),
   ...heading(4, "1.05rem"),
   ...heading(5, "1rem"),
   ...heading(6, "1rem"),
   ".cm-line.cm-blockquote": {
-    paddingLeft: "0.9rem",
-    borderLeft: "2px solid var(--rule)",
-    color: "var(--ink-dim)",
-    fontStyle: "italic"
+    paddingLeft: "var(--prose-indent)",
+    borderLeft: "1px solid var(--rule)",
+    color: "var(--ink-dim)"
   },
   ".cm-line.cm-codeline": {
     fontFamily: "var(--mono)",
-    fontSize: "12px",
+    fontSize: "0.82rem",
     color: "var(--ink-dim)"
+  },
+
+  // The two things the post page draws that plain highlighting cannot: a link
+  // printed with the halftone rule under it, and inline code in its box. Same
+  // declarations as .post-body a and .post-body :not(pre) > code, so a link
+  // being written looks like the link that gets read.
+  ".cm-md-link": {
+    color: "var(--accent)",
+    textDecoration: "none",
+    backgroundImage:
+      "linear-gradient(var(--accent), var(--accent)), repeating-linear-gradient(to right, color-mix(in srgb, var(--accent) 70%, transparent) 0 1px, transparent 1px 3px)",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "0 1.12em, 0 1.12em",
+    backgroundSize: "0% 1px, 100% 1px"
+  },
+  ".cm-md-code": {
+    padding: "0.1em 0.3em",
+    border: "1px solid var(--rule)",
+    background: "var(--page-deep)",
+    fontFamily: "var(--mono)",
+    fontSize: "var(--prose-code)",
+    color: "var(--ink)"
   }
 });
 
@@ -81,10 +103,11 @@ const highlight = HighlightStyle.define([
   { tag: tags.strong, fontWeight: "700", color: "var(--ink-strong)" },
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strikethrough, textDecoration: "line-through", color: "var(--ink-faint)" },
-  { tag: tags.link, color: "var(--ink)" },
+  // The words of a link, printed the way the post page prints them.
+  { tag: tags.link, class: "cm-md-link" },
   // A link's target is scaffolding, not prose: small, mono, out of the way.
   { tag: tags.url, fontFamily: "var(--mono)", fontSize: "11px", color: "var(--ink-faint)" },
-  { tag: tags.monospace, fontFamily: "var(--mono)", fontSize: "0.88em", color: "var(--ink-dim)" },
+  { tag: tags.monospace, class: "cm-md-code" },
   { tag: tags.labelName, fontFamily: "var(--mono)", fontSize: "11px", color: "var(--ink-faint)" },
   { tag: tags.quote, color: "var(--ink-dim)" },
   { tag: tags.contentSeparator, color: "var(--ink-faint)", fontFamily: "var(--mono)" },
@@ -152,11 +175,9 @@ const lineStyles = ViewPlugin.fromClass(
 
 // The marks that stand for something the decoration already shows: ** for bold,
 // ## for a heading size, > for the quote rule. Hiding them loses nothing.
-const MARKS = new Set([
+const INLINE_MARKS = new Set([
   "EmphasisMark",
   "StrikethroughMark",
-  "HeaderMark",
-  "QuoteMark",
   "LinkMark",
   "SubscriptMark",
   "SuperscriptMark"
@@ -168,6 +189,8 @@ const MARKS = new Set([
 
 const hidden = Decoration.replace({});
 
+// Which lines the caret is on -- used for the marks that belong to a whole
+// line, like a heading's ## or a quote's >.
 function activeLines(state) {
   const lines = new Set();
   for (const range of state.selection.ranges) {
@@ -176,6 +199,13 @@ function activeLines(state) {
     for (let n = first; n <= last; n += 1) lines.add(n);
   }
   return lines;
+}
+
+function touchesSelection(state, from, to) {
+  for (const range of state.selection.ranges) {
+    if (range.to >= from && range.from <= to) return true;
+  }
+  return false;
 }
 
 const liveSyntax = ViewPlugin.fromClass(
@@ -196,11 +226,30 @@ const liveSyntax = ViewPlugin.fromClass(
       const live = activeLines(state);
       const ranges = [];
 
-      const hide = (from, to) => {
+      const push = (from, to) => {
         if (to <= from) return;
-        if (live.has(state.doc.lineAt(from).number)) return;
+        // A replacing decoration may not span a line break.
         if (state.doc.lineAt(from).number !== state.doc.lineAt(to).number) return;
         ranges.push(hidden.range(from, to));
+      };
+
+      // A block mark belongs to its line: put the caret anywhere on a heading
+      // and the ## comes back.
+      const hideByLine = (from, to) => {
+        if (live.has(state.doc.lineAt(from).number)) return;
+        push(from, to);
+      };
+
+      // An inline mark belongs to the thing it marks, not to the line. These
+      // posts have paragraphs written as one long source line, so revealing a
+      // whole line would drop every link and every ** in six lines of prose
+      // because the caret landed somewhere in the paragraph. The caret has to
+      // be inside (or against the edge of) the link itself.
+      const hideByNode = (node, from, to) => {
+        const owner = node.node.parent;
+        const scope = owner ? { from: owner.from, to: owner.to } : { from, to };
+        if (touchesSelection(state, scope.from, scope.to)) return;
+        push(from, to);
       };
 
       for (const { from, to } of view.visibleRanges) {
@@ -208,28 +257,38 @@ const liveSyntax = ViewPlugin.fromClass(
           from,
           to,
           enter: (node) => {
-            if (MARKS.has(node.name)) {
-              // A heading mark takes the space after it with it, or the line
-              // would sit one character right of every other line.
+            if (node.name === "HeaderMark") {
+              // The mark takes the space after it with it, or the line sits one
+              // character right of every other line.
               let end = node.to;
-              if (node.name === "HeaderMark" && state.doc.sliceString(end, end + 1) === " ") end += 1;
-              hide(node.from, end);
+              if (state.doc.sliceString(end, end + 1) === " ") end += 1;
+              hideByLine(node.from, end);
+              return;
+            }
+
+            if (node.name === "QuoteMark") {
+              hideByLine(node.from, node.to);
+              return;
+            }
+
+            if (INLINE_MARKS.has(node.name)) {
+              hideByNode(node, node.from, node.to);
               return;
             }
 
             // Inline code loses its backticks; a fence keeps its ``` and its
             // language, which are the only place that information lives.
             if (node.name === "CodeMark" && node.to - node.from < 3) {
-              hide(node.from, node.to);
+              hideByNode(node, node.from, node.to);
               return;
             }
 
-            // A link shows its words. The target is still one keystroke away --
-            // put the caret on the line and it is there.
+            // A link shows its words. The target is one keystroke away: put the
+            // caret in the link and it is there.
             if (node.name === "URL" && node.node.parent && /^(Link|Image)$/.test(node.node.parent.name)) {
-              hide(node.from, node.to);
+              hideByNode(node, node.from, node.to);
             }
-            if (node.name === "LinkTitle") hide(node.from, node.to);
+            if (node.name === "LinkTitle") hideByNode(node, node.from, node.to);
           }
         });
       }

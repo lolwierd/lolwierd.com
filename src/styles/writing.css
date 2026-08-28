@@ -296,6 +296,17 @@
 
 .post-meta .draft { color: var(--accent); }
 
+/* Added by owner-tools.js for a signed-in request, and by nothing else. It sits
+   in the meta line because that is where the facts about a post are printed. */
+.owner-edit,
+.entry-slug .owner-edit {
+  color: var(--ink-faint);
+  text-decoration-color: color-mix(in srgb, var(--ink-faint) 45%, transparent);
+}
+
+.owner-edit:hover,
+.entry-slug .owner-edit:hover { color: var(--accent); }
+
 .post-header .post-summary {
   max-width: 33rem;
   margin: 0.9rem 0 0;
@@ -308,8 +319,8 @@
 .post-body {
   margin: clamp(2rem, 3.5vw, 2.75rem) 0 0;
   color: var(--ink);
-  font-size: 1.02rem;
-  line-height: 1.65;
+  font-size: var(--prose-size);
+  line-height: var(--prose-leading);
 }
 
 /* One rhythm for the whole body: every block starts flush and the space between
@@ -389,8 +400,8 @@
   line-height: 1.2;
 }
 
-.post-body h2 { font-size: clamp(1.35rem, 2vw, 1.65rem); }
-.post-body h3 { font-size: 1.15rem; }
+.post-body h2 { font-size: var(--prose-h2); }
+.post-body h3 { font-size: var(--prose-h3); }
 .post-body h2 + *, .post-body h3 + * { margin-top: 0.7rem; }
 
 /* The heading itself is the section link, so there is nothing extra on the page
@@ -424,14 +435,14 @@
 
 .post-body ul,
 .post-body ol {
-  padding-left: 1.15rem;
+  padding-left: var(--prose-indent);
 }
 
 .post-body li + li { margin-top: 0.3rem; }
 .post-body li::marker { color: var(--ink-faint); }
 
 .post-body blockquote {
-  padding-left: 1.15rem;
+  padding-left: var(--prose-indent);
   border-left: 1px solid var(--rule);
   color: var(--ink-dim);
 }
@@ -463,7 +474,7 @@
   padding: 0.1em 0.3em;
   border: 1px solid var(--rule);
   background: var(--page-deep);
-  font-size: 0.85em;
+  font-size: var(--prose-code);
 }
 
 /* The block and its controls travel together; the wrapper is what the body's

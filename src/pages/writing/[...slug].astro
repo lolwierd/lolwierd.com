@@ -31,7 +31,7 @@ const minutes = readingTime(post.body);
     <span class="post-rail-spine"></span>
   </aside>
 
-  <article class="writing-column">
+  <article class="writing-column" data-post-slug={post.id}>
     <header class="post-header">
     <h1>{post.data.title}</h1>
     <p class="post-summary">{post.data.summary}</p>
@@ -63,5 +63,6 @@ const minutes = readingTime(post.body);
   <script>
     import "../../scripts/post-rail.js";
     import "../../scripts/post-media.js";
+    import "../../scripts/owner-tools.js";
   </script>
 </PageLayout>

@@ -39,7 +39,10 @@ async function request(url, init) {
 }
 
 export function listPosts() {
-  return request("/api/posts").then((data) => data.posts || []);
+  return request("/api/posts").then((data) => ({
+    posts: data.posts || [],
+    branch: data.branch || ""
+  }));
 }
 
 export function getPost(slug) {
