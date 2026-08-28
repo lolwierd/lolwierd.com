@@ -1,0 +1,277 @@
+/* The editor, and only the editor. Loaded by /admin and nowhere else.
+   Nothing in here touches a public page: global.css supplies the palette and
+   the two faces, this file arranges one column of them for writing into.
+
+   The rule the whole file follows: the sheet should look like the post page it
+   is going to become. Same title, same mono meta line, same summary, same
+   measure. Chrome is mono, 11px, and stays out of the way. */
+
+/* The public pages scroll smoothly because their links jump to sections. An
+   editor scrolls because the caret moved, and animating that fights the
+   keyboard, so this page opts out. */
+html:has(body.admin) { scroll-behavior: auto; }
+
+body.admin {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--page);
+  color: var(--ink);
+}
+
+/* ----------------------------------------------------------------- the sheet */
+
+/* One column, centred, at the measure the post page uses. Nothing flanks it. */
+.sheet {
+  width: min(100%, 40rem);
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 2rem) 8rem;
+}
+
+.sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  background: var(--page);
+}
+
+.save-state {
+  margin: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+}
+
+/* The state says what happened, in the colour of what happened. There is no
+   spinner: "committing…" is a word that stops when the request does. */
+.save-state[data-kind="unsaved"] { color: var(--ink-dim); }
+.save-state[data-kind="committing"] { color: var(--ink); }
+.save-state[data-kind="saved"] { color: var(--ink-faint); }
+.save-state[data-kind="failed"] { color: var(--accent); }
+
+.sheet-actions {
+  display: flex;
+  align-items: center;
+  /* Spaced rather than separated: dots between them only work if none of them
+     can be hidden, and `restore` is hidden most of the time. */
+  gap: 0.9rem;
+}
+
+/* Text, not buttons. The site has no buttons anywhere else and there is no
+   reason for the two the editor needs to be the loudest thing on the page. */
+a.ghost,
+button.ghost,
+button.primary {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+button.primary { color: var(--ink-dim); }
+
+a.ghost { text-decoration: none; }
+
+a.ghost:hover,
+button.ghost:hover,
+button.primary:hover { color: var(--accent); }
+
+button[disabled] { opacity: 0.5; cursor: default; }
+
+button[aria-pressed="true"] { color: var(--accent); }
+
+/* ------------------------------------------------------------- frontmatter */
+
+/* The post header, editable in place. Title, summary, one mono line -- the same
+   three things in the same order as /writing/<slug>, so the frontmatter costs
+   three lines of the page rather than a screen of labelled boxes. */
+.frontmatter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.frontmatter :is(input, textarea) {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.frontmatter :is(input, textarea):focus { outline: none; }
+
+.frontmatter ::placeholder { color: var(--ink-faint); opacity: 1; }
+
+.frontmatter .f-title {
+  width: 100%;
+  color: var(--ink-strong);
+  font-family: var(--serif);
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.frontmatter .f-summary {
+  width: 100%;
+  overflow: hidden;
+  resize: none;
+  color: var(--ink-dim);
+  font-family: var(--serif);
+  font-size: 0.97rem;
+  line-height: 1.55;
+}
+
+/* The same row the post page prints under its title: mono, 11px, faint, dots
+   between the parts. Here every part happens to be editable. */
+.f-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.45rem;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.f-meta input {
+  min-width: 0;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.f-meta input[type="date"] { width: 8.5em; }
+.f-meta input#f-tags { width: 12em; }
+.f-meta input#f-slug { flex: 1; min-width: 8em; }
+
+.f-meta input:focus,
+.f-meta input:hover { color: var(--ink); }
+
+/* A date input's picker button is the one piece of browser chrome on the page;
+   it only earns its place while the pointer is on the field. */
+.f-meta input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
+
+.f-meta input[type="date"]:hover::-webkit-calendar-picker-indicator { opacity: 0.4; }
+
+.f-meta input:disabled { color: var(--ink-faint); cursor: not-allowed; }
+
+.f-sep { color: var(--rule); }
+
+.f-meta button { font-size: 11px; }
+
+.f-draft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.f-draft input { accent-color: var(--accent); width: 0.8rem; height: 0.8rem; }
+.f-draft input:checked + span { color: var(--accent); }
+
+/* ------------------------------------------------------------- the index */
+
+/* The same stream /writing/ prints: mono line, serif title, summary, air
+   between them. It is the page this editor writes for, so it is the page the
+   editor uses to find things. */
+.post-index { padding-top: clamp(1.5rem, 5vh, 3rem); }
+
+.index-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.index-entry + .index-entry { margin-top: clamp(2rem, 5vh, 3rem); }
+
+.index-meta {
+  margin: 0;
+  color: var(--ink-faint);
+  font: 11px/1.5 var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.index-meta .draft { color: var(--accent); }
+
+.index-title {
+  max-width: 24ch;
+  margin: 0.4rem 0 0;
+  font: 400 clamp(1.4rem, 2.4vw, 1.8rem) / 1.1 var(--serif);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.index-title button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.index-title button:hover { color: var(--accent); }
+
+.index-entry[data-current="true"] .index-title button {
+  box-shadow: inset 0 -1px 0 var(--accent);
+}
+
+.index-summary {
+  max-width: 33rem;
+  margin: 0.55rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.97rem;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+
+.index-empty,
+.keys {
+  margin: 0;
+  color: var(--ink-faint);
+  font: 11px/1.6 var(--mono);
+}
+
+.keys { margin-top: clamp(3rem, 10vh, 5rem); }
+
+/* ----------------------------------------------------------------- the prose */
+
+.prose { padding-top: 1.1rem; }
+
+/* ------------------------------------------------------------- focus mode */
+
+/* Everything that is not the sentence goes away. Esc brings it back. */
+:root[data-focus-mode="true"] .frontmatter { display: none; }
+
+:root[data-focus-mode="true"] .sheet { padding-top: 8vh; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .index-title button,
+  a.ghost,
+  button.ghost,
+  button.primary,
+  .f-meta input { transition: color 160ms ease; }
+}
+
+/* --------------------------------------------------------------------- small */
+
+@media (max-width: 820px) {
+  .sheet { padding-bottom: 6rem; }
+}

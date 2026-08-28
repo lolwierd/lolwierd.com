@@ -1,0 +1,97 @@
+---
+import "../styles/global.css";
+import "../styles/admin.css";
+
+// The writing surface. One page, private, and the only page on the site that
+// ships an editor's worth of JavaScript -- Astro scopes a page's script to that
+// page, so nothing here reaches a reader.
+//
+// It is deliberately not built on BaseLayout: no analytics, no sky, no canvas.
+// It also does not run the solar clock, so unlike the public pages it follows
+// the OS theme -- this is a tool I open at any hour, not a view of Vadodara.
+---
+
+<!doctype html>
+<html lang="en" data-focus-mode="false">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Belt and braces with the X-Robots-Tag the Function sets and the
+         Disallow in robots.txt. The page is behind Cloudflare Access and is in
+         neither sitemap.xml nor rss.xml, so no crawler should ever see it. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>editor</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="font" type="font/woff2" href="/DepartureMono-Regular.woff2" crossorigin />
+  </head>
+  <body class="admin">
+    <main class="sheet">
+      <!-- The whole page is one column. There is no sidebar: a permanent list
+           of three posts is furniture, and the list of posts is a place you go
+           to, in the same shape /writing/ already uses, not a thing that sits
+           beside every sentence you write. -->
+      <header class="sheet-head">
+        <p id="save-state" class="save-state" role="status" aria-live="polite" data-kind="empty"></p>
+        <div class="sheet-actions">
+          <button type="button" id="restore-draft" class="ghost" hidden></button>
+          <button type="button" id="posts-toggle" class="ghost" aria-pressed="false">posts</button>
+          <button type="button" id="new-post" class="ghost">new</button>
+          <!-- Opens the post as the site builds it, drafts included. It shows
+               the last build, not the buffer: instant locally, one deploy
+               behind in production. -->
+          <a id="preview-link" class="ghost" href="/admin/preview/" target="_blank" rel="noopener" hidden>preview ↗</a>
+          <button type="button" id="focus-toggle" class="ghost" aria-pressed="false">focus</button>
+          <button type="button" id="save" class="primary">save</button>
+        </div>
+      </header>
+
+      <section id="index-view" class="post-index" aria-label="Posts" hidden>
+        <ul id="post-list" class="index-list"></ul>
+        <p class="keys">⌘S saves · ⌘K links a selection · ⌘⇧F focuses · esc closes</p>
+      </section>
+
+      <div id="write-view">
+        <!-- Not a form stacked in labelled rows: the same three things a post
+             page puts at its top, in the same order and the same faces. Title,
+             summary, then one mono line of metadata. Editing the post looks like
+             reading it, which is the whole reason for an inline editor. -->
+        <form id="frontmatter" class="frontmatter" autocomplete="off">
+          <input id="f-title" class="f-title" name="title" type="text" placeholder="title" required />
+
+          <textarea
+            id="f-summary"
+            class="f-summary"
+            name="summary"
+            rows="1"
+            placeholder="one sentence, the one that goes under the title"
+            required></textarea>
+
+          <div class="f-meta">
+            <input id="f-date" name="date" type="date" required aria-label="date" />
+            <span class="f-sep">·</span>
+            <!-- A post has an `updated` date only once it has actually been
+                 revised, so the field appears when there is one and otherwise
+                 stays a word you can click. An empty dd/mm/yyyy sitting in the
+                 meta line of every new post is furniture. -->
+            <input id="f-updated" name="updated" type="date" aria-label="updated" title="updated" hidden />
+            <button type="button" id="add-updated" class="ghost">+updated</button>
+            <span class="f-sep">·</span>
+            <input id="f-tags" name="tags" type="text" spellcheck="false" placeholder="tags" aria-label="tags" />
+            <span class="f-sep">·</span>
+            <input id="f-slug" name="slug" type="text" spellcheck="false" placeholder="slug" aria-label="slug" />
+            <label class="f-draft">
+              <input id="f-draft" name="draft" type="checkbox" />
+              <span>draft</span>
+            </label>
+          </div>
+        </form>
+
+        <div id="editor" class="prose"></div>
+      </div>
+    </main>
+
+    <script>
+      import "../scripts/admin/main.js";
+    </script>
+  </body>
+</html>

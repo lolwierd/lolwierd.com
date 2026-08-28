@@ -9,10 +9,10 @@ import "../styles/interior.css";
 // and a full screen of mountain in front of the writing just means the writing
 // does not get read. They also skip the 1.8MB plate and the sky scripts, which
 // is the right trade for a page of prose.
-const { title, description } = Astro.props;
+const { title, description, noindex = false } = Astro.props;
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout title={title} description={description} noindex={noindex}>
   <div class="page">
     <div class="page-frame">
       <div class="topbar">

@@ -1,0 +1,76 @@
+---
+import { getCollection, render } from "astro:content";
+import PageLayout from "../../../layouts/PageLayout.astro";
+import "../../../styles/writing.css";
+import { formatDate, isoDate, readingTime } from "../../../lib/writing.js";
+
+// A draft, rendered exactly as the site would render it.
+//
+// `draft: true` posts are not built into /writing/, which is the right default
+// and also means there is nowhere to read one. This builds every post -- drafts
+// included -- under /admin/preview/, which the same Cloudflare Access rule
+// already covers (`lolwierd.com/admin*`) and which the middleware, _headers and
+// this page all mark noindex. So a draft can be read on a phone, in the real
+// type, with the real code highlighting, without being published.
+//
+// It is the last build, not the buffer: locally that is the file on disk and so
+// it is instant, and in production it is one deploy behind the save.
+export async function getStaticPaths() {
+  const posts = await getCollection("writing");
+  posts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+const minutes = readingTime(post.body);
+---
+
+<PageLayout
+  title={`${post.data.title} · preview`}
+  description={post.data.summary}
+  noindex
+>
+  <p class="preview-note">
+    preview{post.data.draft && <span class="draft"> · draft, not on the live site</span>}
+    {" · "}<a href={`/admin#${post.id}`}>edit</a>
+  </p>
+
+  <article class="writing-column">
+    <header class="post-header">
+      <h1>{post.data.title}</h1>
+      <p class="post-summary">{post.data.summary}</p>
+      <p class="post-meta">
+        <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+        <span>{minutes} min</span>
+        {post.data.updated && <span>updated {formatDate(post.data.updated)}</span>}
+        {post.data.tags.length > 0 && <span>{post.data.tags.join(" · ")}</span>}
+        {post.data.draft && <span class="draft">draft</span>}
+      </p>
+    </header>
+
+    <div class="post-body">
+      <Content />
+    </div>
+  </article>
+
+  <script>
+    import "../../../scripts/post-media.js";
+  </script>
+</PageLayout>
+
+<style>
+  /* One line, in the mono the rest of the chrome uses, saying which page this
+     is. Without it a preview and the real thing are indistinguishable, which is
+     exactly the confusion that gets a draft linked to somebody. */
+  .preview-note {
+    width: min(100%, 40rem);
+    margin: 0 auto clamp(1.5rem, 4vh, 2.5rem);
+    color: var(--ink-faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  .preview-note .draft { color: var(--accent); }
+</style>
