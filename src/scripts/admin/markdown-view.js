@@ -161,7 +161,11 @@ const themeSpec = {
     backgroundImage: "linear-gradient(var(--rule), var(--rule))",
     backgroundRepeat: "no-repeat",
     backgroundSize: "100% 1px",
-    backgroundPosition: "0 1.6rem"
+    // Through the middle of the line the dashes occupy -- half a line-height
+    // past the padding -- rather than at the top of it. Drawn at the top, the
+    // rule sat visibly above the `---` that appeared when you clicked it, so
+    // the thing moved as you reached for it.
+    backgroundPosition: "0 calc(1.6rem + 0.825em)"
   },
 
   // The two things the post page draws that plain highlighting cannot: a link

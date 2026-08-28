@@ -37,6 +37,7 @@ for (const post of posts) {
                   <span> · {readingTime(post.body)} min</span>
                   {post.data.tags.length > 0 && <span> · {post.data.tags.join(" · ")}</span>}
                   {post.data.draft && <span class="draft"> · draft</span>}
+                  {" "}<a class="owner-edit" href={`/admin#${post.id}`}>edit</a>
                 </p>
                 <h2 class="entry-title"><a href={postUrl(post)}>{post.data.title}</a></h2>
                 <p class="entry-summary">{post.data.summary}</p>
