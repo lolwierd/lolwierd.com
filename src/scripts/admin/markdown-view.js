@@ -6,7 +6,6 @@ import {
   keymap,
   drawSelection,
   dropCursor,
-  highlightActiveLine,
   placeholder
 } from "@codemirror/view";
 import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands";
@@ -73,7 +72,6 @@ const theme = EditorView.theme({
   "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
     backgroundColor: "color-mix(in srgb, var(--accent) 22%, transparent)"
   },
-  ".cm-activeLine": { backgroundColor: "transparent" },
   ".cm-placeholder": { color: "var(--ink-faint)", fontStyle: "italic" },
   ...heading(1, "clamp(1.7rem, 3vw, 2.1rem)"),
   ...heading(2, "var(--prose-h2)"),
@@ -449,7 +447,6 @@ export function createEditor({ parent, doc, onChange, onSave, onEscape }) {
         history(),
         drawSelection(),
         dropCursor(),
-        highlightActiveLine(),
         bracketMatching(),
         EditorState.allowMultipleSelections.of(true),
         EditorView.lineWrapping,

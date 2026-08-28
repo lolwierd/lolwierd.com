@@ -169,6 +169,10 @@ same two endpoints from disk, so local edits are instant, need no token and
 never touch github. it hangs off `astro:server:setup` and so does not exist in a
 build.
 
+the dev endpoint has no authentication, which is right for `astro dev` on
+localhost and wrong the moment you run `astro dev --host`: that publishes an
+unauthenticated write-to-disk endpoint on the local network. do not.
+
 `draft: true` posts are visible on the dev server and are not built in
 production, which is the behaviour `src/lib/writing.js` already had.
 
@@ -194,6 +198,7 @@ two things, neither of them a database:
 | `⌘K` | wrap the selection in a link |
 | `⌘⇧F` | focus mode |
 | `esc` | leave focus mode, or close the post list |
+| `tab` | indents in the editor rather than moving on — `esc` first to leave |
 
 ## what it deliberately does not do
 

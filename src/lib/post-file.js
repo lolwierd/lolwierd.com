@@ -51,7 +51,12 @@ export function parseFrontmatter(text) {
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    // A comment or a blank line is something someone wrote on purpose. It is
+    // not a key this file manages, so it travels with the rest of `extra`.
+    if (!line.trim() || line.trimStart().startsWith("#")) {
+      extra.push(line);
+      continue;
+    }
 
     const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
     if (!kv) {
@@ -65,16 +70,19 @@ export function parseFrontmatter(text) {
     // A block sequence: the value is empty and the following indented lines
     // start with a dash.
     const items = [];
+    const rawItems = [];
     if (!raw.trim()) {
       while (i + 1 < lines.length && /^\s+-\s*/.test(lines[i + 1])) {
+        rawItems.push(lines[i + 1]);
         items.push(scalar(lines[i + 1].replace(/^\s+-\s*/, "")));
         i += 1;
       }
     }
 
     if (!KNOWN.has(key)) {
-      extra.push(line);
-      for (const item of items) extra.push(`  - ${item}`);
+      // Verbatim: re-emitting the parsed scalars would drop the quoting that
+      // made them scalars, and `- "Ayaan: R"` without its quotes is a mapping.
+      extra.push(line, ...rawItems);
       continue;
     }
 
@@ -87,10 +95,13 @@ export function parseFrontmatter(text) {
 }
 
 function scalar(raw) {
-  const value = raw.trim().replace(/\s+#.*$/, "");
+  const value = raw.trim();
+  // The comment strip runs only on a bare scalar. A `#` inside quotes is a
+  // character in the sentence -- "the bug was issue #14" -- and stripping it
+  // there ate the rest of the line and the closing quote with it.
   if (/^"(.*)"$/s.test(value)) return value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
   if (/^'(.*)'$/s.test(value)) return value.slice(1, -1).replace(/''/g, "'");
-  return value;
+  return value.replace(/\s+#.*$/, "");
 }
 
 function inlineList(raw) {
@@ -100,7 +111,16 @@ function inlineList(raw) {
 }
 
 function quote(value) {
-  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  // Newlines are escaped, not emitted. A line break inside a quoted scalar ends
+  // the frontmatter block where it falls -- and a line that happens to read
+  // `---` ends it exactly there, putting the post's body inside the header and
+  // the header inside the body. validatePost refuses these before they get
+  // here; this is the second lock.
+  return `"${String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n")}"`;
 }
 
 // Tags are written bare when they are plain words, which is how every post in
@@ -143,9 +163,17 @@ export function keepUnchangedDates(fields, existing) {
 export function validatePost(fields) {
   const errors = [];
   const str = (v) => typeof v === "string" && v.trim().length > 0;
+  // Frontmatter is one line per field. A line break in one of them ends the
+  // block early -- and a line reading `---` ends it exactly there -- so the
+  // rule is enforced here rather than papered over by the serializer.
+  const oneLine = (v) => typeof v === "string" && !/[\r\n]/.test(v);
 
   if (!str(fields.title)) errors.push("title is required");
+  else if (!oneLine(fields.title)) errors.push("the title has to be one line");
+  else if (fields.title.length > 200) errors.push("that title is implausibly long");
   if (!str(fields.summary)) errors.push("summary is required");
+  else if (!oneLine(fields.summary)) errors.push("the summary has to be one line");
+  else if (fields.summary.length > 500) errors.push("that summary is implausibly long");
   if (!str(fields.date) || !DATE_RE.test(fields.date) || Number.isNaN(Date.parse(fields.date))) {
     errors.push("date must be a real yyyy-mm-dd");
   }
@@ -154,7 +182,7 @@ export function validatePost(fields) {
       errors.push("updated must be a real yyyy-mm-dd");
     }
   }
-  if (!Array.isArray(fields.tags) || fields.tags.some((t) => !str(t))) {
+  if (!Array.isArray(fields.tags) || fields.tags.some((t) => !str(t) || !oneLine(t))) {
     errors.push("tags must be a list of words");
   }
   if (typeof fields.draft !== "boolean") errors.push("draft must be true or false");
@@ -185,7 +213,12 @@ export function readPost(slug, text) {
 function normalizeDate(value) {
   if (!value) return "";
   const text = String(value).trim();
-  if (DATE_RE.test(text)) return text;
+  // Take the calendar date off the front of whatever is written. Parsing
+  // `2022-09-12T02:00:00` with Date reads it as local time and writes it back
+  // as UTC, so the same file showed a different day in `astro dev` here than in
+  // the Function -- a post dated before 05:30 IST moved a day.
+  const leading = /^(\d{4}-\d{2}-\d{2})/.exec(text);
+  if (leading) return leading[1];
   const parsed = new Date(text);
   return Number.isNaN(parsed.valueOf()) ? text : parsed.toISOString().slice(0, 10);
 }

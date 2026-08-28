@@ -7,41 +7,85 @@
 
 const PREFIX = "lolwierd.editor.";
 const DEBOUNCE_MS = 600;
+const NEW = "__new";
 
 let timer = 0;
+let pending = null;
 
-function key(slug) {
-  return `${PREFIX}${slug || "__new"}`;
+function key(name) {
+  return `${PREFIX}${name || NEW}`;
 }
 
-export function readBuffer(slug) {
+export function readBuffer(name) {
   try {
-    const raw = localStorage.getItem(key(slug));
+    const raw = localStorage.getItem(key(name));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : null;
+    // A buffer written by an older shape of this editor would otherwise be
+    // restored into the form and throw on the first field that moved.
+    if (!parsed || typeof parsed !== "object") return null;
+    const f = parsed.fields;
+    const ok =
+      f &&
+      typeof f.title === "string" &&
+      typeof f.summary === "string" &&
+      typeof f.date === "string" &&
+      Array.isArray(f.tags) &&
+      typeof parsed.body === "string";
+    return ok ? parsed : null;
   } catch {
     return null;
   }
 }
 
-export function writeBuffer(slug, value) {
+export function writeBuffer(name, value) {
+  pending = { name, value };
   clearTimeout(timer);
-  timer = setTimeout(() => {
-    try {
-      localStorage.setItem(key(slug), JSON.stringify({ ...value, savedAt: Date.now() }));
-    } catch {
-      /* out of room or not allowed: the post is still on screen */
-    }
-  }, DEBOUNCE_MS);
+  timer = setTimeout(flushBuffer, DEBOUNCE_MS);
 }
 
-export function clearBuffer(slug) {
+// Writes whatever the debounce is still holding, now. Called on the way out of
+// the page: beforeunload does not fire reliably on mobile Safari, and 600ms of
+// unwritten typing is exactly the 600ms worth losing.
+export function flushBuffer() {
   clearTimeout(timer);
+  if (!pending) return;
+  const { name, value } = pending;
+  pending = null;
   try {
-    localStorage.removeItem(key(slug));
+    localStorage.setItem(key(name), JSON.stringify({ ...value, savedAt: Date.now() }));
+  } catch {
+    /* out of room or not allowed: the post is still on screen */
+  }
+}
+
+export function clearBuffer(name) {
+  clearTimeout(timer);
+  pending = null;
+  try {
+    localStorage.removeItem(key(name));
   } catch {
     /* nothing to do about it */
+  }
+}
+
+// Buffers for posts that do not exist. An earlier version of this file keyed the
+// working buffer on the slug as it was being typed, so writing a title left one
+// key per keystroke, each holding a whole copy of the post. This sweeps those.
+export function pruneBuffers(knownSlugs) {
+  const keep = new Set([...knownSlugs, NEW, "list"]);
+  try {
+    const stale = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const name = localStorage.key(i);
+      if (name && name.startsWith(PREFIX) && !keep.has(name.slice(PREFIX.length))) {
+        stale.push(name);
+      }
+    }
+    for (const name of stale) localStorage.removeItem(name);
+    return stale.length;
+  } catch {
+    return 0;
   }
 }
 

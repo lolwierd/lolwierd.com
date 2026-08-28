@@ -13,6 +13,8 @@ const CERT_TTL_MS = 60 * 60 * 1000;
 // Module scope, so it survives between requests on a warm isolate and is simply
 // refetched on a cold one. No KV, nothing to invalidate.
 let cache = { url: "", keys: null, fetchedAt: 0 };
+let lastForcedFetch = 0;
+const FORCE_MIN_INTERVAL_MS = 60 * 1000;
 
 function base64urlToBytes(value) {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
@@ -26,12 +28,12 @@ function decodeJson(part) {
   return JSON.parse(new TextDecoder().decode(base64urlToBytes(part)));
 }
 
-async function getKeys(teamDomain) {
+async function getKeys(teamDomain, force = false) {
   const url = `https://${teamDomain}/cdn-cgi/access/certs`;
   const fresh = cache.url === url && cache.keys && Date.now() - cache.fetchedAt < CERT_TTL_MS;
-  if (fresh) return cache.keys;
+  if (fresh && !force) return cache.keys;
 
-  const response = await fetch(url, { cf: { cacheTtl: 3600 } });
+  const response = await fetch(url, force ? { cache: "no-store" } : { cf: { cacheTtl: 3600 } });
   if (!response.ok) throw new Error(`could not fetch Access certs (${response.status})`);
   const body = await response.json();
   if (!body || !Array.isArray(body.keys)) throw new Error("Access certs response had no keys");
@@ -69,6 +71,9 @@ export async function verifyAccessJwt(request, env) {
   }
 
   if (header.alg !== "RS256") return { ok: false, reason: `unexpected token algorithm ${header.alg}` };
+  // Without this, a token with no kid would match a key with no kid --
+  // undefined === undefined -- rather than being rejected.
+  if (typeof header.kid !== "string" || !header.kid) return { ok: false, reason: "token names no signing key" };
 
   let keys;
   try {
@@ -77,7 +82,22 @@ export async function verifyAccessJwt(request, env) {
     return { ok: false, reason: error.message };
   }
 
-  const jwk = keys.find((key) => key.kid === header.kid);
+  let jwk = keys.find((key) => key.kid === header.kid);
+
+  // Access rotates its signing keys. A warm isolate holding an hour-old key set
+  // would 403 every request -- mine included -- until it went cold, with no way
+  // to flush it short of a redeploy. An unrecognised kid buys exactly one
+  // forced refetch, rate-limited so a stream of junk kids cannot turn this into
+  // a hammer on the certs endpoint.
+  if (!jwk && Date.now() - lastForcedFetch > FORCE_MIN_INTERVAL_MS) {
+    lastForcedFetch = Date.now();
+    try {
+      keys = await getKeys(teamDomain, true);
+      jwk = keys.find((key) => key.kid === header.kid);
+    } catch {
+      /* keep the rejection below */
+    }
+  }
   if (!jwk) return { ok: false, reason: "token was signed by an unknown key" };
 
   let verified = false;
@@ -112,6 +132,10 @@ export async function verifyAccessJwt(request, env) {
   if (typeof payload.nbf === "number" && payload.nbf > now + 60) return { ok: false, reason: "token is not valid yet" };
 
   const email = typeof payload.email === "string" ? payload.email : "";
+  // A service token is issued for an application, not a person, and carries a
+  // common_name rather than an email. This editor has one user; a token with no
+  // email is not that user, whatever else it satisfies.
+  if (!email) return { ok: false, reason: "that token belongs to no account" };
   // Belt and braces: the Access policy is the list of who may in, and this is
   // the same list written where I can read it in the repo. Unset means "trust
   // the policy", which is the honest default -- an empty check is not a check.

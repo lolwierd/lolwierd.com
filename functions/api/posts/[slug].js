@@ -58,6 +58,12 @@ export const onRequestPut = async ({ env, params, request }) => {
     if (payload.sha && existing && existing.sha !== payload.sha) {
       return fail("the file changed in the repo since this was opened", 409);
     }
+    // Opened, then deleted in the repo underneath. Writing it back would say
+    // "saved" while quietly recreating a post someone removed, and would drop
+    // any frontmatter key this editor does not manage along the way.
+    if (payload.sha && !existing) {
+      return fail("that post is no longer in the repo -- it was deleted since this was opened", 409);
+    }
 
     // Any frontmatter key this editor does not manage is carried over from the
     // file as it stands, rather than trusted from the browser, so a save can

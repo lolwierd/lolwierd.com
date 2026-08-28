@@ -141,7 +141,9 @@ export async function listPostFiles(config) {
     config,
     `/repos/${config.repo}/contents/${WRITING_DIR}?ref=${encodeURIComponent(config.branch)}`
   );
-  if (!entries) return [];
+  // A directory answers with an array. Anything else -- a file at that path, an
+  // unexpected shape -- is not something to call .filter on.
+  if (!Array.isArray(entries)) return [];
   return entries.filter((entry) => entry.type === "file" && entry.name.endsWith(".md"));
 }
 
@@ -168,5 +170,11 @@ export async function writePostFile(config, slug, text, sha, message) {
     method: "PUT",
     body: JSON.stringify(body)
   });
+  // call() reads 404 as "not there", which is right for the two read paths and
+  // wrong here: GitHub answers a write with a dead or wrong-scoped token with
+  // 404, not 401, so an expired PAT arrived as "cannot read properties of null".
+  if (!result || !result.content || !result.commit) {
+    throw new GitHubError("github refused the write -- check GITHUB_TOKEN and GITHUB_REPO", 502);
+  }
   return { sha: result.content.sha, commit: result.commit.sha };
 }

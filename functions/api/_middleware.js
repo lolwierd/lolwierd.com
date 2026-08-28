@@ -7,6 +7,5 @@ import { verifyAccessJwt, forbidden } from "../../src/lib/access.js";
 export const onRequest = async (context) => {
   const result = await verifyAccessJwt(context.request, context.env);
   if (!result.ok) return forbidden(result.reason);
-  context.data.email = result.email;
   return context.next();
 };

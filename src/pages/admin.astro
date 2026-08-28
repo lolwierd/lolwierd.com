@@ -46,7 +46,9 @@ import "../styles/admin.css";
           <!-- One word, and never a long one: this line is the frame around the
                writing and it must not reflow when a commit lands. The sha, the
                error and the restore notice go to the toast. -->
-          <span id="save-state" class="save-state" role="status" aria-live="polite" data-kind="empty"></span>
+          <!-- Not a live region: the toast beside it is, and two polite regions
+               announcing on the same save read as two interruptions. -->
+          <span id="save-state" class="save-state" data-kind="empty"></span>
           <button type="button" id="restore-draft" class="ghost" hidden>restore draft</button>
           <button type="button" id="posts-toggle" class="ghost" aria-pressed="false">posts</button>
           <button type="button" id="new-post" class="ghost">new</button>
@@ -68,7 +70,7 @@ import "../styles/admin.css";
       <!-- The shape of a post, while the post is on its way. An empty form with
            placeholders in it looked like a new post every time /admin opened,
            which is the opposite of what was happening. -->
-      <section id="loading-view" class="loading-view" aria-hidden="true" hidden>
+      <section id="loading-view" class="loading-view" hidden>
         <span class="bar bar-heading"></span>
         <span class="bar bar-summary"></span>
         <span class="bar bar-meta"></span>
@@ -86,7 +88,17 @@ import "../styles/admin.css";
              summary, then one mono line of metadata. Editing the post looks like
              reading it, which is the whole reason for an inline editor. -->
         <form id="frontmatter" class="frontmatter" autocomplete="off">
-          <input id="f-title" class="f-title" name="title" type="text" placeholder="title" required />
+          <!-- Named, not just placeheld: a placeholder is gone the moment there
+               is a title, and with it the field's only label. -->
+          <input
+            id="f-title"
+            class="f-title"
+            name="title"
+            type="text"
+            placeholder="title"
+            aria-label="title"
+            required
+          />
 
           <textarea
             id="f-summary"
@@ -94,6 +106,7 @@ import "../styles/admin.css";
             name="summary"
             rows="1"
             placeholder="one sentence, the one that goes under the title"
+            aria-label="summary"
             required></textarea>
 
           <div class="f-meta">

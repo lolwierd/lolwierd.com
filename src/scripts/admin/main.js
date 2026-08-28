@@ -3,7 +3,9 @@ import { listPosts, getPost, savePost } from "./api.js";
 import {
   readBuffer,
   writeBuffer,
+  flushBuffer,
   clearBuffer,
+  pruneBuffers,
   bufferedSlugs,
   readList,
   writeList
@@ -53,6 +55,11 @@ let view;
 
 function blank() {
   return {
+    // What the working buffer is filed under. Fixed for the life of the post
+    // being written: the slug follows the title while a post is new, and keying
+    // the buffer on it wrote one localStorage entry per keystroke -- each a full
+    // copy of the body -- under names nothing ever read back.
+    bufferKey: "",
     slug: "",
     sha: null,
     fields: { title: "", summary: "", date: today(), updated: "", tags: [], draft: true },
@@ -94,9 +101,6 @@ function toast(text, kind = "") {
   }
 }
 
-// The tab says what is open in it, the way any editor's does -- with a dot in
-// front while there is something unsaved, so a row of tabs still tells me which
-// one I walked away from.
 // The tab says what is open in it, the way any editor's does -- with a dot in
 // front while there is something unsaved, so a row of tabs still tells me which
 // one I walked away from.
@@ -206,6 +210,9 @@ async function refreshList() {
     posts = listed.posts;
     setBranch(listed.branch, listed.repo);
     writeList(listed);
+    // Now that the real list is known, drop buffers for posts that do not
+    // exist -- including the per-keystroke ones an earlier version left.
+    pruneBuffers(posts.map((post) => post.slug));
     renderList();
   } catch (error) {
     setState("failed", "failed", `could not read the list: ${error.message}`);
@@ -269,7 +276,7 @@ function touch() {
   current.dirty = true;
   describeIdle();
   setTitle();
-  writeBuffer(current.slug, {
+  writeBuffer(current.bufferKey, {
     slug: current.slug,
     sha: current.sha,
     fields: current.fields,
@@ -295,6 +302,7 @@ async function open(slug) {
   try {
     const post = await getPost(slug);
     current = {
+      bufferKey: post.slug,
       slug: post.slug,
       sha: post.sha,
       fields: {
@@ -309,7 +317,7 @@ async function open(slug) {
       dirty: false
     };
 
-    const buffer = readBuffer(slug);
+    const buffer = readBuffer(current.bufferKey);
     const differs =
       buffer &&
       (buffer.body !== current.body || JSON.stringify(buffer.fields) !== JSON.stringify(current.fields));
@@ -337,7 +345,7 @@ async function open(slug) {
       dom.restore.title = `written here ${when(buffer.savedAt)}`;
       toast(`there is a local draft from ${when(buffer.savedAt)}, written against an older version`);
     } else {
-      clearBuffer(slug);
+      clearBuffer(current.bufferKey);
     }
 
     setView("write");
@@ -364,7 +372,7 @@ function startNew() {
     fillForm();
     setDoc("");
 
-    const buffer = readBuffer("");
+    const buffer = readBuffer("");  // the new-post buffer, under its fixed name
     if (buffer && (buffer.body || buffer.fields.title)) {
       current.fields = buffer.fields;
       current.body = buffer.body;
@@ -430,8 +438,11 @@ async function save() {
     });
     current.sha = result.sha;
     current.dirty = false;
-    clearBuffer(current.slug);
+    clearBuffer(current.bufferKey);
+    // A new post was buffered under the new-post name; from here it is filed
+    // under the slug it was saved as.
     clearBuffer("");
+    current.bufferKey = current.slug;
     dom.restore.hidden = true;
     pendingRestore = null;
     fillForm();
@@ -464,6 +475,11 @@ async function save() {
 /* --------------------------------------------------------------------- setup */
 
 function setFocusMode(on) {
+  // The frontmatter is about to be display:none. If the caret is in one of its
+  // fields, hiding it drops focus to the body and the next keystroke goes
+  // nowhere -- so the caret moves to the prose first, which is where focus mode
+  // wants it anyway.
+  if (on && dom.form.contains(document.activeElement) && view) view.focus();
   document.documentElement.dataset.focusMode = on ? "true" : "false";
   dom.focus.setAttribute("aria-pressed", on ? "true" : "false");
 }
@@ -519,6 +535,16 @@ function boot() {
     touch();
     dom.updated.focus();
   });
+
+  // And off again. Clearing the field is the way out: without this, adding an
+  // updated date by accident could only be undone in git.
+  dom.updated.addEventListener("change", () => {
+    if (!dom.updated.value) {
+      showUpdated(false);
+      readForm();
+      touch();
+    }
+  });
   dom.newPost.addEventListener("click", startNew);
   dom.postsToggle.addEventListener("click", () => {
     if (indexOpen()) showIndex(false);
@@ -556,9 +582,17 @@ function boot() {
   });
 
   window.addEventListener("beforeunload", (event) => {
+    flushBuffer();
     if (!current.dirty) return;
     event.preventDefault();
     event.returnValue = "";
+  });
+
+  // beforeunload does not fire reliably when a phone backgrounds a tab, and it
+  // is the phone this editor exists for.
+  window.addEventListener("pagehide", flushBuffer);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushBuffer();
   });
 
   window.addEventListener("resize", () => autosize(dom.summary));
