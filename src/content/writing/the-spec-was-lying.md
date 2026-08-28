@@ -5,15 +5,14 @@ date: 2026-08-28
 tags: [tech, go, openapi]
 ---
 
-Three years ago I wrote a library called weave. It wraps a Go HTTP router so that
+I wrote a library called weave a couple of years ago. It wraps a Go HTTP router so that
 you write your handlers once and get an OpenAPI 3.1 document out the other side,
 generated from your request and response structs by reflection. No YAML to keep
 in sync, no annotation comments above every handler. Your Go types are the
 contract.
 
-It has been running a public cloud's API for about two years. Twenty-odd
-services, a few hundred operations, a documentation UI customers actually read,
-and a Terraform provider generated from the emitted spec.
+It has been running a public cloud's API since. The documentation UI customers
+read is generated from it, and so is a Terraform provider.
 
 I went back through it last week to pull out anything company-specific and put a
 public version somewhere. What I found instead was that one of its headline
@@ -168,7 +167,7 @@ guarantees. That is not an escape hatch anyone chose. It is a missing feature
 that pushed everybody onto the wrong door.
 
 (The field is also spelled `ReponseBody`, in public, in every route file. Two
-years and about six hundred call sites deep, that typo is load-bearing.)
+years and a great many call sites deep, that typo is load-bearing.)
 
 ---
 
