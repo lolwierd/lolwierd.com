@@ -3,6 +3,7 @@ title: "The spec was lying"
 summary: "i wrote an OpenAPI library. one of its features has never worked outside its own repo."
 date: 2026-08-28
 tags: [tech, go, openapi]
+draft: true
 ---
 
 I wrote a library called weave a couple of years ago. It wraps a Go HTTP router
