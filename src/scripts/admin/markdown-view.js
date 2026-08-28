@@ -108,8 +108,11 @@ const theme = EditorView.theme({
     lineHeight: "1.6",
     color: "color-mix(in srgb, var(--ink-faint) 70%, transparent)"
   },
+  // Padding, never margin. CodeMirror measures the height of a line element to
+  // map a click to a position, and a margin is outside that measurement -- with
+  // one here, clicking a line put the caret on a different line, and a line
+  // whose content is hidden could not be reached at all.
   ".cm-line.cm-code-first": {
-    marginTop: "1.25rem",
     paddingTop: "0.7rem",
     borderTop: "1px solid var(--rule)"
   },
@@ -137,11 +140,17 @@ const theme = EditorView.theme({
     color: "var(--ink-dim)"
   },
 
-  // The rule the post page draws for `---`.
+  // The rule the post page draws for `---`. Drawn as a background rather than a
+  // border so that the space above it is paper: a border sits at the very top of
+  // the line box, and the space would have to be a margin, which is the thing
+  // that broke clicking.
   ".cm-line.cm-hr": {
-    position: "relative",
-    marginTop: "2rem",
-    borderTop: "1px solid var(--rule)",
+    paddingTop: "1.6rem",
+    paddingBottom: "0.4rem",
+    backgroundImage: "linear-gradient(var(--rule), var(--rule))",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "100% 1px",
+    backgroundPosition: "0 1.6rem",
     color: "var(--ink-faint)"
   },
 

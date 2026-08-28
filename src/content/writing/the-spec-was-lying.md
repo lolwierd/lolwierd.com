@@ -51,8 +51,14 @@ There is a test for it. The test passes. I wrote an example, ran it, saw the des
 Last week I made a throwaway module outside the library, imported weave, and printed the generated components.
 
 ```json
-{"Widget":{"properties":{"name":{"type":"string"}},"required":["name"],
-"title":"Widget","type":"object"}}
+{
+  "Widget": {
+    "properties": { "name": { "type": "string" } },
+    "required": ["name"],
+    "title": "Widget",
+    "type": "object"
+  }
+}
 ```
 
 No descriptions anywhere in it. I sat looking at that for a while, because I had watched this work.
