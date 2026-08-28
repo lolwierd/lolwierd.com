@@ -10,10 +10,7 @@ its own page so that you are not waiting on a deploy to see what you wrote.
 
 ## the way in
 
-Triple-click the word "writing" in the site navigation. That is a convenience,
-not a boundary. The gesture is in the page source and typing `/admin` works just
-as well. Cloudflare Access is the thing that stops anybody, and the Pages
-Function verifies its assertion itself.
+Press and hold the site name — “ayaan retiwala” in the top-left — for about three quarters of a second. A small “holding…” pill appears while you hold, then it goes to `/admin`. That is a convenience, not a boundary. The gesture is in the page source and typing `/admin` works just as well. Cloudflare Access is the thing that stops anybody, and the Pages Function verifies its assertion itself. On a keyboard, focus the name and hold Enter or Space.
 
 ## what has to be set up by hand
 

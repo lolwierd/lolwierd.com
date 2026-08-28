@@ -1,4 +1,4 @@
-// Triple-clicking "writing" in the nav goes to /admin.
+// Holding the site name goes to /admin.
 //
 // This is a convenience, not a security boundary. It keeps a link to the editor
 // off every page for ordinary visitors, and that is all it does -- the gesture
@@ -7,50 +7,102 @@
 // behind it, and the Function verifies its assertion itself. Nothing here
 // decides whether content is shown, because anything the browser decides, a
 // visitor can decide differently.
-//
-// Counting survives the navigation the first click causes: the count lives in
-// sessionStorage, and the second and third clicks are swallowed so the page
-// reloads once rather than three times.
 
-const KEY = "writing-nav-clicks";
-const WINDOW_MS = 900;
+const HOLD_MS = 750;
 
-function read() {
-  try {
-    const raw = sessionStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+const target = document.querySelector(".site-name a") || document.querySelector(".site-name");
+const host = document.querySelector(".site-name") || target?.parentElement;
+
+let hint = null;
+function ensureHint() {
+  if (hint) return hint;
+  hint = document.createElement("span");
+  hint.className = "hold-hint";
+  hint.textContent = "holding…";
+  hint.setAttribute("aria-hidden", "true");
+  if (host) host.appendChild(hint);
+  else document.body.appendChild(hint);
+  return hint;
+}
+function showHint() {
+  const h = ensureHint();
+  // next frame so transition runs
+  requestAnimationFrame(() => h.setAttribute("data-visible", ""));
+}
+function hideHint() {
+  if (hint) hint.removeAttribute("data-visible");
 }
 
-function write(value) {
-  try {
-    if (value) sessionStorage.setItem(KEY, JSON.stringify(value));
-    else sessionStorage.removeItem(KEY);
-  } catch {
-    /* no session storage: the gesture stops working, the link still works */
-  }
-}
+if (target) {
+  let timer = 0;
+  let holding = false;
+  let triggered = false;
 
-for (const link of document.querySelectorAll('a[href="/writing/"]')) {
-  link.addEventListener("click", (event) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  const clear = () => {
+    if (timer) window.clearTimeout(timer);
+    timer = 0;
+    target.removeAttribute("data-holding");
+    hideHint();
+  };
 
-    const now = Date.now();
-    const previous = read();
-    const count = previous && now - previous.at < WINDOW_MS ? previous.count + 1 : 1;
-
-    if (count >= 3) {
-      event.preventDefault();
-      write(null);
+  const start = (event) => {
+    // Only primary pointer, no modified click, and not while typing.
+    if (event.button !== undefined && event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    triggered = false;
+    holding = true;
+    target.setAttribute("data-holding", "");
+    showHint();
+    timer = window.setTimeout(() => {
+      triggered = true;
+      holding = false;
+      clear();
+      // Tiny feedback via existing toast system if present, otherwise just go.
+      try {
+        const toast = document.createElement("p");
+        toast.className = "sky-toast";
+        toast.setAttribute("data-visible", "");
+        toast.textContent = "editor → /admin";
+        document.body.appendChild(toast);
+        window.setTimeout(() => toast.remove(), 900);
+      } catch {}
       window.location.href = "/admin";
-      return;
-    }
+    }, HOLD_MS);
+  };
 
-    // The first click navigates as it always did. Only once a second click has
-    // arrived inside the window does the link stop behaving like a link.
-    if (count >= 2) event.preventDefault();
-    write({ count, at: now });
+  const cancel = () => {
+    if (!holding) return;
+    holding = false;
+    clear();
+  };
+
+  target.addEventListener("pointerdown", start);
+  target.addEventListener("pointerup", cancel);
+  target.addEventListener("pointerleave", cancel);
+  target.addEventListener("pointercancel", cancel);
+  target.addEventListener("lostpointercapture", cancel);
+
+  // If the hold fired, swallow the click that would have gone to "/".
+  target.addEventListener(
+    "click",
+    (event) => {
+      if (triggered) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        triggered = false;
+      }
+    },
+    true
+  );
+
+  // Keyboard alternative: holding Enter/Space on the focused name for the same duration.
+  target.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.repeat) return;
+    start(event);
+  });
+  target.addEventListener("keyup", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    cancel();
   });
 }
