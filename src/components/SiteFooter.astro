@@ -1,0 +1,33 @@
+---
+// The same footer that closes the homepage, reused inside PageLayout so a post
+// or the writing index doesn't end on empty paper. Links are absolute so they
+// work from /writing/ as well as from /. When includeJumps is true (homepage)
+// it also renders the hash-anchored work/projects links that the hero expects
+// on a single-page scroll — those are hidden on desktop via .footer-jump.
+const { id, includeJumps = false } = Astro.props;
+---
+<footer class="site-footer interior-footer" id={id}>
+  <div>
+    <p class="footer-name">ayaan retiwala</p>
+    <p>vadodara, india · remote</p>
+    <p class="footer-note">b.e. computer engineering, svit · 2018–2022</p>
+    <p class="footer-status">open to platform / infra roles</p>
+  </div>
+
+  <nav class="footer-links" aria-label="Contact">
+    {includeJumps && (
+      <>
+        <a class="footer-jump" href="#work">work</a>
+        <a class="footer-jump" href="#projects">projects</a>
+      </>
+    )}
+    <a href="/#work">work</a>
+    <a href="/#projects">projects</a>
+    <a href="/writing/">writing</a>
+    <a href="/ayaan-retiwala-resume.pdf">resume</a>
+    <a href="mailto:me@lolwierd.com">email</a>
+    <a href="https://github.com/lolwierd" rel="noreferrer">github</a>
+    <a href="https://linkedin.com/in/lolwierd" rel="noreferrer">linkedin</a>
+    <a href="/colophon/">colophon</a>
+  </nav>
+</footer>

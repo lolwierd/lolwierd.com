@@ -3,7 +3,38 @@
    to read on them. */
 
 .page {
+  position: relative;
   min-height: 100svh;
+  isolation: isolate;
+  background: var(--page);
+}
+
+/* Sparse paper grain for the reading pages. The hero gets its texture from the
+   live sky; interior pages are flat paper and read as unfinished without it.
+   Two offset grids at 32px and 37px — far enough apart to never read as a
+   pattern at a glance, but dense enough to give the eye something at rest. */
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.22;
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--ink-faint) 18%, transparent) 0.85px, transparent 0),
+    radial-gradient(circle at 2px 19px, color-mix(in srgb, var(--ink-faint) 14%, transparent) 0.75px, transparent 0);
+  background-size: 32px 32px, 37px 37px;
+  background-position: 0 0, 6px 11px;
+}
+
+:root[data-sky="night"] .page::before {
+  opacity: 0.14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-sky]) .page::before {
+    opacity: 0.14;
+  }
 }
 
 .page-frame {
@@ -13,6 +44,8 @@
     clamp(4rem, 9vw, 7rem);
 }
 
+/* Shared header already styles the link globally; interior keeps the override
+   specificity so a later tweak without touching global still wins. */
 .site-name a {
   color: inherit;
   text-decoration-color: transparent;
@@ -24,8 +57,15 @@
   text-decoration-color: color-mix(in srgb, var(--accent) 58%, transparent);
 }
 
+/* A single hairline under the masthead gives the interior that the hero gets
+   from the mountain's edge: a place where the header ends and the page begins. */
+.page .topbar {
+  padding-bottom: 1.15rem;
+  border-bottom: 1px solid var(--rule);
+}
+
 .page-body {
-  padding-top: clamp(2.5rem, 8vh, 5rem);
+  padding-top: clamp(2.75rem, 8vh, 5.5rem);
 }
 
 .page-title {
@@ -37,19 +77,13 @@
   text-wrap: balance;
 }
 
-/* The front page hides its masthead nav on a phone on purpose: the hero's own
-   "selected work" is the way in, and the footer carries the rest. An interior
-   page has neither, so hiding it there leaves the site name as the only link on
-   the screen. These pages keep the nav, set smaller. */
-@media (max-width: 620px) {
-  .page .hero-nav {
-    display: flex;
-    gap: 0.8rem;
-    font-size: 11px;
-  }
+.page-title + .writing-intro,
+.page-title + .colophon {
+  margin-top: 1.25rem;
+}
 
-  .page .topbar {
-    flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-  }
+.interior-footer {
+  margin-top: clamp(4rem, 8vw, 7rem);
+  padding-top: clamp(2.2rem, 4vw, 3rem);
+  border-top: 1px solid var(--rule);
 }

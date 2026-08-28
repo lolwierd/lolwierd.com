@@ -1,0 +1,24 @@
+---
+// One header, everywhere.
+//
+// The front page, the writing index, a post, the colophon and the 404 all render
+// the same markup so navigation never shifts between pages. Links are absolute
+// (/#work) so an anchor from /writing/ lands on the homepage rather than 404ing,
+// and the dock script is fed the same data-nav-dock hook on every page.
+---
+<div class="topbar">
+  <p class="site-name">
+    <a href="/">ayaan retiwala <span class="site-role">· platform engineer</span><span class="site-open"> · open to work</span></a>
+  </p>
+  <nav class="hero-nav" data-nav-dock aria-label="Site">
+    <a href="/#work">work</a>
+    <a href="/#projects">projects</a>
+    <a href="/writing/">writing</a>
+    <a class="nav-resume" href="/ayaan-retiwala-resume.pdf">resume</a>
+    <a href="/#contact">contact</a>
+  </nav>
+</div>
+
+<script>
+  import "../scripts/nav-dock.js";
+</script>

@@ -372,6 +372,19 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .site-name span { color: var(--ink-faint); }
 
+.site-name a {
+  color: inherit;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.23em;
+  transition: color 180ms ease, text-decoration-color 180ms ease;
+}
+
+.site-name a:hover {
+  color: var(--accent);
+  text-decoration-color: color-mix(in srgb, var(--accent) 58%, transparent);
+}
+
 .hero-nav {
   display: flex;
   gap: clamp(0.85rem, 1.8vw, 1.55rem);
@@ -736,6 +749,12 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.6;
 }
 
+.interior-footer {
+  margin-top: clamp(4rem, 8vw, 7rem);
+  padding-top: clamp(2.2rem, 4vw, 3rem);
+  border-top: 1px solid var(--rule);
+}
+
 .site-footer p { margin: 0; }
 
 .footer-name {
@@ -828,14 +847,20 @@ a { -webkit-tap-highlight-color: transparent; }
   }
 }
 
-/* On a phone the masthead is just the identity line. Four nav items in a wide
-   mono never fit, and a one-page site does not need a menu at the top of it:
-   the hero's own "selected work" is the way in, and everything else -- resume,
-   email, the rest -- is waiting at the end where it always was. Rather than
-   inventing a disclosure widget for four links, the header simply stops
-   carrying them. */
+/* The masthead is identical on every page and at every width, so the header
+   never swaps between a bare name on the hero and a full nav on a post. On a
+   narrow screen the bar wraps rather than dropping links -- the same wrapping
+   that interior pages already relied on, now everywhere at once. */
 @media (max-width: 620px) {
-  .hero-nav { display: none; }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 0.8rem 1.2rem;
+  }
+
+  .hero-nav {
+    gap: 0.85rem;
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 760px) {

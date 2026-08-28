@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "./BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
 import "../styles/interior.css";
 
 // The shell for every page that is not the front page.
@@ -15,24 +17,13 @@ const { title, description, noindex = false } = Astro.props;
 <BaseLayout title={title} description={description} noindex={noindex}>
   <div class="page">
     <div class="page-frame">
-      <div class="topbar">
-        <!-- Just the name here. The front page's masthead introduces him, which
-             is what a front page is for; repeating the job title at the top of
-             every post is a signature on someone else's letter. -->
-        <p class="site-name">
-          <a href="/">ayaan retiwala</a>
-        </p>
-        <nav class="hero-nav" aria-label="Site">
-          <a href="/#work">work</a>
-          <a href="/#projects">projects</a>
-          <a href="/writing/">writing</a>
-          <a href="/#contact">contact</a>
-        </nav>
-      </div>
+      <SiteHeader />
 
       <main class="page-body">
         <slot />
       </main>
+
+      <SiteFooter />
     </div>
   </div>
 </BaseLayout>

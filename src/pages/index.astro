@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
 ---
 
 <BaseLayout ambient>
@@ -7,16 +9,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <header class="hero" id="top">
     <div class="hero-frame">
-      <div class="topbar">
-        <p class="site-name">ayaan retiwala <span class="site-role">· platform engineer</span><span class="site-open"> · open to work</span></p>
-        <nav class="hero-nav" data-nav-dock aria-label="Page">
-          <a href="#work">work</a>
-          <a href="#projects">projects</a>
-          <a href="/writing/">writing</a>
-          <a class="nav-resume" href="/ayaan-retiwala-resume.pdf">resume</a>
-          <a href="#contact">contact</a>
-        </nav>
-      </div>
+      <SiteHeader />
 
       <div class="hero-copy">
         <h1>i build systems<br />from the machine up.</h1>
@@ -224,25 +217,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </div>
       </section>
 
-      <footer class="site-footer" id="contact">
-        <div>
-          <p class="footer-name">ayaan retiwala</p>
-          <p>vadodara, india · remote</p>
-          <p class="footer-note">b.e. computer engineering, svit · 2018–2022</p>
-          <p class="footer-status">open to platform / infra roles</p>
-        </div>
-
-        <nav class="footer-links" aria-label="Contact">
-          <a class="footer-jump" href="#work">work</a>
-          <a class="footer-jump" href="#projects">projects</a>
-          <a href="/writing/">writing</a>
-          <a href="/ayaan-retiwala-resume.pdf">resume</a>
-          <a href="mailto:me@lolwierd.com">email</a>
-          <a href="https://github.com/lolwierd" rel="noreferrer">github</a>
-          <a href="https://linkedin.com/in/lolwierd" rel="noreferrer">linkedin</a>
-          <a href="/colophon/">colophon</a>
-        </nav>
-      </footer>
+      <SiteFooter includeJumps id="contact" />
     </div>
   </main>
 </BaseLayout>

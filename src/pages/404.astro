@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
 import { getPosts, postUrl } from "../lib/writing.js";
 
 // Every page that actually exists, baked in at build time, so a near miss can be
@@ -21,17 +22,7 @@ const routes = ["/", "/writing/", "/colophon/", ...posts.map(postUrl)];
        that drifted. -->
   <header class="hero" id="top">
     <div class="hero-frame">
-      <div class="topbar">
-        <p class="site-name">
-          <a href="/">ayaan retiwala</a>
-        </p>
-        <nav class="hero-nav" data-nav-dock aria-label="Site">
-          <a href="/#work">work</a>
-          <a href="/#projects">projects</a>
-          <a href="/writing/">writing</a>
-          <a href="/#contact">contact</a>
-        </nav>
-      </div>
+      <SiteHeader />
 
       <div class="hero-copy">
         <h1>nothing at this path.</h1>
