@@ -1,14 +1,16 @@
 ---
 title: "One way to design a scalable DNS service"
-summary: "i started with one nameserver, got stuck on replication, and found that DNS already had most of the machinery i was trying to invent."
+summary: "all i wanted was for one name to return one IP. then i found the forty-year-old distributed system hiding underneath it."
 date: 2026-08-29
 tags: [tech, dns, architecture]
 draft: true
 ---
 
-Say I want to host `example.com`.
+All I wanted was for `api.example.com` to return an IP address.
 
-The first version is almost offensively small. I install Knot on a VM, write a zone file, open UDP and TCP port 53, and point the domain at it.
+One name, one number. This felt like the sort of problem which should be finished before lunch. DNS has had nearly forty years to make sure the interesting parts begin immediately after that.
+
+Still, the first version really does fit in one file. I install Knot on a VM, write a zone, open UDP and TCP port 53, and point the domain at it.
 
 ```text
 resolver -> authoritative server -> zone file
@@ -23,11 +25,11 @@ example.com.      3600  IN  NS   ns1.example.net.
 api.example.com.   300  IN  A    203.0.113.10
 ```
 
-then `dig api.example.com A` returns `203.0.113.10`.
+then `dig api.example.com A` returns `203.0.113.10`, and for a brief moment I have completed DNS.
 
 That is already a DNS service. It answers DNS correctly, even if it has no redundancy and is unpleasant for anybody else to use. Starting here matters because the shape of the query path is already good: Knot has the zone locally and can answer without waiting for another system.
 
-Before adding anything, it helps to understand what led the query to this VM.
+The moment is brief because even this tiny answer arrived through a system I do not control. Before adding anything, I need to understand what led the query to this VM.
 
 ## what happens before the query reaches us
 
@@ -35,7 +37,7 @@ An application usually does not walk the DNS tree itself. It asks a recursive re
 
 If the resolver has a valid cached answer, our authoritative server sees nothing. It returns the cached record immediately. The record's TTL controls how long that answer may stay in the cache.
 
-On a cache miss, the resolver starts following referrals. Very roughly:
+On a cache miss, the resolver starts a small scavenger hunt through referrals. Very roughly:
 
 ```text
 application
@@ -54,7 +56,7 @@ The parent zone contains NS records delegating `example.com` to its authoritativ
 
 The recursive resolver is not part of the service I am building here. Our public servers are authoritative only. Mixing recursion into them would add an unrelated cache, more attack surface and a second job with very different scaling behavior.
 
-This resolver, authority and zone distinction is laid out in [RFC 1034](https://www.rfc-editor.org/rfc/rfc1034.html). The message format and record encoding live in [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.html). They are old documents, but the basic design is still recognizable: resolvers chase referrals and cache answers; authoritative servers answer from their zones.
+This resolver, authority and zone distinction is laid out in [RFC 1034](https://www.rfc-editor.org/rfc/rfc1034.html). The message format and record encoding live in [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035.html). Both were published in 1987, before Linux existed, and the basic design is still recognizable: resolvers chase referrals and cache answers; authoritative servers answer from their zones.
 
 The caching has an important consequence for our design. Changing a record does not instantly change every answer on the internet. Old answers can remain in recursive caches until their TTL expires. Our job is narrower: get a new, coherent version of the zone onto every authoritative server quickly, answer correctly from then on and make the delay visible.
 
@@ -89,7 +91,7 @@ user -> API -> Postgres
 
 I still need to turn those rows into DNS answers.
 
-The shortest path is to write an authoritative server in Go. When it receives a question, it parses the name and type, looks up the RRset in Postgres and writes a DNS response.
+The shortest path is to write an authoritative server in Go. When it receives a question, it parses the name and type, looks up the RRset in Postgres and writes a DNS response. The architecture diagram is beautifully direct.
 
 I liked this for about five minutes.
 
@@ -103,11 +105,11 @@ I could add a cache inside the Go server. Then I need cache invalidation, persis
 
 This was the point where I got stuck. I wanted Postgres to remain the source of truth, but I did not want Postgres anywhere near a normal DNS query. Copying every change into Knot through an internal API was possible, though it created another distributed write: commit the database, update Knot, decide what success means if one finishes and the other does not.
 
-So I went into research mode.
+So I went into research mode, by which I mean I opened enough tabs to lose the one containing my code.
 
 The useful sentence was sitting in RFC 1034: authoritative information is organized into zones, and those zones can be automatically distributed to the nameservers which provide redundant service for them.
 
-DNS already has a replication protocol.
+I had been treating DNS as the packet format at the end of my system. The RFC treated it as a distributed database which already knew it needed redundant copies.
 
 Actually, it has a few cooperating mechanisms: the SOA serial tells a secondary whether its copy is old, AXFR copies a complete zone, IXFR can copy only the changes, and NOTIFY tells secondaries that they should check now instead of waiting for their next timer.
 
@@ -115,7 +117,7 @@ That was the missing part of the design.
 
 ## the SOA record is a version and a set of timers
 
-Every zone has one Start of Authority record. The example above is easier to read with names:
+Every zone has one Start of Authority record. The example above is easier to read after removing the syntax which makes it look like an incantation:
 
 ```text
 primary:  ns1.example.net.
@@ -126,6 +128,8 @@ retry:    600
 expire:   1209600
 minimum:  300
 ```
+
+The contact field is an email address wearing a DNS costume. `hostmaster.example.com.` means `hostmaster@example.com`; the first dot stands in for `@` because naturally we needed one extra thing to remember.
 
 The serial is a 32-bit version number for the whole zone. Every accepted group of changes increments it. A secondary asks the primary for the SOA, compares the returned serial with the one it has and starts a transfer if the primary is newer.
 
@@ -143,7 +147,7 @@ Postgres can now store desired serial `1042`, while every authoritative server r
 
 ## AXFR is the full copy
 
-[AXFR](https://www.rfc-editor.org/rfc/rfc5936.html) is an authoritative zone transfer. The secondary asks for a zone and the primary sends the complete set of resource records.
+[AXFR](https://www.rfc-editor.org/rfc/rfc5936.html) is the "send me the whole thing" transfer. The secondary asks for a zone and the primary sends every resource record in it.
 
 The response begins with the zone's SOA record and ends with the same SOA. Everything between them is the zone. A large transfer spans multiple DNS messages over a TCP connection.
 
@@ -163,7 +167,7 @@ AXFR is wonderfully simple and wasteful. Change one `A` record in a large zone a
 
 ## IXFR sends the history between two serials
 
-Once full transfers become expensive, [IXFR](https://www.rfc-editor.org/rfc/rfc1995.html) gives the secondary a smaller request.
+Once full transfers become expensive, [IXFR](https://www.rfc-editor.org/rfc/rfc1995.html) lets the secondary say, in effect, "I already have 1041. Please only send what turns it into 1042."
 
 The secondary includes the SOA for the version it already has. If it has serial `1041` and the primary has `1042`, the primary can return the records deleted and added between those versions.
 
@@ -186,7 +190,7 @@ The SOA refresh timer is enough for eventual convergence, but a one-hour refresh
 
 Setting the refresh timer to five seconds would make publication faster and make every secondary query the primary constantly, including during the weeks where no records change.
 
-[DNS NOTIFY](https://www.rfc-editor.org/rfc/rfc1996.html) fixes this without turning the timer into polling abuse. When a zone changes, the primary sends a small NOTIFY message to its secondaries. The message is a prompt, not the new zone data. A secondary still performs the normal SOA check and pulls through IXFR or AXFR.
+[DNS NOTIFY](https://www.rfc-editor.org/rfc/rfc1996.html) fixes this without turning the timer into polling abuse. When a zone changes, the primary taps its secondaries on the shoulder with a small NOTIFY message. It does not shove the new records at them. A secondary still performs the normal SOA check and pulls through IXFR or AXFR.
 
 ```text
 record change commits at serial 1042
@@ -203,7 +207,7 @@ secondary pulls IXFR or AXFR
 
 If the NOTIFY gets lost, the normal refresh timer repairs it later. If the same NOTIFY arrives twice, comparing the serial makes the second one cheap. The fast path improves latency; the slow path keeps the system convergent.
 
-I like systems with both.
+The notification makes the common case fast. The timer quietly assumes the notification will eventually go missing, because packets do that. I like this arrangement a lot.
 
 ## the primary should not be public
 
@@ -230,7 +234,7 @@ public queries:
 resolver -> Knot secondary -> local zone
 ```
 
-The hidden primary is not listed in the public delegation. Ordinary resolvers have no reason to know it exists. It can live on a private network and only accept transfer traffic from the authoritative fleet.
+The hidden primary is not listed in the public delegation. Ordinary resolvers have no reason to know it exists. It can sit on a private network, speaking old DNS replication protocols to a small group of machines which know the secret knock.
 
 Now stop Postgres and ask for `api.example.com` again. Existing records continue to answer because Knot already has serial `1042` locally. New changes cannot publish until the control plane and hidden primary recover, but a control-plane outage is no longer immediately a DNS outage.
 
@@ -240,7 +244,7 @@ Zone transfers also need authentication. An open AXFR endpoint can hand the enti
 
 [TSIG](https://www.rfc-editor.org/rfc/rfc8945.html) adds a message authentication code using a shared secret. It authenticates the two DNS peers and detects modification of messages in transit. I would issue a separate key per zone or per narrowly scoped relationship so one leaked secret does not authorize the whole service.
 
-TSIG is not encryption, and it is not DNSSEC. It protects a transfer between systems which already share a secret. DNSSEC lets resolvers validate the origin and integrity of public DNS data. Those are different jobs.
+TSIG is not encryption, and it is not DNSSEC. Anybody watching the connection can still see the zone data. TSIG lets two systems which share a secret detect an impostor or a modified message. DNSSEC lets resolvers validate public DNS answers. Same general neighborhood, very different jobs.
 
 One public secondary still leaves one public failure.
 
@@ -266,7 +270,7 @@ I would keep it until the costs become real.
 
 Eventually a new authoritative server may need hours to transfer every zone before it is useful. A customer receiving absurd query traffic shares the same serving fleet with every quiet zone. One bad deployment or network incident has the largest possible blast radius because every zone lives on the same set.
 
-Now a scheduler has earned a place.
+Now a scheduler has finally earned its rent.
 
 Instead of putting every zone everywhere, assign each zone to a small stable serving set. A serving cell is a logical authoritative identity with its own capacity and failure domain. It may begin as one Knot process behind one unicast address. Later, the same identity can have multiple replicas or multiple anycast sites behind it.
 
@@ -314,7 +318,7 @@ The API updates `api.example.com`, commits desired serial `1042` and returns suc
 
 Cell 2 loads `1042`. Cell 7 loads it too. Cell 9 is still serving `1041`.
 
-Did the update work?
+Did the update work? Postgres and cell 9 have produced two equally confident answers.
 
 The database says yes because it answered a different question. It knows the requested state was accepted. It does not know what an internet resolver can receive right now.
 
@@ -381,7 +385,7 @@ Adding processes behind one load balancer gives more CPU but not geographic reac
 
 The next step is usually to keep the nameserver identity stable and advertise its service address from multiple sites with anycast. Internet routing sends a resolver toward one of the available sites. [RFC 4786](https://www.rfc-editor.org/rfc/rfc4786.html) explains the operational model and its failure modes; [RFC 9199](https://www.rfc-editor.org/rfc/rfc9199.html) discusses the choices available to large authoritative DNS operators.
 
-Anycast makes monitoring harder. A probe in Mumbai and a probe in Frankfurt may reach different instances of the same IP, so both need to exist. Withdrawal behavior, route leaks and partial reachability become DNS problems even when every Knot process is healthy.
+Anycast makes monitoring weird. A probe in Mumbai and a probe in Frankfurt may reach different machines at the same IP address, and both are telling the truth. Withdrawal behavior, route leaks and partial reachability become DNS problems even when every Knot process is sitting there feeling perfectly healthy.
 
 ### one customer becomes everybody's incident
 
@@ -409,7 +413,9 @@ That deserves a separate design. Signing can sit in the publication path before 
 
 ## back to one query
 
-After all of this, a resolver asking for `api.example.com` still reaches an authoritative server which answers from a local zone.
+After all of this, a resolver asks the same small question we started with: what is the address of `api.example.com`?
+
+It still reaches an authoritative server which answers from a local zone.
 
 The scheduler may be restarting. The queue may be behind. Postgres may be unavailable. A hidden primary may be handling a transfer storm. Existing records should continue answering.
 
