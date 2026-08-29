@@ -6,29 +6,19 @@ tags: [tech, architecture]
 draft: true
 ---
 
-I used to look at a simple design and immediately start fixing all the problems it would have after becoming wildly successful.
+I used to think good system design meant getting as close as possible to the final design on the first try.
 
-One worker?
+Of course the first version would have fewer machines and less traffic, but the architecture should already know what it wanted to become. If we might need a queue later, why not add it now? If a service might need to run across regions, design the distributed version now. Anything less felt like debt we were knowingly creating.
 
-What happens when we need twenty?
-
-Polling Postgres?
-
-What happens when the database falls over from all the reads?
-
-One region???
-
-The system had no users.
-
-This did not matter to me.
+This is a very satisfying way to design software. You get to solve the interesting problems before the boring one of having users. The diagrams look serious. Every box has an answer for the day the company becomes enormous.
 
 I wanted to design the theoretically perfect version. The first deployment could be small, sure, but the architecture should already know how it was going to become massive. Anything less felt like debt we were knowingly creating.
 
 Then I spent a few years building a cloud. I was soo naive.
 
-## 1 thing I love 2 do is overdo
+## i kept starting at the end
 
-When I joined Excloud, I did not know how to build a cloud. For the first year I worked closely with Arjun and he reviewed basically everything I built.
+When I joined Excloud, I did not know how to even think about building. For the first year I worked closely with Arjun and i learnt a lot.
 
 I would come into those reviews with the big version already in my head. More services, more abstractions, some distributed problem we definitely did not have yet. Arjun would keep dragging the discussion back to what the system had to do now.
 
