@@ -18,7 +18,7 @@ Then I spent a few years building a cloud. I was soo naive.
 
 ## i kept starting at the end
 
-When I joined Excloud, I did not know how to even think about building. For the first year I worked closely with Arjun and i learnt a lot.
+When I joined Excloud, I did not know how to even think about design. The first year I worked closely with Arjun, i learnt a lot.
 
 I would come into those reviews with the big version already in my head. More services, more abstractions, some distributed problem we definitely did not have yet. Arjun would keep dragging the discussion back to what the system had to do now.
 
@@ -33,8 +33,6 @@ What happens if this worker crashes halfway through? What state survives? Can we
 We wanted answers to those questions.
 
 We just did not need to deploy all the answers.
-
-This difference sounds tiny. It is basically the entire thing.
 
 ## Postgres and a loop. Again.
 
