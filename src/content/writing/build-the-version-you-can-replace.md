@@ -1,105 +1,105 @@
 ---
-title: "Build the version you can replace"
-summary: "i kept treating simple parts as unfinished architecture. most of them were just waiting for a real reason to change."
-date: 2026-08-28
+title: "Leave yourself somewhere to go"
+summary: "good design solves today's problem without pretending tomorrow will look exactly like it."
+date: 2026-08-29
 tags: [tech, architecture]
 draft: true
 ---
 
-While writing about how I would build a DNS service, I kept finding things which would not scale forever.
+I used to think good system design meant getting as close as possible to the final design on the first try.
 
-The scheduler picks the nameservers with the fewest zones, which ignores actual query traffic. Publication polls Postgres. The hidden primary is one process and enough zone transfers will eventually need more of them.
+Of course the first version would have fewer machines and less traffic, but the architecture should already know what it wanted to become. If we might need a queue later, why not start with one? If a service might need to run across regions, design the distributed version now. Anything less felt like debt we were knowingly creating.
 
-I wrote all of this down as problems with the design. Then I read it back and it bothered me.
+This is a very satisfying way to design software. You get to solve the interesting problems before the boring one of having users. The diagrams look serious. Every box has an answer for the day the company becomes enormous.
 
-Of course one process will not scale forever. That does not make it the wrong first process. Each part had an obvious replacement and, more importantly, replacing it did not require replacing the DNS query path with it.
+Then I spent a few years building a cloud.
 
-I was judging the first version for not already being the fifth.
+## i kept starting at the end
 
-I have done this before.
+When I joined Excloud, back when it was VaultCI, I did not know Go and definitely did not know how to build a cloud. For the first year I worked closely with Arjun and he reviewed basically everything I built.
 
-## i wanted the theoretically perfect system
+I would come into those reviews having thought through the theoretically correct version. Usually this involved more services, more abstractions and some distributed problem we did not have yet. Arjun would keep pulling the discussion back to what the system had to do now.
 
-When I joined Excloud, back when it was VaultCI, I applied for frontend and did frontend for maybe two days. Then Arjun explained that he wanted to build the compute platform on Firecracker. I had run some Firecracker experiments on an Oracle VM, said I was interested, and somehow ended up giving it a shot.
+Not "hack it together and worry later." We still had to know what happened after a crash, who owned the state and what a successful operation actually meant. But we did not have to deploy the answer to every future scale problem along with the first answer.
 
-I did not know Go. I definitely did not know how to design a cloud.
+A lot of what we built was Postgres and reconciliation loops.
 
-For the first year I worked very closely with Arjun and he reviewed basically everything I built. I came in wanting to design the theoretically perfect system. If a thing might become distributed one day, I wanted to solve the distributed version now. It felt more correct. Also way more fun.
+The desired state lived in a table. A worker looked at what should exist, compared it with what actually existed and fixed the difference. If it crashed halfway through, the next pass looked at the state again. There was no need to reconstruct the world from twelve events and guess which one had been processed before the crash.
 
-A lot of the architecture we actually built was Postgres state and reconciliation loops.
+It looked almost disappointingly simple. It also kept working.
 
-That sounded almost too simple to me at first. Put the state in a table. Have a worker repeatedly compare what should exist with what actually exists. Fix the difference. Repeat.
+Over time, I noticed that the systems which were easiest to improve were rarely the ones with the most extension points. They were the ones where the first version had a small job and owned it clearly.
 
-No grand event system. No scheduler which understood every future constraint. Sometimes not even another service, just a package with a loop and a clear bit of state it owned.
+## simple is not the same as boxed in
 
-But it shipped, and when the loop failed halfway through something, the next pass could look at the full state and try again. I started appreciating that a lot.
+We used this pattern in a bunch of places: an API stored some desired state and a worker applied it somewhere else.
 
-## postgres and a loop
+The small version can poll the database every few seconds. This is not very clever. It repeats reads when nothing changed and adds up to a few seconds of latency. At enough scale, the polling itself might become a problem.
 
-Take the DNS publication path.
+It can still be a good design.
 
-An API changes a record in Postgres and bumps the zone's SOA serial. A reconciler notices the new desired state and gets it onto the authoritative nameservers.
+The database owns desired state. The target system owns actual state. The worker moves one toward the other. If those facts are clear, the polling is just how the worker wakes up.
 
-The dumb version polls every few seconds.
+When polling becomes expensive, add an outbox beside the database write and wake workers through a queue. Keep a slower reconciliation pass to repair missed events. If one worker cannot keep up, partition the work. None of this requires changing what the API promises or what the target system stores.
 
-```text
-desired state in Postgres
-          |
-          v
-      reconciler
-          |
-          v
-authoritative serving state
-```
+We did not have to predict the final mechanism. We had to stop the mechanism from becoming the meaning of the system.
 
-There are many ways to make this more impressive. I could put every mutation through an event bus, partition the consumers by zone and build retries and replay before the first customer has changed a record.
+There is a bad version of "we can add a queue later" too. The API writes half the state, calls two other services, returns success somewhere in the middle and has no durable record of what remains to be done. Adding a queue to that later will not fix the design. It will distribute the confusion.
 
-Or poll the table.
+The queue is not what separates these designs. One has a durable fact to reconcile toward. The other has an operation spread across several places with no component holding the whole answer.
 
-Polling repeats work and adds a few seconds of latency. It also has a nice property: the database contains the complete answer. If a worker crashes after writing one file out of three, the next pass does not need to reconstruct what happened from a chain of events. It compares desired and actual state again.
+## some decisions really are expensive
 
-This only stays a good decision because the loop is not welded to everything around it. The API owns desired state. The nameserver owns serving state. The reconciler moves one toward the other.
+"We can change it later" is also not equally true for every decision.
 
-If polling eventually becomes expensive, put a transactional outbox beside the state update and feed queue workers from it. Keep the full reconciliation loop at a slower interval for repairs.
+Changing how a worker wakes up is usually local. Changing what `deleted` means after three services, a CLI and customers have learned the old meaning is not. The same goes for resource identity, ownership, consistency guarantees and public APIs. Those decisions leak into stored data and other people's code.
 
-The nameserver does not care whether a poller or queue worker noticed serial `1042`. The API does not care which one published it. That is the bit I was missing when I thought "simple" meant temporary.
+This is where I now want to spend the design time I used to spend choosing infrastructure. What fact is durable? Can two things both own it? What does the caller know when we return success? If the operation stops halfway through, is there enough information left to finish it?
 
-The poller is replaceable without being fake.
+The implementation can be small without being casual about those answers. In fact, a small implementation makes them easier to see. There are fewer moving parts available to hide a confused model.
 
-## okay, but when do we replace it?
+## extensible does not mean abstract
 
-This is where "we can improve it later" usually gets a bit hand-wavy.
+I also used to confuse extensibility with abstraction.
 
-Later when?
+If something might have two implementations one day, I wanted an interface today. If we might support another backend, I wanted a plugin system. Configuration accumulated switches for futures nobody had agreed to build.
 
-If the API commits serial `1042`, but one nameserver is still serving `1041`, I need to know that. Every serving cluster should report the serial it actually loaded, and something outside the cluster should query the real DNS address to verify it.
+Most of those extension points were guesses, and guesses age badly. The second implementation eventually arrives with a requirement the first interface made impossible, so the abstraction either leaks or gets replaced. We paid for the flexibility early and still had to redesign it later.
 
-```text
-example.com. desired: 1042
+The flexibility which turned out to matter was less visible. Durable state could be inspected after something failed. Operations were safe to try again. Background work did not have to finish before the API could do anything useful. Most importantly, it was clear which part was allowed to change which state.
 
-cluster 2  applied: 1042
-cluster 7  applied: 1042
-cluster 9  applied: 1041
-```
+This does not require a repository per concern or an interface in front of every function. A boundary can be a package, a table and a rule about who is allowed to write it. Splitting it into a network service before that buys us anything mostly gives the failure a longer route.
 
-Now "the poller is fine" is something we can check. We can measure how long publication takes, how often a cluster falls behind and how much load those reconciliation queries put on Postgres.
+This sounds obvious written down. It did not feel obvious while I was deleting an interface I had spent an afternoon making beautifully generic.
 
-If almost every change publishes quickly and Postgres barely notices, adding Kafka has not solved a problem. It has moved the same path into a system with more nouns.
+## "later" needs evidence
 
-If the pollers are hammering the database or the interval is holding latency back, okay. The queue has finally earned its existence.
+There is one obvious hole in this philosophy. Teams say "we will fix it when we hit scale" all the time, then discover they have no idea whether they are near it.
 
-The same measurements can eventually improve the scheduler too, but that is a separate problem and the DNS post already has enough scheduler in it.
+Knowing a design's likely failure mode is part of the design.
 
-The mistake would be having no applied serials, no publication timings and no idea whether polling is hurting anything, then replacing it because the architecture diagram looked insufficiently distributed.
+If we expect a poller to become too expensive, measure its database load and how long work waits to be noticed. If one scheduler might become a bottleneck, measure whether work is piling up. Every shortcut has some condition under which it is no longer acceptable, and that condition should show up somewhere we can see it.
 
-I have absolutely been attracted to that diagram.
+Then the boring version gets to stay while it is boring. We replace it when a limit shows up in the system, not when somebody feels embarrassed by the architecture diagram.
 
-This does not require an interface in front of every function. The useful boundary here exists because desired state, publication and serving fail differently. Inside each part, normal code is fine. A boundary can begin as a package and a table instead of another repository, network call and Kubernetes deployment.
+This is also why observability cannot be postponed until the scalable version. Without it, "simple for now" is just hope. With it, we know which assumption is failing and can change that part instead of redesigning the entire system from vibes.
 
-I care much more about what a successful write means, which component owns the state and whether serving continues during a control-plane outage. The first queue library does not deserve the same emotional investment.
+Sometimes the result is mildly funny. You add the metric which will justify replacing a crude component, watch it for two years and learn that the component is fine. The supposedly temporary Postgres query is not hurting anything. The single worker has most of its day free. The scale problem never arrives in the form you expected.
 
-So I went back to the DNS post and stopped describing the polling reconciler as failed queue infrastructure. It works, and there is somewhere clear to go if it stops working.
+Good. Nothing is awarded for correctly predicting a bottleneck which never happened.
 
-Some of them might never stop working.
+## what i look for now
 
-Good. We probably had other shit to build.
+I no longer think the first version should resemble the final version. Usually we do not know what the final version is, and pretending otherwise just encodes today's guesses more deeply.
+
+The first version should be complete for the problem in front of it. Its important state needs to survive a crash, and I should be able to tell when one of its shortcuts is becoming a problem. Most of all, changing that shortcut should not change the contract of everything around it.
+
+Database polling may become a queue. One worker may eventually become a sharded pool. An in-process package might earn its own service once it genuinely needs to scale or fail independently. I am fine with all of that. I just do not want to pay for it before it has a job.
+
+This is harder than blindly choosing the simplest implementation, because some simple implementations close every exit behind them. It is also harder than designing the enormous version immediately, because we have to admit that we do not know which enormous version we will need.
+
+I still like clever architecture. I have not developed immunity to a nice distributed systems diagram. I am just much less willing to build one as a prediction.
+
+Build the smallest version which is actually correct. Know where you have taken shortcuts and instrument the assumptions behind them. If the boundaries are in the right places, scale usually asks you to replace one boring part with a more serious one.
+
+And sometimes it never asks. The crude worker keeps waking up, finding a little work and going back to sleep. That is not an unfinished system. It is a problem we got to stop thinking about.
