@@ -1,6 +1,6 @@
 ---
 title: "Simple is good, Simple is fast."
-summary: "how I think about good design"
+summary: "how I think about good (practical) design"
 date: 2026-08-29
 tags: [tech, architecture]
 draft: true
