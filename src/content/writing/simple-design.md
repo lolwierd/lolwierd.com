@@ -8,11 +8,11 @@ draft: true
 
 I used to think good system design meant getting as close as possible to the final design on the first try.
 
-Of course the first version would have fewer machines and less traffic, but the architecture should already know what it wanted to become. If we might need a queue later, why not start with one? If a service might need to run across regions, design the distributed version now. Anything less felt like debt we were knowingly creating.
+Of course the first version would have fewer machines and less traffic, but the architecture should already know what it wanted to become. If we might need a queue later, why not add it now? If a service might need to run across regions, design the distributed version now. Anything less felt like debt we were knowingly creating.
 
 This is a very satisfying way to design software. You get to solve the interesting problems before the boring one of having users. The diagrams look serious. Every box has an answer for the day the company becomes enormous.
 
-Then I spent a few years building a cloud.
+Then I spent a few years building a cloud. I was soo naive.
 
 ## i kept starting at the end
 
