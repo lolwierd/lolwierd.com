@@ -6,100 +6,158 @@ tags: [tech, architecture]
 draft: true
 ---
 
-I used to think good system design meant getting as close as possible to the final design on the first try.
+I used to look at a simple design and immediately start fixing all the problems it would have after becoming wildly successful.
 
-Of course the first version would have fewer machines and less traffic, but the architecture should already know what it wanted to become. If we might need a queue later, why not add it now? If a service might need to run across regions, design the distributed version now. Anything less felt like debt we were knowingly creating.
+One worker?
 
-This is a very satisfying way to design software. You get to solve the interesting problems before the boring one of having users. The diagrams look serious. Every box has an answer for the day the company becomes enormous.
+What happens when we need twenty?
+
+Polling Postgres?
+
+What happens when the database falls over from all the reads?
+
+One region???
+
+The system had no users.
+
+This did not matter to me.
+
+I wanted to design the theoretically perfect version. The first deployment could be small, sure, but the architecture should already know how it was going to become massive. Anything less felt like debt we were knowingly creating.
 
 Then I spent a few years building a cloud. I was soo naive.
 
-## i kept starting at the end
+## 1 thing I love 2 do is overdo
 
 When I joined Excloud, I did not know how to build a cloud. For the first year I worked closely with Arjun and he reviewed basically everything I built.
 
-I would come into those reviews having thought through the theoretically correct version. Usually this involved more services, more abstractions and some distributed problem we did not have yet. Arjun would keep pulling the discussion back to what the system had to do now.
+I would come into those reviews with the big version already in my head. More services, more abstractions, some distributed problem we definitely did not have yet. Arjun would keep dragging the discussion back to what the system had to do now.
 
-Not "hack it together and worry later." We still had to know what happened after a crash, who owned the state and what a successful operation actually meant. But we did not have to deploy the answer to every future scale problem along with the first answer.
+At first I took this as: keep it simple, do not think too much, we will fix it later.
 
-A lot of what we built was Postgres and reconciliation loops.
+That was not what he meant.
 
-The desired state lived in a table. A worker looked at what should exist, compared it with what actually existed and fixed the difference. If it crashed halfway through, the next pass looked at the state again. There was no need to reconstruct the world from twelve events and guess which one had been processed before the crash.
+We spent a loooot of time talking about later.
 
-It looked almost disappointingly simple. It also kept working.
+What happens if this worker crashes halfway through? What state survives? Can we run two of these or will they fight over the same resource? If polling becomes too expensive, where does the queue go? If this package becomes a service, does the rest of the codebase have to change with it?
 
-Over time, I noticed that the systems which were easiest to improve were rarely the ones with the most extension points. They were the ones where the first version had a small job and owned it clearly.
+We wanted answers to those questions.
 
-## simple is not the same as boxed in
+We just did not need to deploy all the answers.
 
-We used this pattern in a bunch of places: an API stored some desired state and a worker applied it somewhere else.
+This difference sounds tiny. It is basically the entire thing.
 
-The small version can poll the database every few seconds. This is not very clever. It repeats reads when nothing changed and adds up to a few seconds of latency. At enough scale, the polling itself might become a problem.
+## Postgres and a loop. Again.
 
-It can still be a good design.
+A lot of what we built was desired state in Postgres and a reconciliation loop.
 
-The database owns desired state. The target system owns actual state. The worker moves one toward the other. If those facts are clear, the polling is just how the worker wakes up.
+```text
+desired state in Postgres
+          |
+          v
+      reconciler
+          |
+          v
+       reality
+```
 
-When polling becomes expensive, add an outbox beside the database write and wake workers through a queue. Keep a slower reconciliation pass to repair missed events. If one worker cannot keep up, partition the work. None of this requires changing what the API promises or what the target system stores.
+The API says what should exist. A worker looks at what actually exists and fixes the difference. If it crashes after doing half the work, the next pass reads the state and tries again.
 
-We did not have to predict the final mechanism. We had to stop the mechanism from becoming the meaning of the system.
+The first worker can poll every few seconds.
 
-There is a bad version of "we can add a queue later" too. The API writes half the state, calls two other services, returns success somewhere in the middle and has no durable record of what remains to be done. Adding a queue to that later will not fix the design. It will distribute the confusion.
+Very impressive.
 
-The queue is not what separates these designs. One has a durable fact to reconcile toward. The other has an operation spread across several places with no component holding the whole answer.
+Ofc we knew polling had problems. Enough pollers would keep reading the same tables even when nothing changed. A long interval meant more latency. A short interval meant more useless database load. One worker would eventually run out of throughput.
 
-## some decisions really are expensive
+But those were future problems.
 
-"We can change it later" is also not equally true for every decision.
+The problem we had right then was making the operation survive a crash. So desired state had to be durable, and reconciliation had to be safe to run again. That part was not optional.
 
-Changing how a worker wakes up is usually local. Changing what `deleted` means after three services, a CLI and customers have learned the old meaning is not. The same goes for resource identity, ownership, consistency guarantees and public APIs. Those decisions leak into stored data and other people's code.
+Kafka was optional.
 
-This is where I now want to spend the design time I used to spend choosing infrastructure. What fact is durable? Can two things both own it? What does the caller know when we return success? If the operation stops halfway through, is there enough information left to finish it?
+Later, if polling starts hurting, the transaction which changes desired state can also write an outbox event. Queue workers can wake up from those events. Keep a slow full reconciliation pass running in the background because queues are not magic and missed events are a thing.
 
-The implementation can be small without being casual about those answers. In fact, a small implementation makes them easier to see. There are fewer moving parts available to hide a confused model.
+If one worker stops being enough, split work by a stable resource ID and let workers claim partitions or leases.
 
-## extensible does not mean abstract
+The resource does not change because twenty workers exist now. The API does not change because the worker learned a new way to wake up. Postgres still contains the answer to what should exist.
 
-I also used to confuse extensibility with abstraction.
+That is why the simple version can grow. We had already thought about how it would fail, and that changed where we put the boundaries.
 
-If something might have two implementations one day, I wanted an interface today. If we might support another backend, I wanted a plugin system. Configuration accumulated switches for futures nobody had agreed to build.
+We did not build the future solution.
 
-Most of those extension points were guesses, and guesses age badly. The second implementation eventually arrives with a requirement the first interface made impossible, so the abstraction either leaks or gets replaced. We paid for the flexibility early and still had to redesign it later.
+We made sure the future problem had somewhere to be solved.
 
-The flexibility which turned out to matter was less visible. Durable state could be inspected after something failed. Operations were safe to try again. Background work did not have to finish before the API could do anything useful. Most importantly, it was clear which part was allowed to change which state.
+## Simple can be very very stupid
 
-This does not require a repository per concern or an interface in front of every function. A boundary can be a package, a table and a rule about who is allowed to write it. Splitting it into a network service before that buys us anything mostly gives the failure a longer route.
+There is another version of this which people also call simple.
 
-This sounds obvious written down. It did not feel obvious while I was deleting an interface I had spent an afternoon making beautifully generic.
+The API writes some state, calls two services, gets halfway through the second call and times out. It returns an error. Maybe the resource exists. Maybe it exists twice. Maybe the first service thinks it owns it and the second service has never heard of it.
 
-## "later" needs evidence
+Nothing records what should happen next.
 
-There is one obvious hole in this philosophy. Teams say "we will fix it when we hit scale" all the time, then discover they have no idea whether they are near it.
+But hey, no background workers. Very clean diagram.
 
-Knowing a design's likely failure mode is part of the design.
+"We can add a queue later" does not help here. What event are we putting in it? Which state is correct? Can the consumer safely retry the operation? Nobody knows. The queue will move the confusion around faster.
 
-If we expect a poller to become too expensive, measure its database load and how long work waits to be noticed. If one scheduler might become a bottleneck, measure whether work is piling up. Every shortcut has some condition under which it is no longer acceptable, and that condition should show up somewhere we can see it.
+This design is small. It is not simple.
 
-Then the boring version gets to stay while it is boring. We replace it when a limit shows up in the system, not when somebody feels embarrassed by the architecture diagram.
+A good simple design is still annoyingly precise about some things. Who owns the state? What does success mean? What remains after a crash? Can an operation run twice without making two resources?
 
-This is also why observability cannot be postponed until the scalable version. Without it, "simple for now" is just hope. With it, we know which assumption is failing and can change that part instead of redesigning the entire system from vibes.
+These decisions get into everything.
 
-Sometimes the result is mildly funny. You add the metric which will justify replacing a crude component, watch it for two years and learn that the component is fine. The supposedly temporary Postgres query is not hurting anything. The single worker has most of its day free. The scale problem never arrives in the form you expected.
+Changing polling into events is local. Changing what `deleted` means after three services, a CLI and customers depend on the old meaning is not. Resource identity, ownership, consistency guarantees and public APIs are all very hard to "fix later".
 
-Good. Nothing is awarded for correctly predicting a bottleneck which never happened.
+That is where I would rather spend the design time now.
 
-## what i look for now
+Not on picking the queue we might use in two years.
 
-I no longer think the first version should resemble the final version. Usually we do not know what the final version is, and pretending otherwise just encodes today's guesses more deeply.
+## I draw the next version
 
-The first version should be complete for the problem in front of it. Its important state needs to survive a crash, and I should be able to tell when one of its shortcuts is becoming a problem. Most of all, changing that shortcut should not change the contract of everything around it.
+The thing I do now is design one or two steps past what I actually intend to build.
 
-Database polling may become a queue. One worker may eventually become a sharded pool. An in-process package might earn its own service once it genuinely needs to scale or fail independently. I am fine with all of that. I just do not want to pay for it before it has a job.
+If the first version has one worker, I sketch how two workers would divide ownership.
 
-This is harder than blindly choosing the simplest implementation, because some simple implementations close every exit behind them. It is also harder than designing the enormous version immediately, because we have to admit that we do not know which enormous version we will need.
+If it polls, where would an outbox event be committed?
 
-I still like clever architecture. I have not developed immunity to a nice distributed systems diagram. I am just much less willing to build one as a prediction.
+If it runs in one region, which state becomes painful to move?
 
-Build the smallest version which is actually correct. Know where you have taken shortcuts and instrument the assumptions behind them. If the boundaries are in the right places, scale usually asks you to replace one boring part with a more serious one.
+Sometimes this immediately exposes a bad foundation. The second worker needs a completely different resource model. Adding a queue requires changing what the API promises. Moving regions breaks every identifier because somebody thought putting the machine name in it was convenient.
 
-And sometimes it never asks. The crude worker keeps waking up, finding a little work and going back to sleep. That is not an unfinished system. It is a problem we got to stop thinking about.
+Better to find that out while the whole system is still a drawing.
+
+Sometimes I sketch the next version and the current one is already fine.
+
+Wonderful.
+
+Then I go back and build the first version.
+
+No lease table while one worker exists unless correctness needs it. No queue while polling is cheap. No separate service because a package might become important one day.
+
+But also no in-memory job pretending to be durable intent. No identifier which only works on this machine. No control-plane write whose failure leaves us guessing what exists.
+
+The future changes today's design.
+
+It does not have to become today's infrastructure.
+
+## Later when???
+
+"We will solve it when we hit scale" is still hand-wavy nonsense without observability.
+
+If polling is the thing we expect to hurt, measure the database load and how long work waits to be noticed. If one worker is the likely limit, measure how much work is waiting and how long reconciliation takes.
+
+Every shortcut has some point where it stops being acceptable. I want that point to show up in a metric before it shows up as a customer asking why their VM has been creating for forty minutes.
+
+Sometimes the metric sits there for two years and proves that the crude version is fine. The supposedly temporary Postgres query barely registers. The single worker spends most of its life asleep.
+
+Good.
+
+We thought about the problem, made space for its solution, and then got to spend those two years building something else.
+
+That is how I think about good design now.
+
+Simple enough to build fast and simple enough that I can hold the whole thing in my head. But I should also know where it is likely to break, how I will notice and which part changes when it does.
+
+I cannot predict the final version. Half the problems I imagine will never happen, and something much dumber will happen instead.
+
+So I do not build the final version.
+
+I build the first one with a clean path to the second.
