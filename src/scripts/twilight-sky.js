@@ -172,7 +172,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         if (y >= ridge) continue;
         var distance = ridge - y;
         var envelope = 1 - clamp(distance / horizonReach, 0, 1);
-        var density = envelope * envelope * 0.86 * (0.08 + 0.92 * inkRoom(x, y, state));
+        var density = envelope * envelope * 0.86 * inkRoom(x, y, state);
         if (density <= bayerThreshold(x / step, y / step)) continue;
         ctx.fillRect(x, y, step, step);
       }

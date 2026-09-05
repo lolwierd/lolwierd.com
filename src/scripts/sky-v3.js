@@ -827,6 +827,7 @@ import {
     // waits on this so the mountain arrives before the words, rather than the
     // text sitting on an empty page while a 1.8MB plate decodes.
     document.documentElement.setAttribute("data-scene-ready", "");
+    window.dispatchEvent(new Event("skylayout"));
   }
 
   function tick(now) {

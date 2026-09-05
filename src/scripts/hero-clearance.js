@@ -112,6 +112,7 @@ import { baseState } from "./sky-shared.js";
     if (Math.abs(next - lift) <= 1) return true;
     lift = next;
     copy.style.setProperty("--hero-copy-lift", lift + "px");
+    window.dispatchEvent(new Event("herocopyplaced"));
     return false;
   }
 
@@ -162,6 +163,7 @@ import { baseState } from "./sky-shared.js";
   window.addEventListener("orientationchange", schedule, { passive: true });
 
   window.addEventListener("skyphasechange", schedule);
+  window.addEventListener("skylayout", schedule);
 
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
 })();
