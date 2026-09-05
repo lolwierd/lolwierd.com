@@ -24,7 +24,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
     brush.clearRect(0,0,w,h);
     // High midday puffs, low morning banks, long sunset ribbons, sparse night veils.
     const light = morning ? [244,237,216] : [230,173,144];
-    const rgb = [0,1,2].map(i => Math.round([247,244,228][i]*high + light[i]*low + [105,117,130][i]*night));
+    const rgb = [0,1,2].map(i => Math.round([247,244,228][i]*high + light[i]*low + [48,60,72][i]*night));
     brush.fillStyle = `rgb(${rgb.join(',')})`;
     const portrait = state.portrait;
     const baseY = portrait ? 0.48 : lerp(0.19, 0.34, low);
@@ -49,7 +49,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           const edge=Math.max(0,1-nx*nx-ny*ny);
           if (!edge) continue;
           const folds = 0.65 + 0.2*Math.sin(nx*13+ny*4+elapsed*0.07+bank.seed);
-          const density=edge*folds*(0.86-0.62*night)*inkRoom(x*CELL*state.dpr,y*CELL*state.dpr,state);
+          const density=edge*folds*(0.86-0.34*night)*inkRoom(x*CELL*state.dpr,y*CELL*state.dpr,state);
           if (density > bayerThreshold(x,y)) brush.fillRect(x,y,1,1);
         }
       }
