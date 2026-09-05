@@ -7,7 +7,7 @@ import SiteFooter from "../components/SiteFooter.astro";
 <BaseLayout ambient>
   <a class="skip-link" href="#work">skip to work</a>
 
-  <header class="hero" id="top">
+  <header class="hero portfolio-hero" id="top">
     <div class="hero-frame">
       <SiteHeader />
 
@@ -47,6 +47,14 @@ import SiteFooter from "../components/SiteFooter.astro";
               </header>
             </div>
 
+            <p class="measurements">
+              <span class="measurements-label">at handover, aug 2026</span>
+              <span>4,000+ accounts</span>
+              <span>380 active VMs</span>
+              <span>140 managed Postgres clusters</span>
+              <span>20+ internal services</span>
+            </p>
+
             <div class="prose">
               <p>
                 most of it was not happy-path provisioning. it was recovery: reconciling partial state,
@@ -55,15 +63,7 @@ import SiteFooter from "../components/SiteFooter.astro";
               </p>
             </div>
 
-            <dl class="work-notes">
-              <div>
-                <dt>compute</dt>
-                <dd>
-                  the Go control plane over QEMU/KVM: VM lifecycle APIs, rescue boot, volume attach
-                  and reap, subnet operations, bare-metal host setup, and reconciliation after failed
-                  transitions.
-                </dd>
-              </div>
+            <dl class="work-notes featured-notes">
               <div>
                 <dt>block storage</dt>
                 <dd>
@@ -78,6 +78,26 @@ import SiteFooter from "../components/SiteFooter.astro";
                   managed clusters end to end: control-plane and worker bootstrap, OIDC and JWKS,
                   short-lived join credentials, Cilium and CoreDNS, a CSI driver with attach, mount,
                   resize and failover, and a Karpenter cloud provider.
+                </dd>
+              </div>
+              <div>
+                <dt>live migration</dt>
+                <dd>
+                  the disk migration tool rebuilt around resumable sender and receiver sessions with
+                  checkpointing, pinned per-session TLS, heartbeats and idempotent thaw recovery.
+                </dd>
+              </div>
+            </dl>
+
+            <details class="more-work">
+              <summary>more of the platform <span>7 areas</span></summary>
+              <dl class="work-notes">
+              <div>
+                <dt>compute</dt>
+                <dd>
+                  the Go control plane over QEMU/KVM: VM lifecycle APIs, rescue boot, volume attach
+                  and reap, subnet operations, bare-metal host setup, and reconciliation after failed
+                  transitions.
                 </dd>
               </div>
               <div>
@@ -126,14 +146,8 @@ import SiteFooter from "../components/SiteFooter.astro";
                   the docs site.
                 </dd>
               </div>
-              <div>
-                <dt>live migration</dt>
-                <dd>
-                  the disk migration tool rebuilt around resumable sender and receiver sessions with
-                  checkpointing, pinned per-session TLS, heartbeats and idempotent thaw recovery.
-                </dd>
-              </div>
-            </dl>
+              </dl>
+            </details>
 
             <p class="stack">
               <span>Go</span><span>C</span><span>TypeScript</span><span>Swift</span><span>Python</span>
@@ -145,13 +159,7 @@ import SiteFooter from "../components/SiteFooter.astro";
               <span>HTTP/2</span><span>TLS</span>
             </p>
 
-            <p class="measurements">
-              <span class="measurements-label">at handover, aug 2026</span>
-              <span>4,000+ accounts</span>
-              <span>380 active VMs</span>
-              <span>140 managed Postgres clusters</span>
-              <span>20+ internal services</span>
-            </p>
+
           </article>
         </div>
       </section>
@@ -186,6 +194,10 @@ import SiteFooter from "../components/SiteFooter.astro";
                 a native macOS clipboard manager with instant paste-back, OCR for copied images,
                 local search, and SQLite persistence.
               </p>
+              <figure class="project-preview">
+                <a href="/assets/cbmanager.webp" aria-label="View CBManager screenshot at full size"><img src="/assets/cbmanager.webp" width="1400" height="886" loading="lazy" alt="CBManager: clipboard history on the left and a preview of the selected item on the right." /></a>
+                <figcaption>CBManager · clipboard history and item preview</figcaption>
+              </figure>
             </article>
 
             <article class="project-row">

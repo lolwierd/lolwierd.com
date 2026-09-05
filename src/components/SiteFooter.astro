@@ -8,6 +8,7 @@ const { id, includeJumps = false } = Astro.props;
 ---
 <footer class="site-footer interior-footer" id={id}>
   <div>
+    {includeJumps && <a class="contact-address" href="mailto:me@lolwierd.com">me@lolwierd.com</a>}
     <p class="footer-name">ayaan retiwala</p>
     <p>vadodara, india · remote</p>
     <p class="footer-note">b.e. computer engineering, svit · 2018–2022</p>
@@ -15,12 +16,6 @@ const { id, includeJumps = false } = Astro.props;
   </div>
 
   <nav class="footer-links" aria-label="Contact">
-    {includeJumps && (
-      <>
-        <a class="footer-jump" href="#work">work</a>
-        <a class="footer-jump" href="#projects">projects</a>
-      </>
-    )}
     <a href="/#work">work</a>
     <a href="/#projects">projects</a>
     <a href="/writing/">writing</a>

@@ -36,7 +36,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
 
 
   var PALETTES = {
-    day: { top: "#eee9df", horizon: "#eadfd1" },
+    day: { top: "#e2e7e5", horizon: "#ead7bb" },
     gold: { top: "#eaded8", horizon: "#dfa27c" },
     civil: { top: "#d8d7dc", horizon: "#d89373" },
     nautical: { top: "#c9cdd6", horizon: "#d6b2a2" },
@@ -172,7 +172,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         if (y >= ridge) continue;
         var distance = ridge - y;
         var envelope = 1 - clamp(distance / horizonReach, 0, 1);
-        var density = envelope * envelope * 0.86;
+        var density = envelope * envelope * 0.86 * (0.08 + 0.92 * inkRoom(x, y, state));
         if (density <= bayerThreshold(x / step, y / step)) continue;
         ctx.fillRect(x, y, step, step);
       }
@@ -196,7 +196,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         var ny = (y - centerY) / radiusY;
         var distance = nx * nx + ny * ny;
         if (distance >= 1) continue;
-        var density = (1 - distance) * peak * 0.42;
+        var density = (1 - distance) * peak * 0.42 * inkRoom(x, y, state);
         if (density <= bayerThreshold(x / step, y / step)) continue;
         ctx.fillRect(x, y, step, step);
       }
@@ -296,15 +296,52 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   var FLICKER_AMP = 0.15;
 
 
-  // The sun and the moon used to be nudged out from behind the hero copy, which
-  // meant their seats depended on how tall that copy happened to be. Every page
-  // has a different amount of writing over the scene, so the same moon at the
-  // same minute sat somewhere different on each of them -- and a sky that moves
-  // when you navigate is not the sky over one place.
-  //
-  // They are placed by altitude and hour now, full stop, and the writing sits on
-  // top of them. The page is layered for it: the copy is above the canvas, and
-  // everything that has to be read at length is on the opaque ground below.
+  // Atmosphere yields to the writing, with a feathered margin rather than a panel.
+  var copyBox = null;
+  function measureCopy(state) {
+    var copy = document.querySelector(".hero-copy");
+    if (!copy) { copyBox = null; return; }
+    var a = copy.getBoundingClientRect(), b = canvas.getBoundingClientRect();
+    var scale = state.dpr;
+    copyBox = { left: (a.left-b.left)*scale, right: (a.right-b.left)*scale,
+      top: (a.top-b.top)*scale, bottom: (a.bottom-b.top)*scale };
+  }
+  function inkRoom(x, y, state) {
+    if (!copyBox) return 1;
+    var dx = Math.max(copyBox.left-x, 0, x-copyBox.right);
+    var dy = Math.max(copyBox.top-y, 0, y-copyBox.bottom);
+    return smoothstep(12*state.dpr, 80*state.dpr, Math.hypot(dx, dy));
+  }
+  function clearOfCopy(state, x, y, radius) {
+    if (!copyBox || x+radius < copyBox.left || x-radius > copyBox.right || y-radius > copyBox.bottom || y+radius < copyBox.top) return y;
+    var below = copyBox.bottom + radius + 24*state.dpr;
+    var ridge = state.skyline[clamp(Math.round(x), 0, state.width-1)];
+    if (below + radius < ridge) return below;
+    return Math.max(radius + 72*state.dpr, copyBox.top-radius-20*state.dpr);
+  }
+
+  // A broad, irregular cloud bank counterbalances the writing. Baked once into
+  // the sky, so there is no extra animation loop or per-frame cloud rasterization.
+  function drawDayClouds(state, altitude) {
+    if (altitude < 0 || state.portrait) return;
+    var step = Math.max(2, Math.round(state.dpr*1.6));
+    ctx.fillStyle = "#fbf4e7";
+    var banks = [[0.75,0.23,0.24,0.07], [0.91,0.33,0.24,0.055], [0.62,0.18,0.13,0.04]];
+    for (var y=step; y<state.height*0.46; y+=step) {
+      for (var x=Math.round(state.width*0.4); x<state.width; x+=step) {
+        if (y>=state.skyline[x]) continue;
+        var density=0;
+        for (var i=0;i<banks.length;i++) {
+          var c=banks[i], nx=(x/state.width-c[0])/c[2];
+          var ripple=Math.sin(nx*7+i)*0.14+Math.sin(nx*17+i)*0.07;
+          var ny=(y/state.height-c[1])/c[3]+ripple;
+          density=Math.max(density, Math.max(0,1-nx*nx-ny*ny));
+        }
+        density *= (0.6+0.18*Math.sin(x/state.dpr*0.025+y/state.dpr*0.06))*inkRoom(x,y,state);
+        if(density>bayerThreshold(x/step,y/step)) ctx.fillRect(x,y,step,step);
+      }
+    }
+  }
 
   function buildSun(state, altitude, valleyX) {
     sunScene = null;
@@ -317,7 +354,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     // The corona answers to the hour: tight and contained at noon, spreading and
     // thickening as the sun drops toward the ridge and the light goes long.
     var blaze = 1 - smoothstep(2, 55, altitude);
-    var coronaR = radius * (1.85 + blaze * 1.35);
+    var coronaR = radius * (1.35 + blaze * 0.55);
     var spread = 0.5 + blaze * 0.42;
     // The low sun's corona covers ~3x the area of the noon one, so constant
     // settings would treble the motion exactly when the sky is at its most
@@ -327,9 +364,11 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var amp = FLICKER_AMP * (1 - blaze * 0.5);
 
     var lowBlend = 1 - smoothstep(4, 15, altitude);
-    var sunX = Math.round(lerp(state.celestial.sun.x, valleyX, lowBlend * 0.55));
+    var composedX = state.portrait ? state.celestial.sun.x : state.width * (0.65 + 0.22 * clamp(state.celestial.sun.x / state.width, 0, 1));
+    var sunX = Math.round(lerp(composedX, valleyX, lowBlend * 0.35));
     var ridgeY = state.skyline[clamp(sunX, 0, state.width - 1)];
     var sunY = Math.round(lerp(state.celestial.sun.y, ridgeY - radius * 0.55, lowBlend));
+    sunY = clearOfCopy(state, sunX, sunY, radius * 1.4);
 
     var solid = [];
     var marginal = [];
@@ -546,6 +585,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       canvas.style.height = state.cssHeight + "px";
     }
 
+    measureCopy(state);
     ctx.clearRect(0, 0, state.width, state.height);
     stopSunLoop();
     sunScene = null;
@@ -572,6 +612,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       ctx.globalAlpha = veil;
       drawDitheredSky(state, colors);
       drawAfterglow(state, altitude, valleyX);
+      drawDayClouds(state, altitude);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -579,7 +620,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     buildRidge(state, night ? "#e4dac8" : colors.top, night);
     // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
     // in the sky and the old night-only moon could never show it.
-    moonScene = buildMoon(state, null);
+    moonScene = buildMoon(state, clearOfCopy);
     buildSun(state, altitude, valleyX);
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));

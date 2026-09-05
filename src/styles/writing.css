@@ -29,6 +29,7 @@
 }
 
 .writing-index {
+  max-width: 52rem;
   display: block;
 }
 

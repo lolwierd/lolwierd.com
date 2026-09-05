@@ -84,3 +84,17 @@ light mode is warm paper, charcoal ink, and a single rust accent.
 dark mode is near-black, bone ink, and the same rust made slightly brighter.
 
 the themes are composed separately. mountain tone mapping and weather have theme-specific density/alpha; dark gets the active sky, light gets the heavier weather. neither is an inversion of the other.
+
+## September editorial revision
+
+The daytime scene now uses a cool upper sky, warm horizon and an irregular,
+static dithered cloud bank to balance the copy. The desktop hero is shorter.
+Solar timing and lunar phase remain calculated, but screen placement is composed
+for legibility: the sun occupies the right of the desktop scene and celestial
+bodies yield to the writing. This is an illustration driven by a real clock,
+not a sky chart. These choices supersede exact screen-position constraints above.
+
+Three work examples lead; the remaining seven are preserved in native details.
+The handover figures precede the examples. CBManager has a real screenshot from
+its repository, and contact ends with a readable email address. Mobile labels
+use whole-pixel font sizes and roomier tap targets.
