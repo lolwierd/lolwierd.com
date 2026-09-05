@@ -172,6 +172,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   }
 
   function runTheDay() {
+    if (monthRun) { window.clearInterval(monthRun); monthRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
     if (dayRun) window.clearInterval(dayRun);
@@ -206,6 +207,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   var MONTH_MS = 8000;
 
   function runTheMonth() {
+    if (dayRun) { window.clearInterval(dayRun); dayRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.clock) return;
     if (monthRun) window.clearInterval(monthRun);
@@ -226,6 +228,12 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       api.stepClock(new Date(from + step * 86400000));
     }, MONTH_MS / MONTH_STEPS);
   }
+
+  window.addEventListener("skywatchend", function () {
+    window.clearInterval(dayRun); window.clearInterval(monthRun);
+    dayRun = 0; monthRun = 0;
+    var api = sky(); if (api && api.setClock) api.setClock(null);
+  });
 
   window.addEventListener("skyrunday", function () { markUsed(); runTheDay(); });
   window.addEventListener("skyrunmonth", function () {

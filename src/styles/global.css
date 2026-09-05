@@ -1020,7 +1020,7 @@ a { -webkit-tap-highlight-color: transparent; }
 
 /* Editorial pass: a compact landscape followed by a readable field notebook. */
 .portfolio-hero,
-.portfolio-hero .hero-frame { min-height: clamp(640px, 88svh, 900px); }
+.portfolio-hero .hero-frame { min-height: 100svh; }
 .portfolio-hero .hero-copy { --hero-copy-top: clamp(2.5rem, 6vh, 3.5rem); }
 .hero-nav a[aria-current="page"] { color: var(--ink-strong); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 5px; }
 .section-label, .entry-role, .entry-date, .work-notes dt,
@@ -1045,7 +1045,7 @@ a { -webkit-tap-highlight-color: transparent; }
 .footer-links { align-content: start; }
 .footer-links a { padding-block: 0.3rem; }
 @media (max-width: 760px) {
-  .portfolio-hero, .portfolio-hero .hero-frame { min-height: max(720px, 100svh); }
+  .portfolio-hero, .portfolio-hero .hero-frame { min-height: 100svh; }
   .site-name, .hero-nav { font-size: 11px; }
   .hero-nav { flex-wrap: wrap; gap: 0.2rem 1rem; }
   .hero-nav a { padding-block: 0.55rem; }
@@ -1071,4 +1071,16 @@ a { -webkit-tap-highlight-color: transparent; }
   .entry-heading { gap: 0.75rem; }
   .entry-date { flex: 0 0 148px; font-size: 11px; }
   .entry-role { font-size: 11px; }
+}
+
+.hero-actions { display:flex; align-items:baseline; flex-wrap:wrap; gap:0 1.5rem; }
+.watch-sky { padding:0.55rem 0; border:0; background:none; color:var(--ink-dim); font:12px/1.2 var(--mono); cursor:pointer; }
+.watch-sky:hover { color:var(--ink-strong); }
+.sky-return { position:fixed; right:1.25rem; top:1.25rem; z-index:50; padding:0.8rem 1rem; border:1px solid var(--rule); color:var(--ink); background:var(--page); font:11px/1.4 var(--mono); cursor:pointer; }
+:root[data-sky-focus], :root[data-sky-focus] body { overflow:hidden; }
+:root[data-sky-focus] .hero .topbar, :root[data-sky-focus] .hero-copy { opacity:0 !important; pointer-events:none; }
+:root[data-sky-focus] .sky-readout, :root[data-sky-focus] .sky-toast, :root[data-sky-focus] .sky-sheet { visibility:hidden; }
+:root[data-sky-focus] .hero { user-select:none; touch-action:manipulation; }
+@media (prefers-reduced-motion:no-preference) {
+  .hero .topbar,.hero-copy { transition:opacity 350ms ease; }
 }

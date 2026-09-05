@@ -88,7 +88,10 @@ the themes are composed separately. mountain tone mapping and weather have theme
 ## September editorial revision
 
 The daytime scene now uses a cool upper sky, warm horizon and an irregular,
-static dithered cloud bank to balance the copy. The desktop hero is shorter.
+moving dithered cloud banks to balance the copy. The hero fills the viewport.
+Clouds swell at midday, flatten and warm near sunset, and thin at night.
+Double-clicking the sun or moon enters a reversible, unobstructed watch mode;
+the explicit watch button provides the same view without a timed animation.
 Solar timing and lunar phase remain calculated, but screen placement is composed
 for legibility: the sun occupies the right of the desktop scene and celestial
 bodies yield to the writing. This is an illustration driven by a real clock,

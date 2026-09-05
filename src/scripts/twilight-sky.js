@@ -1,3 +1,4 @@
+import { paintClouds, invalidateClouds } from "./sky-clouds.js";
 import {
   clamp,
   smoothstep,
@@ -300,7 +301,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   var copyBox = null;
   function measureCopy(state) {
     var copy = document.querySelector(".hero-copy");
-    if (!copy) { copyBox = null; return; }
+    if (!copy || document.documentElement.hasAttribute("data-sky-focus")) { copyBox = null; return; }
     var a = copy.getBoundingClientRect(), b = canvas.getBoundingClientRect();
     var scale = state.dpr;
     copyBox = { left: (a.left-b.left)*scale, right: (a.right-b.left)*scale,
@@ -318,29 +319,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var ridge = state.skyline[clamp(Math.round(x), 0, state.width-1)];
     if (below + radius < ridge) return below;
     return Math.max(radius + 72*state.dpr, copyBox.top-radius-20*state.dpr);
-  }
-
-  // A broad, irregular cloud bank counterbalances the writing. Baked once into
-  // the sky, so there is no extra animation loop or per-frame cloud rasterization.
-  function drawDayClouds(state, altitude) {
-    if (altitude < 0 || state.portrait) return;
-    var step = Math.max(2, Math.round(state.dpr*1.6));
-    ctx.fillStyle = "#fbf4e7";
-    var banks = [[0.75,0.23,0.24,0.07], [0.91,0.33,0.24,0.055], [0.62,0.18,0.13,0.04]];
-    for (var y=step; y<state.height*0.46; y+=step) {
-      for (var x=Math.round(state.width*0.4); x<state.width; x+=step) {
-        if (y>=state.skyline[x]) continue;
-        var density=0;
-        for (var i=0;i<banks.length;i++) {
-          var c=banks[i], nx=(x/state.width-c[0])/c[2];
-          var ripple=Math.sin(nx*7+i)*0.14+Math.sin(nx*17+i)*0.07;
-          var ny=(y/state.height-c[1])/c[3]+ripple;
-          density=Math.max(density, Math.max(0,1-nx*nx-ny*ny));
-        }
-        density *= (0.6+0.18*Math.sin(x/state.dpr*0.025+y/state.dpr*0.06))*inkRoom(x,y,state);
-        if(density>bayerThreshold(x/step,y/step)) ctx.fillRect(x,y,step,step);
-      }
-    }
   }
 
   function buildSun(state, altitude, valleyX) {
@@ -512,6 +490,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     if (!state) return;
     // Always at night now, quietly. "stars" lifts them rather than summoning them.
     if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
+    paintClouds(ctx, state, now, inkRoom);
     // Touch feedback sits above the bodies but below the weather. `night` is
     // local to draw(); reaching for it here threw on every frame that had a
     // pulse running, which killed the rest of this function -- including
@@ -586,6 +565,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     }
 
     measureCopy(state);
+    invalidateClouds();
     ctx.clearRect(0, 0, state.width, state.height);
     stopSunLoop();
     sunScene = null;
@@ -612,7 +592,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       ctx.globalAlpha = veil;
       drawDitheredSky(state, colors);
       drawAfterglow(state, altitude, valleyX);
-      drawDayClouds(state, altitude);
+
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -642,6 +622,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
   window.addEventListener("herocopyplaced", redrawSoon);
+  window.addEventListener("skyfocuschange", draw);
 
   // Coming back to a tab that has been in the background for an hour used to
   // show an hour-old sun for up to another minute, because the only thing that
