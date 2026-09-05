@@ -752,8 +752,10 @@ import {
   }
 
   function layoutPlate() {
-    var cssW = window.innerWidth;
-    var cssH = window.innerHeight;
+    var hero = document.querySelector(".hero");
+    var bounds = hero && hero.getBoundingClientRect();
+    var cssW = bounds ? Math.round(bounds.width) : window.innerWidth;
+    var cssH = bounds ? Math.round(bounds.height) : window.innerHeight;
     dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
     width = Math.max(1, Math.round(cssW * dpr));
     height = Math.max(1, Math.round(cssH * dpr));

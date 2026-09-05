@@ -641,6 +641,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", redrawSoon);
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
+  window.addEventListener("herocopyplaced", redrawSoon);
 
   // Coming back to a tab that has been in the background for an hour used to
   // show an hour-old sun for up to another minute, because the only thing that

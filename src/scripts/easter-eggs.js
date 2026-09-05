@@ -30,8 +30,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   ];
 
   var POINTER_NOTE =
-    "the sun, the moon and the constellations are all where they really are over " +
-    "vadodara right now.";
+    "the light and lunar phase follow vadodara. the scene leaves room for the writing.";
 
   var toast = null;
   var toastTimer = 0;

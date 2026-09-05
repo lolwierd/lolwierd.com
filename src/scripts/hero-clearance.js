@@ -117,6 +117,7 @@ import { baseState } from "./sky-shared.js";
 
   function release() {
     document.documentElement.removeAttribute("data-hero-hold");
+    window.dispatchEvent(new Event("herocopyplaced"));
   }
 
   // Let the scene start fading up before the words settle onto it, so the order
