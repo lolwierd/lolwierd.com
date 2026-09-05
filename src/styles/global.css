@@ -1021,6 +1021,7 @@ a { -webkit-tap-highlight-color: transparent; }
 /* Editorial pass: a compact landscape followed by a readable field notebook. */
 .portfolio-hero,
 .portfolio-hero .hero-frame { min-height: clamp(640px, 88svh, 900px); }
+.portfolio-hero .hero-copy { --hero-copy-top: clamp(2.5rem, 6vh, 3.5rem); }
 .hero-nav a[aria-current="page"] { color: var(--ink-strong); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 5px; }
 .section-label, .entry-role, .entry-date, .work-notes dt,
 .project-row header p, .measurements, .project-note, .site-footer { font-size: 12px; }

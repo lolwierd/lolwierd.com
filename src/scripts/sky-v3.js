@@ -771,7 +771,7 @@ import {
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.58));
+    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.55));
     var overscan = Math.round(height * (portrait ? 0.18 : 0.14));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
