@@ -30,8 +30,15 @@
 //
 // band is where the form sits as a fraction of hero height, rx/ry its half-width
 // and half-height, speed viewport widths per second, smooth runs 0 for a ragged
-// convective edge to 1 for the lens, weight is how solid the form prints, and
+// convective edge to 1 for the lens, fibre is how much the body breaks into
+// separate strands along its length, weight is how solid the form prints, and
 // settles says whether this form is allowed below the skyline.
+//
+// fibre is what stops a long form being a lozenge. Cirrus is ice crystals
+// falling through wind shear, so it arrives as streaks with sky between them,
+// never as one smooth continuous band -- which is exactly what a thin ellipse
+// stretched across half the frame looks like without it. A lens has none: an
+// unbroken outline is the whole reason it reads as a lens.
 //
 // Only the low two settle, and that is the honest division: cirrus is eight
 // kilometres up and can no more lie on a slope than the moon can. The bank sits
@@ -44,11 +51,11 @@
 // picture, which is what nearly a hundred to one gets you. The overcast is the
 // only form allowed to span everything, and it is rare and it passes.
 const FORMS = {
-  cirrus:     { band: [0.06, 0.17], rx: [0.20, 0.42], ry: [0.011, 0.024], speed: [0.020, 0.034], smooth: 0.35, weight: 0.85, settles: false },
-  cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    weight: 1,    settles: false },
-  lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    weight: 1,    settles: true },
-  bank:       { band: [0.42, 0.62], rx: [0.20, 0.40], ry: [0.018, 0.040], speed: [0.006, 0.013], smooth: 0.18, weight: 0.9,  settles: true },
-  overcast:   { band: [0.16, 0.34], rx: [0.62, 0.95], ry: [0.09, 0.16], speed: [0.026, 0.040], smooth: 0.62, weight: 0.72, settles: true }
+  cirrus:     { band: [0.06, 0.17], rx: [0.20, 0.42], ry: [0.014, 0.028], speed: [0.020, 0.034], smooth: 0.35, fibre: 1,    weight: 0.85, settles: false },
+  cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    fibre: 0,    weight: 1,    settles: false },
+  lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    fibre: 0,    weight: 1,    settles: true },
+  bank:       { band: [0.42, 0.62], rx: [0.20, 0.40], ry: [0.018, 0.040], speed: [0.006, 0.013], smooth: 0.18, fibre: 0.45, weight: 0.9,  settles: true },
+  overcast:   { band: [0.16, 0.34], rx: [0.62, 0.95], ry: [0.09, 0.16], speed: [0.026, 0.040], smooth: 0.62, fibre: 0.2,  weight: 0.72, settles: true }
 };
 
 export function createCloudField(random = Math.random) {
@@ -74,7 +81,8 @@ export function createCloudField(random = Math.random) {
     const rx = between(form.rx);
     return { id: serial++, x: x ?? -rx - 0.08, rx, y: between(form.band),
       ry: between(form.ry), speed: between(form.speed),
-      seed: random() * 100, kind, smooth: form.smooth, weight: form.weight, settles: form.settles };
+      seed: random() * 100, kind, smooth: form.smooth, fibre: form.fibre,
+      weight: form.weight, settles: form.settles };
   }
 
   const clouds = Array.from({length:5}, (_, i) => spawn(-0.25 + i * 0.32));

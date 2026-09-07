@@ -90,6 +90,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
       // planes its edges flat, so the convective wobble is damped out of it and
       // its interior fills to a plateau instead of turning over in folds.
       const smooth = bank.smooth || 0;
+      const fibre = bank.fibre || 0;
       // How solid this form prints. An overcast layer covers the frame, so it
       // has to be a veil the scene shows through rather than a wall painted
       // over it; cirrus is thin because cirrus is ice.
@@ -106,6 +107,15 @@ export function paintClouds(ctx, state, now, inkRoom) {
         // swing between them starts reading as vertical banding rather than as
         // cloud. Take the benefit and stop.
         const grain = Math.min(2.2, bank.rx / 0.18);
+        // Two slow waves beaten against each other and clipped at zero, so the
+        // body thins and parts along its length instead of running as one
+        // unbroken band. Computed per column: it is a property of where you are
+        // across the cloud, not of the cell.
+        const strands = fibre
+          ? 1 - fibre + fibre * Math.max(0, 0.34 + 1.15
+              * Math.sin(nx * 6.1 + bank.seed)
+              * Math.cos(nx * 2.7 + bank.seed * 0.6))
+          : 1;
         const ruffle = (Math.sin(nx*8*grain+elapsed*0.09+bank.seed)*0.19 + Math.sin(nx*19*grain-elapsed*0.055)*0.10) * wobble;
         const startY=Math.max(0,Math.floor(centreY-ry*(1.3+ruffle)));
         const endY=Math.min(h,Math.ceil(centreY+ry*(1.3-ruffle)));
@@ -133,7 +143,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // out amputated; holding a floor under it means the same cloud simply
           // goes thin as it passes and thickens again on the far side.
           const room = INK_FLOOR + (1-INK_FLOOR)*inkRoom(x*scale,y*scale,state);
-          const density=edge*folds*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
+          const density=edge*folds*strands*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
           if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
         }
       }

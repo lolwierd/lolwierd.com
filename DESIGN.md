@@ -249,3 +249,17 @@ that is not being laid out has nothing to report. The layers above hold the same
 line, and they watch skylayout as well as the frame loop, because that loop is
 halted while the tab is hidden, never starts under reduced motion, and is
 stopped outright by `still`.
+
+## Long is not the same as unbroken
+
+A thin ellipse stretched across half the frame is a lozenge, not a cirrus, and at
+sixty to one it reads as a rule drawn on the picture. Cirrus is ice falling
+through wind shear: it arrives as strands with sky between them and it varies
+along its length. So the forms carry a fibre value, and the body of a fibrous one
+is cut by two slow waves beaten against each other and clipped at zero, which
+thins it and parts it as it goes. Cirrus is fully fibrous, the bank about half,
+the overcast barely, and the lens not at all, because an unbroken outline is the
+entire reason a lens reads as a lens.
+
+That is also the answer to length. A long form does not need to be short, it
+needs to stop being one continuous object.
