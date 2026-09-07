@@ -159,13 +159,6 @@ lies at pass height. The summit banner is not modelled, because nothing in a fie
 drifting viewport fractions can be honest about a cloud that belongs to one
 mountain rather than to the sky.
 
-Once in about ten spawns the sky closes over entirely: a layer wider and taller
-than the frame, which is the day the mountain is simply not there. It prints at
-under half the weight of a cumulus, because a deck that covers everything has to
-be a veil the scene shows through rather than a wall painted over it. It is
-uncommon and it passes, which is roughly how often it happens and roughly how
-long it lasts.
-
 The sheets run off both edges of the frame and the discrete forms do not, which
 is the actual difference between them. Cirrus and stratus are one layer laid
 over the whole sky; a cumulus is a single body of air and a lenticular is one
@@ -249,6 +242,16 @@ that is not being laid out has nothing to report. The layers above hold the same
 line, and they watch skylayout as well as the frame loop, because that loop is
 halted while the tab is hidden, never starts under reduced motion, and is
 stopped outright by `still`.
+
+## Overcast is real and it is still not here
+
+Eight oktas is the commonest sky there is, and over this range in monsoon season
+it is most days, so a layer that fills the frame was built. It came out again.
+An overcast sky is the one sky with nothing in it, and the subject of this page
+is a mountain: a weather state whose entire content is that you cannot see the
+mountain makes the page worse for every minute it is up. Being true to the place
+is not the only bar a thing has to clear. Nothing in the field spans the frame
+now.
 
 ## Long is not the same as unbroken
 

@@ -17,16 +17,19 @@
 //               deck sitting in the valley with the summits standing clear of
 //               it, so the bank is allowed below the skyline and the others are
 //               not. Its edges stay soft -- it is a sheet, not a lens.
-//   overcast    the sky closing over. Wider than the frame and deep enough to
-//               take the top half of it, thin enough to be a veil rather than a
-//               wall, and uncommon. It moves at a good clip for something that
-//               size: a real overcast sits for hours, but a hero that is fogged
-//               for six minutes is not weather, it is a fault, so this one
-//               passes in under two.
 //
-// Not modelled: the summit banner, which streams off one particular peak and
-// stays pinned to it. Nothing in a field of drifting viewport fractions can be
-// honest about a cloud that belongs to a mountain rather than to the sky.
+// Not modelled, and both for the same kind of reason.
+//
+// The summit banner streams off one particular peak and stays pinned to it.
+// Nothing in a field of drifting viewport fractions can be honest about a cloud
+// that belongs to a mountain rather than to the sky.
+//
+// Overcast is the other one, and it is not for want of realism: eight oktas is
+// the commonest sky there is, and over this range in monsoon season it is most
+// days. It was built and then taken out again. An overcast sky is the one sky
+// with nothing in it, and the subject here is a mountain, so a weather state
+// whose entire content is that you cannot see the mountain makes the page worse
+// every minute it is up. True is not the only bar.
 //
 // band is where the form sits as a fraction of hero height, rx/ry its half-width
 // and half-height, speed viewport widths per second, smooth runs 0 for a ragged
@@ -48,14 +51,13 @@
 // cumulus is a single body of air and a lenticular is one wave standing over one
 // ridge. Wide, though, not endless. Stretched past the width of the frame a
 // sheet stops reading as cloud and starts reading as a rule drawn across the
-// picture, which is what nearly a hundred to one gets you. The overcast is the
-// only form allowed to span everything, and it is rare and it passes.
+// picture, which is what nearly a hundred to one gets you. Nothing here spans the
+// whole frame.
 const FORMS = {
   cirrus:     { band: [0.06, 0.17], rx: [0.20, 0.42], ry: [0.014, 0.028], speed: [0.020, 0.034], smooth: 0.35, fibre: 1,    weight: 0.85, settles: false },
   cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    fibre: 0,    weight: 1,    settles: false },
   lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    fibre: 0,    weight: 1,    settles: true },
-  bank:       { band: [0.42, 0.62], rx: [0.20, 0.40], ry: [0.018, 0.040], speed: [0.006, 0.013], smooth: 0.18, fibre: 0.45, weight: 0.9,  settles: true },
-  overcast:   { band: [0.16, 0.34], rx: [0.62, 0.95], ry: [0.09, 0.16], speed: [0.026, 0.040], smooth: 0.62, fibre: 0.2,  weight: 0.72, settles: true }
+  bank:       { band: [0.42, 0.62], rx: [0.20, 0.40], ry: [0.018, 0.040], speed: [0.006, 0.013], smooth: 0.18, fibre: 0.45, weight: 0.9,  settles: true }
 };
 
 export function createCloudField(random = Math.random) {
@@ -69,9 +71,8 @@ export function createCloudField(random = Math.random) {
   // one mostly high cloud. The lens is uncommon at any hour and does not care.
   function pickForm(daylight) {
     const roll = random();
-    if (roll < 0.07) return 'overcast';
-    if (roll < 0.21) return 'lenticular';
-    if (roll < 0.51 + daylight * 0.26) return 'cumulus';
+    if (roll < 0.14) return 'lenticular';
+    if (roll < 0.44 + daylight * 0.26) return 'cumulus';
     return random() < 0.55 ? 'cirrus' : 'bank';
   }
 
