@@ -18,6 +18,7 @@ import {
   atkinsonTiers,
   terrainCrop,
   terrainPaper,
+  terrainExposure,
   budget,
   effects,
   motionMedia
@@ -62,6 +63,8 @@ import {
   // 20MB at 2x, twenty-four times a second -- which is the single most expensive
   // thing the page did, and which Safari handles far worse than Chrome.
   var terrainCanvas = null;
+  var terrainShape = null;
+  var terrainLight = 1;
   var terrainInk = [];
   var terrainFlickerAlpha = [];
 
@@ -354,7 +357,7 @@ import {
 
     for (var t = 0; t < TERRAIN_TIERS; t++) {
       if (!paths[t]) continue;
-      ctx.globalAlpha = terrainFlickerAlpha[t];
+      ctx.globalAlpha = terrainFlickerAlpha[t] * terrainLight;
       ctx.fillStyle = terrainInk[t];
       ctx.fill(paths[t]);
     }
@@ -741,6 +744,15 @@ import {
     if (!state || !terrainCanvas) return;
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    terrainLight = state.dark ? terrainExposure(celestial) : 1;
+    if (terrainShape) {
+      // Snow used to be bare page paper. Give it its own cool surface instead.
+      const highSun = smoothstep(4, 50, celestial.sun.altitude);
+      const snow = [lerp(210,197,highSun),lerp(207,209,highSun),lerp(196,214,highSun)];
+      ctx.fillStyle = state.dark ? "#0b1017" : `rgb(${snow.map(Math.round).join(',')})`;
+      ctx.fill(terrainShape);
+    }
+    ctx.globalAlpha = terrainLight;
     if (terrainCanvas) ctx.drawImage(terrainCanvas, 0, 0);
     flickerTerrain(now);
     drawEdge(now);
@@ -811,6 +823,11 @@ import {
       drawHeight: drawH
     };
 
+    terrainShape = new Path2D();
+    terrainShape.moveTo(0, height);
+    for (var x = 0; x < width; x++) terrainShape.lineTo(x, skyline[x]);
+    terrainShape.lineTo(width, height);
+    terrainShape.closePath();
     makeTerrain(luminance, skyline);
     makeEdgeDots();
     makeStars();

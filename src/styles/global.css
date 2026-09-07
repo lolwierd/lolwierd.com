@@ -1073,10 +1073,11 @@ a { -webkit-tap-highlight-color: transparent; }
   .entry-role { font-size: 11px; }
 }
 
-.hero-actions { display:flex; align-items:baseline; flex-wrap:wrap; gap:0 1.5rem; }
-.watch-sky { padding:0.55rem 0; border:0; background:none; color:var(--ink-dim); font:12px/1.2 var(--mono); cursor:pointer; }
-.watch-sky:hover { color:var(--ink-strong); }
-.sky-return { position:fixed; right:1.25rem; top:1.25rem; z-index:50; padding:0.8rem 1rem; border:1px solid var(--rule); color:var(--ink); background:var(--page); font:11px/1.4 var(--mono); cursor:pointer; }
+.watch-sky { position:absolute; right:max(1.25rem, env(safe-area-inset-right)); bottom:max(1rem, env(safe-area-inset-bottom)); z-index:3; min-height:44px; padding:0 0.5rem; border:0; background:none; color:#c5cfd5; font:11px/1.2 var(--mono); text-shadow:0 1px 3px #0b1017; cursor:pointer; }
+.watch-sky:hover { color:#fff; }
+.sky-return { position:fixed; right:max(1rem, env(safe-area-inset-right)); top:max(1rem, env(safe-area-inset-top)); z-index:50; width:44px; height:44px; padding:0; border:0; color:var(--ink); background:none; font:26px/1 var(--sans); cursor:pointer; opacity:0.65; }
+.sky-return:hover, .sky-return:focus-visible { opacity:1; }
+:root[data-sky-focus] .watch-sky { opacity:0; pointer-events:none; }
 :root[data-sky-focus], :root[data-sky-focus] body { overflow:hidden; }
 :root[data-sky-focus] .hero .topbar, :root[data-sky-focus] .hero-copy { opacity:0 !important; pointer-events:none; }
 :root[data-sky-focus] .sky-readout, :root[data-sky-focus] .sky-toast, :root[data-sky-focus] .sky-sheet { visibility:hidden; }

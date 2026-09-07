@@ -4,6 +4,7 @@ import {
   hash,
   hash2,
   baseState,
+  terrainExposure,
   listenMedia as listen,
   onFrame
 } from "./sky-shared.js";
@@ -215,7 +216,8 @@ import {
   function drawSnowCrystals(now) {
     if (!snowCrystals.length) return;
 
-    var color = state.dark ? "#e4dac8" : "#293039";
+    var exposure = state.dark ? terrainExposure(baseState()?.celestial) : 1;
+    var color = state.dark ? "#c6d2db" : "#293039";
     var t = now * 0.0005;
 
     ctx.fillStyle = color;
@@ -239,7 +241,7 @@ import {
       var alpha = (state.dark ? 0.28 : 0.22) * dot.weight * smooth(0.10, 0.70, intensity) + cursorGlint * 0.35;
       if (alpha < 0.02) continue;
 
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.45 : 0.38);
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.45 : 0.38) * exposure;
       ctx.fillRect(dot.x, dot.y, 1, 1);
     }
   }

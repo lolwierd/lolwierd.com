@@ -244,6 +244,17 @@ listenMedia(motionMedia, function () {
 // looks like and how the photograph's luminance becomes ink density are defined
 // once, here, rather than tuned twice and allowed to drift apart.
 
+// Art-directed exposure, driven by the same ephemeris as the visible moon.
+// Keep an ambient floor so unlit terrain remains legible. This is not a lux model.
+export function terrainExposure(celestial) {
+  if (!celestial) return 0.22;
+  const moon = celestial.moon;
+  const moonlight = Math.pow(clamp(moon.fraction, 0, 1), 1.6)
+    * smoothstep(0, 45, moon.altitude);
+  const twilight = smoothstep(-18, -6, celestial.sun.altitude);
+  return clamp(0.22 + 0.70 * moonlight + 0.45 * twilight, 0.22, 0.92);
+}
+
 export var SKY_THEMES = {
   dark: {
     ink: "#e4dac8",
@@ -254,7 +265,7 @@ export var SKY_THEMES = {
     // is deliberately faint -- it has to describe the near buttress without
     // filling it in, or the range stops being a silhouette.
     terrainRamp: [
-      { ink: "#ece0cb", weight: 1.00 },
+      { ink: "#c6d2db", weight: 1.00 },
       { ink: "#94a2ad", weight: 0.95 },
       { ink: "#3c5470", weight: 0.46 }
     ],

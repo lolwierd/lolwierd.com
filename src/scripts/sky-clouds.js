@@ -2,7 +2,7 @@ import { smoothstep, lerp, bayerThreshold, motionMedia, effects } from './sky-sh
 
 // Advect a density field through a fixed print grid. Clouds travel and reform;
 // the dither itself never slides like a transparent image across the page.
-// One small cached bitmap, refreshed at 8fps by the existing sky scheduler.
+// One small cached bitmap, refreshed at 12fps by the existing sky scheduler.
 let plate, brush, lastFrame = 0, lastBuild = -Infinity, elapsed = 0, signature = '';
 const CELL = 3;
 
@@ -18,7 +18,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
   const w = Math.ceil(state.cssWidth / CELL), h = Math.ceil(state.cssHeight * 0.72 / CELL);
   const key = [w,h,Math.round(sun.altitude),morning,document.documentElement.hasAttribute('data-sky-focus')].join(':');
   if (!plate) { plate = document.createElement('canvas'); brush = plate.getContext('2d'); }
-  if (key !== signature || (!still && now-lastBuild >= 125)) {
+  if (key !== signature || (!still && now-lastBuild >= 83)) {
     signature = key; lastBuild = now;
     if (plate.width !== w || plate.height !== h) { plate.width=w; plate.height=h; }
     brush.clearRect(0,0,w,h);
@@ -29,13 +29,13 @@ export function paintClouds(ctx, state, now, inkRoom) {
     const portrait = state.portrait;
     const baseY = portrait ? 0.48 : lerp(0.19, 0.34, low);
     const banks = [
-      {x:0.72, y:baseY, rx:0.25+0.08*low, ry:0.045+0.035*high, speed:1.8, seed:0},
-      {x:1.02, y:baseY+0.105, rx:0.29, ry:0.035+0.023*high, speed:2.8, seed:2},
-      {x:0.43, y:baseY-0.06, rx:0.18+0.08*low, ry:0.025+0.03*high, speed:1.1, seed:5}
+      {x:0.72, y:baseY, rx:0.25+0.08*low, ry:0.045+0.035*high, speed:1.0, seed:0},
+      {x:1.02, y:baseY+0.105, rx:0.29, ry:0.035+0.023*high, speed:1.45, seed:2},
+      {x:0.43, y:baseY-0.06, rx:0.18+0.08*low, ry:0.025+0.03*high, speed:0.65, seed:5}
     ];
     for (const bank of banks) {
       // The wrap happens fully offscreen; a returning bank cannot pop into view.
-      const centre = ((bank.x + elapsed*bank.speed/state.cssWidth + 0.5) % 2) - 0.5;
+      const centre = ((bank.x + elapsed*bank.speed*Math.max(4,Math.min(11,state.cssWidth*0.009))/state.cssWidth + 0.5) % 2) - 0.5;
       const startX=Math.max(0,Math.floor((centre-bank.rx)*w));
       const endX=Math.min(w,Math.ceil((centre+bank.rx)*w));
       const centreY=bank.y*state.cssHeight/CELL, ry=bank.ry*state.cssHeight/CELL;

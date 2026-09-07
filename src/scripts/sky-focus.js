@@ -3,11 +3,11 @@
 const hero = document.querySelector('.hero');
 if (hero) {
   const root = document.documentElement;
-  const content = [...hero.querySelectorAll('.topbar,.hero-copy')];
+  const content = [...hero.querySelectorAll('.topbar,.hero-copy,.watch-sky')];
   const ground = document.querySelector('main');
   const enter = document.querySelector('[data-watch-sky]');
   const exit = document.createElement('button');
-  exit.className='sky-return'; exit.textContent='back to the page · esc'; exit.hidden=true;
+  exit.className='sky-return'; exit.textContent='×'; exit.setAttribute('aria-label','Back to website'); exit.title='Back to website (Esc)'; exit.hidden=true;
   document.body.appendChild(exit);
   let previousFocus;
   function setFocus(active) {
