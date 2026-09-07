@@ -30,11 +30,16 @@
 // Only the low two settle, and that is the honest division: cirrus is eight
 // kilometres up and can no more lie on a slope than the moon can. The bank sits
 // at pass height, which is why it is the one that fills them.
+// The sheets run off both edges of the frame and the discrete forms do not,
+// which is the difference between them: cirrus and stratus are one layer laid
+// over the whole sky, while a cumulus is a single body of air and a lenticular
+// is one wave standing over one ridge. Half-width sheets read as islands and
+// left the sky looking sparse.
 const FORMS = {
-  cirrus:     { band: [0.06, 0.17], rx: [0.14, 0.32], ry: [0.008, 0.018], speed: [0.020, 0.034], smooth: 0.35, settles: false },
+  cirrus:     { band: [0.06, 0.17], rx: [0.34, 0.72], ry: [0.008, 0.018], speed: [0.020, 0.034], smooth: 0.35, settles: false },
   cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    settles: false },
   lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    settles: true },
-  bank:       { band: [0.42, 0.62], rx: [0.16, 0.30], ry: [0.016, 0.036], speed: [0.006, 0.013], smooth: 0.18, settles: true }
+  bank:       { band: [0.42, 0.62], rx: [0.30, 0.62], ry: [0.016, 0.036], speed: [0.006, 0.013], smooth: 0.18, settles: true }
 };
 
 export function createCloudField(random = Math.random) {

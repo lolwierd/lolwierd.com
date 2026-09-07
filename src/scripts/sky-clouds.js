@@ -1,5 +1,5 @@
 import { createCloudField } from './sky-cloud-field.js';
-import { smoothstep, lerp, bayerThreshold, motionMedia, effects, terrainExposure } from './sky-shared.js';
+import { smoothstep, lerp, bayerThreshold, hash2, motionMedia, effects, terrainExposure } from './sky-shared.js';
 
 // Advect a density field through a fixed print grid. Clouds travel and reform;
 // the dither itself never slides like a transparent image across the page.
@@ -15,7 +15,27 @@ import { smoothstep, lerp, bayerThreshold, motionMedia, effects, terrainExposure
 // this used to build a thousand line segments for on every frame.
 let skyPlate, skyBrush, landPlate, landBrush;
 let lastFrame = 0, lastBuild = -Infinity, elapsed = 0, signature = '';
-const CELL = 3;
+// Two CSS pixels, not three. The terrain dithers at one, and a cloud lying on
+// the ridge is read directly against that grain: at three the cloud was visibly
+// built of bigger bricks than the mountain it was sitting on.
+const CELL = 2;
+
+// An ordered dither is a lattice, and a lattice at roughly half density is a
+// checkerboard. Daylight hides it -- pale cloud on a pale sky has nowhere near
+// the contrast to show the grid -- but at night every lit cell is a bright cell
+// on near-black and the pattern is the first thing you see.
+//
+// The fix is a nudge, not a replacement. Ordered dithering is what makes a
+// smooth density field read as one body rather than as grain; swapping in a
+// per-cell hash outright scatters the cells at random and the cloud comes out
+// as static. So the hash gets a small share of the threshold -- enough to bend
+// the straight rows out of true, not enough to stop the ordering doing its job.
+// It is keyed to the plate, not to the cloud, so the texture still stays put
+// while the weather moves over it.
+const LATTICE = 0.88;
+function threshold(x, y) {
+  return bayerThreshold(x, y) * LATTICE + hash2(x, y, 9173) * (1 - LATTICE);
+}
 // How much cloud survives directly over a line of type. Low enough that the
 // stipple behind small text stays quiet, high enough that the silhouette holds.
 const INK_FLOOR = 0.32;
@@ -74,7 +94,12 @@ export function paintClouds(ctx, state, now, inkRoom) {
       const base = 1 - smooth * 0.38;
       for (let x=startX;x<endX;x++) {
         const nx=(x/w-centre)/bank.rx;
-        const ruffle = (Math.sin(nx*8+elapsed*0.09+bank.seed)*0.19 + Math.sin(nx*19-elapsed*0.055)*0.10) * wobble;
+        // The wobble is written in cloud-relative units, so a sheet three times
+        // the width of a puff was getting the same few undulations stretched
+        // across the whole frame and came out glassy. Scale the frequency with
+        // the width and the texture stays put in screen space.
+        const grain = bank.rx / 0.18;
+        const ruffle = (Math.sin(nx*8*grain+elapsed*0.09+bank.seed)*0.19 + Math.sin(nx*19*grain-elapsed*0.055)*0.10) * wobble;
         const startY=Math.max(0,Math.floor(centreY-ry*(1.3+ruffle)));
         const endY=Math.min(h,Math.ceil(centreY+ry*(1.3-ruffle)));
         // The ridge height under this column decides which plate its cells go
@@ -102,7 +127,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // goes thin as it passes and thickens again on the far side.
           const room = INK_FLOOR + (1-INK_FLOOR)*inkRoom(x*scale,y*scale,state);
           const density=edge*folds*(0.86-0.34*night)*room*(onLand ? LAND_DENSITY : 1);
-          if (density > bayerThreshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
+          if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
         }
       }
     }
