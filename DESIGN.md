@@ -159,6 +159,13 @@ lies at pass height. The summit banner is not modelled, because nothing in a fie
 drifting viewport fractions can be honest about a cloud that belongs to one
 mountain rather than to the sky.
 
+Once in about ten spawns the sky closes over entirely: a layer wider and taller
+than the frame, which is the day the mountain is simply not there. It prints at
+under half the weight of a cumulus, because a deck that covers everything has to
+be a veil the scene shows through rather than a wall painted over it. It is
+uncommon and it passes, which is roughly how often it happens and roughly how
+long it lasts.
+
 The sheets run off both edges of the frame and the discrete forms do not, which
 is the actual difference between them. Cirrus and stratus are one layer laid
 over the whole sky; a cumulus is a single body of air and a lenticular is one

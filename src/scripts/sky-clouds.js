@@ -90,6 +90,10 @@ export function paintClouds(ctx, state, now, inkRoom) {
       // planes its edges flat, so the convective wobble is damped out of it and
       // its interior fills to a plateau instead of turning over in folds.
       const smooth = bank.smooth || 0;
+      // How solid this form prints. An overcast layer covers the frame, so it
+      // has to be a veil the scene shows through rather than a wall painted
+      // over it; cirrus is thin because cirrus is ice.
+      const weight = bank.weight == null ? 1 : bank.weight;
       const wobble = 1 - smooth * 0.88;
       const base = 1 - smooth * 0.38;
       for (let x=startX;x<endX;x++) {
@@ -126,7 +130,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // out amputated; holding a floor under it means the same cloud simply
           // goes thin as it passes and thickens again on the far side.
           const room = INK_FLOOR + (1-INK_FLOOR)*inkRoom(x*scale,y*scale,state);
-          const density=edge*folds*(0.86-0.34*night)*room*(onLand ? LAND_DENSITY : 1);
+          const density=edge*folds*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
           if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
         }
       }

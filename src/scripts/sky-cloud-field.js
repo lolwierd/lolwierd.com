@@ -17,6 +17,10 @@
 //               deck sitting in the valley with the summits standing clear of
 //               it, so the bank is allowed below the skyline and the others are
 //               not. Its edges stay soft -- it is a sheet, not a lens.
+//   overcast    the day the mountain is simply not there. Wider and taller than
+//               the frame, thin enough to be a veil rather than a wall, and
+//               uncommon: about one spawn in ten, so it turns up now and then
+//               and is gone again, which is roughly how often it happens.
 //
 // Not modelled: the summit banner, which streams off one particular peak and
 // stays pinned to it. Nothing in a field of drifting viewport fractions can be
@@ -24,8 +28,8 @@
 //
 // band is where the form sits as a fraction of hero height, rx/ry its half-width
 // and half-height, speed viewport widths per second, smooth runs 0 for a ragged
-// convective edge to 1 for the lens, and settles says whether this form is
-// allowed below the skyline.
+// convective edge to 1 for the lens, weight is how solid the form prints, and
+// settles says whether this form is allowed below the skyline.
 //
 // Only the low two settle, and that is the honest division: cirrus is eight
 // kilometres up and can no more lie on a slope than the moon can. The bank sits
@@ -36,10 +40,11 @@
 // is one wave standing over one ridge. Half-width sheets read as islands and
 // left the sky looking sparse.
 const FORMS = {
-  cirrus:     { band: [0.06, 0.17], rx: [0.34, 0.72], ry: [0.008, 0.018], speed: [0.020, 0.034], smooth: 0.35, settles: false },
-  cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    settles: false },
-  lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    settles: true },
-  bank:       { band: [0.42, 0.62], rx: [0.30, 0.62], ry: [0.016, 0.036], speed: [0.006, 0.013], smooth: 0.18, settles: true }
+  cirrus:     { band: [0.06, 0.17], rx: [0.34, 0.72], ry: [0.008, 0.018], speed: [0.020, 0.034], smooth: 0.35, weight: 0.85, settles: false },
+  cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    weight: 1,    settles: false },
+  lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    weight: 1,    settles: true },
+  bank:       { band: [0.42, 0.62], rx: [0.30, 0.62], ry: [0.016, 0.036], speed: [0.006, 0.013], smooth: 0.18, weight: 0.9,  settles: true },
+  overcast:   { band: [0.18, 0.40], rx: [0.80, 1.25], ry: [0.20, 0.34], speed: [0.008, 0.014], smooth: 0.30, weight: 0.46, settles: true }
 };
 
 export function createCloudField(random = Math.random) {
@@ -53,8 +58,9 @@ export function createCloudField(random = Math.random) {
   // one mostly high cloud. The lens is uncommon at any hour and does not care.
   function pickForm(daylight) {
     const roll = random();
-    if (roll < 0.14) return 'lenticular';
-    if (roll < 0.44 + daylight * 0.26) return 'cumulus';
+    if (roll < 0.10) return 'overcast';
+    if (roll < 0.24) return 'lenticular';
+    if (roll < 0.54 + daylight * 0.26) return 'cumulus';
     return random() < 0.55 ? 'cirrus' : 'bank';
   }
 
@@ -64,7 +70,7 @@ export function createCloudField(random = Math.random) {
     const rx = between(form.rx);
     return { id: serial++, x: x ?? -rx - 0.08, rx, y: between(form.band),
       ry: between(form.ry), speed: between(form.speed),
-      seed: random() * 100, kind, smooth: form.smooth, settles: form.settles };
+      seed: random() * 100, kind, smooth: form.smooth, weight: form.weight, settles: form.settles };
   }
 
   const clouds = Array.from({length:5}, (_, i) => spawn(-0.25 + i * 0.32));
