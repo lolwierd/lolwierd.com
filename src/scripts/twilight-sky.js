@@ -313,14 +313,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var dy = Math.max(copyBox.top-y, 0, y-copyBox.bottom);
     return smoothstep(12*state.dpr, 80*state.dpr, Math.hypot(dx, dy));
   }
-  function clearOfCopy(state, x, y, radius) {
-    if (!copyBox || x+radius < copyBox.left || x-radius > copyBox.right || y-radius > copyBox.bottom || y+radius < copyBox.top) return y;
-    var below = copyBox.bottom + radius + 24*state.dpr;
-    var ridge = state.skyline[clamp(Math.round(x), 0, state.width-1)];
-    if (below + radius < ridge) return below;
-    return Math.max(radius + 72*state.dpr, copyBox.top-radius-20*state.dpr);
-  }
-
   function buildSun(state, altitude, valleyX) {
     sunScene = null;
     if (altitude <= -0.83) return;
@@ -341,12 +333,11 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var band = FLICKER_BAND * (1 - blaze * 0.66);
     var amp = FLICKER_AMP * (1 - blaze * 0.5);
 
-    var lowBlend = 1 - smoothstep(4, 15, altitude);
-    var composedX = state.portrait ? state.celestial.sun.x : state.width * (0.65 + 0.22 * clamp(state.celestial.sun.x / state.width, 0, 1));
-    var sunX = Math.round(lerp(composedX, valleyX, lowBlend * 0.35));
-    var ridgeY = state.skyline[clamp(sunX, 0, state.width - 1)];
-    var sunY = Math.round(lerp(state.celestial.sun.y, ridgeY - radius * 0.55, lowBlend));
-    sunY = clearOfCopy(state, sunX, sunY, radius * 1.4);
+    // One horizon and one path in reading and watch mode. The ridge itself
+    // occludes the disc; never pull sunrise/sunset into an available gap.
+    var sunX = Math.round(state.celestial.sun.x);
+    var sunY = Math.round(state.celestial.sun.y);
+    var textFade = 0.12 + 0.88 * inkRoom(sunX, sunY, state);
 
     var solid = [];
     var marginal = [];
@@ -385,8 +376,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         // Bayer threshold happens to sit above 0.8 fall inside the flicker band and
         // punch holes through the nucleus.
         var margin = density >= 0.98 ? 1 : density - bayer;
-        if (margin > band) solid.push(cx, cy, alpha);
-        else if (margin > -band) marginal.push({ x: cx, y: cy, a: alpha, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
+        if (margin > band) solid.push(cx, cy, alpha * textFade);
+        else if (margin > -band) marginal.push({ x: cx, y: cy, a: alpha * textFade, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
       }
     }
 
@@ -600,7 +591,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     buildRidge(state, night ? "#e4dac8" : colors.top, night);
     // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
     // in the sky and the old night-only moon could never show it.
-    moonScene = buildMoon(state, clearOfCopy);
+    moonScene = buildMoon(state, inkRoom);
     buildSun(state, altitude, valleyX);
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));

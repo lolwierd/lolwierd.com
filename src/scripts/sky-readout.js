@@ -288,7 +288,6 @@ import { effects, motionMedia, isCoarse } from "./sky-shared.js";
 
   function activate(kind) {
     hide();
-    window.dispatchEvent(new Event("skywatchstart"));
     if (kind === "sun") window.dispatchEvent(new Event("skyrunday"));
     else if (kind === "moon") window.dispatchEvent(new Event("skyrunmonth"));
   }

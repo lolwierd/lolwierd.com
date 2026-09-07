@@ -177,6 +177,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     if (!api || !api.stepClock || !api.dayArc) return;
     if (dayRun) window.clearInterval(dayRun);
 
+    window.dispatchEvent(new Event("skywatchstart"));
     toTop();
     var arc = api.dayArc();
     var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
@@ -212,6 +213,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     if (!api || !api.stepClock || !api.clock) return;
     if (monthRun) window.clearInterval(monthRun);
 
+    window.dispatchEvent(new Event("skywatchstart"));
     var from = api.clock().getTime();
     var step = 0;
     say("a lunar month, eight seconds");
@@ -248,6 +250,8 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   });
 
   var WORDS = {
+    timelapse: function () { window.dispatchEvent(new Event("skyrunday")); },
+    month: function () { window.dispatchEvent(new Event("skyrunmonth")); },
     dawn: function () { setClock("dawn", "dawn over vadodara"); },
     sunrise: function () { setClock("dawn", "dawn over vadodara"); },
     dusk: function () { setClock("dusk", "dusk over vadodara"); },
@@ -415,7 +419,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (typed === KONAMI) {
         arrows = [];
         buffer = "";
-        runTheDay();
+        window.dispatchEvent(new Event("skyrunday"));
         return;
       }
     }

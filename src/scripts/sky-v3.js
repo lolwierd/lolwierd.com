@@ -430,7 +430,7 @@ import {
   }
 
   function projectAltitude(altitude) {
-    return height * (0.50 - (clamp(altitude, 0, 90) / 90) * 0.42);
+    return height * (0.80 - (clamp(altitude, -6, 90) / 90) * 0.70);
   }
 
   function updateCelestial(date) {
