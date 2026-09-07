@@ -112,3 +112,17 @@ ambient floor for moonless nights. This is an illustrative exposure curve.
 Watch mode belongs to the landscape: its entry sits in the lower-right corner,
 away from selected work. A small close glyph replaces the boxed exit label,
 while retaining a 44px target, accessible name and Escape support.
+
+## Continuous weather and celestial paths
+
+Clouds retain an identity while travelling left to right. Only after leaving
+the frame are they replaced offscreen with varied width, height, form and wind
+speed. Randomness happens at birth, never per frame.
+
+The sun traverses one left-to-right daylight arc. Both celestial bodies use a
+shared altitude projection and are occluded by the terrain, with no copy-avoidance
+position changes. Reading mode softens a body near actual text; watch mode
+removes that attenuation. The sunset glow follows the solar position.
+
+Double-click, Konami and the timelapse/month words dispatch the same day/month
+handlers; those handlers own entering watch mode and starting their timers.

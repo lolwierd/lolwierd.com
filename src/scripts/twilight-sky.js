@@ -123,32 +123,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     ctx = canvas.getContext("2d", { alpha: true });
   }
 
-  function findValleyX(state) {
-    var start = Math.floor(state.width * 0.22);
-    var end = Math.ceil(state.width * 0.78);
-    var bestX = Math.floor(state.width * 0.5);
-    var bestY = -Infinity;
-    var radius = Math.max(4, Math.round(7 * state.dpr));
-
-    for (var x = start; x < end; x += Math.max(1, Math.round(state.dpr))) {
-      var total = 0;
-      var count = 0;
-      for (var dx = -radius; dx <= radius; dx += Math.max(1, Math.round(state.dpr))) {
-        var sampleX = x + dx;
-        if (sampleX < 0 || sampleX >= state.width) continue;
-        total += state.skyline[sampleX];
-        count++;
-      }
-      var y = count ? total / count : state.skyline[x];
-      if (y > bestY) {
-        bestY = y;
-        bestX = x;
-      }
-    }
-
-    return bestX;
-  }
-
   function clipSky(state) {
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -302,7 +276,15 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   function measureCopy(state) {
     var copy = document.querySelector(".hero-copy");
     if (!copy || document.documentElement.hasAttribute("data-sky-focus")) { copyBox = null; return; }
-    var a = copy.getBoundingClientRect(), b = canvas.getBoundingClientRect();
+    // Measure the actual text, not the full grid cell's unused right edge.
+    var boxes = Array.from(copy.querySelectorAll('h1,p,.hero-action')).map(function (node) {
+      var range = document.createRange(); range.selectNodeContents(node);
+      return range.getBoundingClientRect();
+    }).filter(function (box) { return box.width && box.height; });
+    if (!boxes.length) { copyBox = null; return; }
+    var a = {left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
+      top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
+    var b = canvas.getBoundingClientRect();
     var scale = state.dpr;
     copyBox = { left: (a.left-b.left)*scale, right: (a.right-b.left)*scale,
       top: (a.top-b.top)*scale, bottom: (a.bottom-b.top)*scale };
@@ -313,7 +295,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var dy = Math.max(copyBox.top-y, 0, y-copyBox.bottom);
     return smoothstep(12*state.dpr, 80*state.dpr, Math.hypot(dx, dy));
   }
-  function buildSun(state, altitude, valleyX) {
+  function buildSun(state, altitude) {
     sunScene = null;
     if (altitude <= -0.83) return;
 
@@ -567,7 +549,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var altitude = state.celestial.sun.altitude;
     var night = isNight();
     var colors = palette(altitude);
-    var valleyX = findValleyX(state);
+    var glowX = clamp(Math.round(state.celestial.sun.x), 0, state.width - 1);
 
     // The page's own colours flip at -6 degrees, but the sky does not: there are
     // another twelve degrees of real twilight after that. Painting stopped dead
@@ -582,7 +564,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       clipSky(state);
       ctx.globalAlpha = veil;
       drawDitheredSky(state, colors);
-      drawAfterglow(state, altitude, valleyX);
+      drawAfterglow(state, altitude, glowX);
 
       ctx.globalAlpha = 1;
       ctx.restore();
@@ -592,7 +574,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
     // in the sky and the old night-only moon could never show it.
     moonScene = buildMoon(state, inkRoom);
-    buildSun(state, altitude, valleyX);
+    buildSun(state, altitude);
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));
     snapshotBase(state);
