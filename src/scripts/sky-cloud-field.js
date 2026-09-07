@@ -80,10 +80,17 @@ export function createCloudField(random = Math.random) {
     const kind = pickForm(daylight);
     const form = FORMS[kind];
     const rx = between(form.rx);
+    // Which end is the heavy one, and how far off level it lies. An ellipse is
+    // perfectly symmetric about its centre, so without these every cloud has its
+    // densest point exactly in the middle and its long axis exactly horizontal,
+    // and a long one comes out as a lozenge ruled across the sky. Real bands are
+    // lopsided and they lean.
+    const lean = (random() * 2 - 1) * 0.5;
+    const tilt = (random() * 2 - 1) * (form.fibre ? 0.055 : 0.02);
     return { id: serial++, x: x ?? -rx - 0.08, rx, y: between(form.band),
       ry: between(form.ry), speed: between(form.speed),
       seed: random() * 100, kind, smooth: form.smooth, fibre: form.fibre,
-      weight: form.weight, settles: form.settles };
+      lean, tilt, weight: form.weight, settles: form.settles };
   }
 
   const clouds = Array.from({length:5}, (_, i) => spawn(-0.25 + i * 0.32));

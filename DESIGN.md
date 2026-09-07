@@ -266,3 +266,16 @@ entire reason a lens reads as a lens.
 
 That is also the answer to length. A long form does not need to be short, it
 needs to stop being one continuous object.
+
+## Lopsided and leaning
+
+An ellipse is perfectly symmetric about its centre, so every cloud was putting
+its densest point exactly in the middle and lying exactly level. At cumulus
+proportions nobody notices. Stretched to a band across most of the sky it is the
+whole problem: it reads as a lozenge ruled onto the picture, and no amount of
+breaking it into strands fixes a shape that is still bilaterally symmetric.
+
+So each cloud is born with a heavy end and a slope. One side carries up to half
+again what the other does, and the long axis walks off level as it crosses,
+further for the fibrous forms than the solid ones. The shape was never the
+problem with a long cloud. The symmetry was.

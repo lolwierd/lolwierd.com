@@ -91,6 +91,8 @@ export function paintClouds(ctx, state, now, inkRoom) {
       // its interior fills to a plateau instead of turning over in folds.
       const smooth = bank.smooth || 0;
       const fibre = bank.fibre || 0;
+      const lean = bank.lean || 0;
+      const slope = (bank.tilt || 0) * state.cssHeight / CELL;
       // How solid this form prints. An overcast layer covers the frame, so it
       // has to be a veil the scene shows through rather than a wall painted
       // over it; cirrus is thin because cirrus is ice.
@@ -117,8 +119,12 @@ export function paintClouds(ctx, state, now, inkRoom) {
               * Math.cos(nx * 2.7 + bank.seed * 0.6))
           : 1;
         const ruffle = (Math.sin(nx*8*grain+elapsed*0.09+bank.seed)*0.19 + Math.sin(nx*19*grain-elapsed*0.055)*0.10) * wobble;
-        const startY=Math.max(0,Math.floor(centreY-ry*(1.3+ruffle)));
-        const endY=Math.min(h,Math.ceil(centreY+ry*(1.3-ruffle)));
+        // The long axis is not level, so the centreline walks with the column.
+        const spine = centreY + slope * nx;
+        const startY=Math.max(0,Math.floor(spine-ry*(1.3+ruffle)));
+        const endY=Math.min(h,Math.ceil(spine+ry*(1.3-ruffle)));
+        // One end carries more than the other.
+        const heft = Math.max(0, 1 + lean * nx);
         // The ridge height under this column decides which plate its cells go
         // to, so the boundary follows the silhouette instead of a clip path.
         // A column with no terrain in it reads 0, which would put the whole sky
@@ -130,7 +136,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // A lens has a domed top and a flat base -- the wave crest shapes the
           // upper surface and the condensation level cuts the lower one off
           // straight. Compressing the half below centre is the whole read.
-          const drop=(y-centreY)/ry+ruffle;
+          const drop=(y-spine)/ry+ruffle;
           const ny=drop > 0 ? drop / base : drop;
           const fill=Math.max(0,1-nx*nx-ny*ny);
           if (!fill) continue;
@@ -143,7 +149,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // out amputated; holding a floor under it means the same cloud simply
           // goes thin as it passes and thickens again on the far side.
           const room = INK_FLOOR + (1-INK_FLOOR)*inkRoom(x*scale,y*scale,state);
-          const density=edge*folds*strands*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
+          const density=edge*folds*strands*heft*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
           if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
         }
       }
