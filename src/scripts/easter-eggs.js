@@ -397,7 +397,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     // No nudge on touch: there is no keyboard to press ? on.
     if (nudged || document.hidden || isCoarse()) return;
     markUsed();
-    say("psst — the sky does tricks. press ?", 11000);
+    say("psst. the sky does tricks. press ?", 11000);
   }, 12000);
 
   document.addEventListener("keydown", function (event) {
