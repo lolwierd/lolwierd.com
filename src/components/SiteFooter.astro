@@ -1,9 +1,9 @@
 ---
 // The same footer that closes the homepage, reused inside PageLayout so a post
 // or the writing index doesn't end on empty paper. Links are absolute so they
-// work from /writing/ as well as from /. When includeJumps is true (homepage)
-// it also renders the hash-anchored work/projects links that the hero expects
-// on a single-page scroll — those are hidden on desktop via .footer-jump.
+// work from /writing/ as well as from /. includeJumps marks the homepage, which
+// is the only place the address belongs: it is the end of the page someone
+// reads to decide whether to write to you.
 const { id, includeJumps = false } = Astro.props;
 ---
 <footer class="site-footer interior-footer" id={id}>

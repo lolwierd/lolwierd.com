@@ -805,14 +805,6 @@ a { -webkit-tap-highlight-color: transparent; }
 
 .footer-links a { color: var(--ink-dim); }
 
-/* Section jumps belong in the header on a desktop; on a phone the header does
-   not carry them, so the footer is where the index lives. */
-.footer-jump { display: none; }
-
-@media (max-width: 620px) {
-  .footer-jump { display: inline; }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .site-name,
   .hero-nav,
@@ -829,12 +821,16 @@ a { -webkit-tap-highlight-color: transparent; }
 /* Paired with the inline hold script: the hero stays down until hero-clearance.js
    has finished placing it, so the ridge correction is never visible as a jump. */
 :root[data-hero-hold] .hero-copy {
-  opacity: 1;
+  opacity: 0;
 }
 
+/* Paused rather than cancelled: `settle` is filled `both`, so pausing holds it
+   on its first frame and releasing plays the entrance once. Cancelling it left
+   the copy fully drawn during the hold and then snapped it back to opacity 0 to
+   animate in, which read as the hero appearing twice. */
 :root[data-hero-hold] .hero-copy,
 :root[data-hero-hold] .hero-action {
-  animation: none;
+  animation-play-state: paused;
 }
 
 /* Only while the sky is actually changing phase, so ordinary hover colours are
