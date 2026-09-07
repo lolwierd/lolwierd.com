@@ -99,10 +99,13 @@ export function paintClouds(ctx, state, now, inkRoom) {
       for (let x=startX;x<endX;x++) {
         const nx=(x/w-centre)/bank.rx;
         // The wobble is written in cloud-relative units, so a sheet three times
-        // the width of a puff was getting the same few undulations stretched
-        // across the whole frame and came out glassy. Scale the frequency with
-        // the width and the texture stays put in screen space.
-        const grain = bank.rx / 0.18;
+        // the width of a puff gets the same few undulations stretched across the
+        // whole frame and comes out glassy. Scaling the frequency by width keeps
+        // the texture put in screen space, but only up to a point: past about
+        // twice, a frame-wide sheet is carrying so many folds that the density
+        // swing between them starts reading as vertical banding rather than as
+        // cloud. Take the benefit and stop.
+        const grain = Math.min(2.2, bank.rx / 0.18);
         const ruffle = (Math.sin(nx*8*grain+elapsed*0.09+bank.seed)*0.19 + Math.sin(nx*19*grain-elapsed*0.055)*0.10) * wobble;
         const startY=Math.max(0,Math.floor(centreY-ry*(1.3+ruffle)));
         const endY=Math.min(h,Math.ceil(centreY+ry*(1.3-ruffle)));

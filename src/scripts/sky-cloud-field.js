@@ -17,10 +17,12 @@
 //               deck sitting in the valley with the summits standing clear of
 //               it, so the bank is allowed below the skyline and the others are
 //               not. Its edges stay soft -- it is a sheet, not a lens.
-//   overcast    the day the mountain is simply not there. Wider and taller than
-//               the frame, thin enough to be a veil rather than a wall, and
-//               uncommon: about one spawn in ten, so it turns up now and then
-//               and is gone again, which is roughly how often it happens.
+//   overcast    the sky closing over. Wider than the frame and deep enough to
+//               take the top half of it, thin enough to be a veil rather than a
+//               wall, and uncommon. It moves at a good clip for something that
+//               size: a real overcast sits for hours, but a hero that is fogged
+//               for six minutes is not weather, it is a fault, so this one
+//               passes in under two.
 //
 // Not modelled: the summit banner, which streams off one particular peak and
 // stays pinned to it. Nothing in a field of drifting viewport fractions can be
@@ -34,17 +36,19 @@
 // Only the low two settle, and that is the honest division: cirrus is eight
 // kilometres up and can no more lie on a slope than the moon can. The bank sits
 // at pass height, which is why it is the one that fills them.
-// The sheets run off both edges of the frame and the discrete forms do not,
-// which is the difference between them: cirrus and stratus are one layer laid
-// over the whole sky, while a cumulus is a single body of air and a lenticular
-// is one wave standing over one ridge. Half-width sheets read as islands and
-// left the sky looking sparse.
+// Sheets are wider than the discrete forms, because that is the difference
+// between them: cirrus and stratus are one layer laid over the sky, while a
+// cumulus is a single body of air and a lenticular is one wave standing over one
+// ridge. Wide, though, not endless. Stretched past the width of the frame a
+// sheet stops reading as cloud and starts reading as a rule drawn across the
+// picture, which is what nearly a hundred to one gets you. The overcast is the
+// only form allowed to span everything, and it is rare and it passes.
 const FORMS = {
-  cirrus:     { band: [0.06, 0.17], rx: [0.34, 0.72], ry: [0.008, 0.018], speed: [0.020, 0.034], smooth: 0.35, weight: 0.85, settles: false },
+  cirrus:     { band: [0.06, 0.17], rx: [0.20, 0.42], ry: [0.011, 0.024], speed: [0.020, 0.034], smooth: 0.35, weight: 0.85, settles: false },
   cumulus:    { band: [0.15, 0.33], rx: [0.09, 0.20], ry: [0.035, 0.070], speed: [0.008, 0.016], smooth: 0,    weight: 1,    settles: false },
   lenticular: { band: [0.27, 0.42], rx: [0.07, 0.14], ry: [0.021, 0.035], speed: [0.002, 0.005], smooth: 1,    weight: 1,    settles: true },
-  bank:       { band: [0.42, 0.62], rx: [0.30, 0.62], ry: [0.016, 0.036], speed: [0.006, 0.013], smooth: 0.18, weight: 0.9,  settles: true },
-  overcast:   { band: [0.18, 0.40], rx: [0.80, 1.25], ry: [0.20, 0.34], speed: [0.008, 0.014], smooth: 0.30, weight: 0.46, settles: true }
+  bank:       { band: [0.42, 0.62], rx: [0.20, 0.40], ry: [0.018, 0.040], speed: [0.006, 0.013], smooth: 0.18, weight: 0.9,  settles: true },
+  overcast:   { band: [0.16, 0.34], rx: [0.62, 0.95], ry: [0.09, 0.16], speed: [0.026, 0.040], smooth: 0.62, weight: 0.72, settles: true }
 };
 
 export function createCloudField(random = Math.random) {
@@ -58,9 +62,9 @@ export function createCloudField(random = Math.random) {
   // one mostly high cloud. The lens is uncommon at any hour and does not care.
   function pickForm(daylight) {
     const roll = random();
-    if (roll < 0.10) return 'overcast';
-    if (roll < 0.24) return 'lenticular';
-    if (roll < 0.54 + daylight * 0.26) return 'cumulus';
+    if (roll < 0.07) return 'overcast';
+    if (roll < 0.21) return 'lenticular';
+    if (roll < 0.51 + daylight * 0.26) return 'cumulus';
     return random() < 0.55 ? 'cirrus' : 'bank';
   }
 
