@@ -208,6 +208,14 @@ their timer is up they close it again and return the reader to the page. The
 watch button is the mode you stay in. A run started while already watching leaves
 that view alone, because the visitor chose it.
 
+That last rule needs one qualification, and it is the whole reason the runs used
+to strand people. A run restarted while another is still going must not ask the
+page who opened watch mode: the mode is already open, the answer comes back "the
+visitor did", and the run then politely declines to close a view nobody chose.
+Pressing the code twice, or double-clicking the sun again while watching, which
+is the obvious thing to do, left no way out but Escape. A restarted run inherits
+the previous run's answer instead of recomputing it.
+
 ## One clock, and a word to speed it up
 
 Every layer now takes its time from a single scene clock kept by the shared

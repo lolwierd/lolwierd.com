@@ -177,8 +177,14 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   // away from them when its thirty seconds are up.
   var runOpenedWatch = false;
 
-  function beginRun() {
-    runOpenedWatch = !document.documentElement.hasAttribute("data-sky-focus");
+  // handover says a run was already going when this one started. It matters
+  // because the answer must not be recomputed then: the mode is already open, so
+  // asking the page who opened it gets "the visitor did", and the run politely
+  // declines to close a view nobody actually chose. Pressing the code twice, or
+  // double-clicking the sun again while watching -- which is the obvious thing to
+  // do -- stranded you in watch mode with no way out but Escape.
+  function beginRun(handover) {
+    if (!handover) runOpenedWatch = !document.documentElement.hasAttribute("data-sky-focus");
     window.dispatchEvent(new Event("skywatchstart"));
   }
 
@@ -189,12 +195,14 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   }
 
   function runTheDay() {
+    // Read before anything is cleared, or the evidence is gone.
+    var handover = !!(dayRun || monthRun);
     if (monthRun) { window.clearInterval(monthRun); monthRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
     if (dayRun) window.clearInterval(dayRun);
 
-    beginRun();
+    beginRun(handover);
     toTop();
     var arc = api.dayArc();
     var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
@@ -224,12 +232,13 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   var MONTH_MS = 8000;
 
   function runTheMonth() {
+    var handover = !!(dayRun || monthRun);
     if (dayRun) { window.clearInterval(dayRun); dayRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.clock) return;
     if (monthRun) window.clearInterval(monthRun);
 
-    beginRun();
+    beginRun(handover);
     var from = api.clock().getTime();
     var step = 0;
     say("a lunar month, eight seconds");
