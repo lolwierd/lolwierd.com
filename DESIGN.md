@@ -101,3 +101,14 @@ Three work examples lead; the remaining seven are preserved in native details.
 The handover figures precede the examples. CBManager has a real screenshot from
 its repository, and contact ends with a readable email address. Mobile labels
 use whole-pixel font sizes and roomier tap targets.
+
+## September lighting revision
+
+Cloud layers now travel sideways at distinct, readily visible speeds. Daytime
+snow has a cool surface colour rather than inheriting white page paper. Night
+terrain and snow glints follow moon illumination and altitude, with a restrained
+ambient floor for moonless nights. This is an illustrative exposure curve.
+
+Watch mode belongs to the landscape: its entry sits in the lower-right corner,
+away from selected work. A small close glyph replaces the boxed exit label,
+while retaining a 44px target, accessible name and Escape support.

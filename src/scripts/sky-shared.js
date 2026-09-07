@@ -258,12 +258,8 @@ export function terrainExposure(celestial) {
 export var SKY_THEMES = {
   dark: {
     ink: "#e4dac8",
-    // The plate prints in three inks rather than one. Tier 0 is the moonlit
-    // snow and keeps the old colour, so the ridge line is unchanged; the two
-    // below it are the shadowed snow and the aerial haze, and they are cool
-    // because that is what moonlight on snow actually does. The bottom tier
-    // is deliberately faint -- it has to describe the near buttress without
-    // filling it in, or the range stops being a silhouette.
+    // Cool snow, shadowed snow, then faint rock. Overall exposure follows
+    // the moon's illuminated fraction and altitude when the plate is drawn.
     terrainRamp: [
       { ink: "#c6d2db", weight: 1.00 },
       { ink: "#94a2ad", weight: 0.95 },
