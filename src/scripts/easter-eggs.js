@@ -171,13 +171,29 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     }
   }
 
+  // Whether the run opened watch mode itself. Someone who pressed "watch the
+  // sky" and then typed "timelapse" chose that view; the run must not take it
+  // away from them when its thirty seconds are up.
+  var runOpenedWatch = false;
+
+  function beginRun() {
+    runOpenedWatch = !document.documentElement.hasAttribute("data-sky-focus");
+    window.dispatchEvent(new Event("skywatchstart"));
+  }
+
+  function endRun(api) {
+    api.setClock(null);
+    say("back to the real hour");
+    if (runOpenedWatch) window.dispatchEvent(new Event("skywatchfinish"));
+  }
+
   function runTheDay() {
     if (monthRun) { window.clearInterval(monthRun); monthRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
     if (dayRun) window.clearInterval(dayRun);
 
-    window.dispatchEvent(new Event("skywatchstart"));
+    beginRun();
     toTop();
     var arc = api.dayArc();
     var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
@@ -189,8 +205,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (t >= 1) {
         window.clearInterval(dayRun);
         dayRun = 0;
-        api.setClock(null);
-        say("back to the real hour");
+        endRun(api);
         return;
       }
       // Ease the ends so the run settles into dawn and out at night instead of
@@ -213,7 +228,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     if (!api || !api.stepClock || !api.clock) return;
     if (monthRun) window.clearInterval(monthRun);
 
-    window.dispatchEvent(new Event("skywatchstart"));
+    beginRun();
     var from = api.clock().getTime();
     var step = 0;
     say("a lunar month, eight seconds");
@@ -223,8 +238,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (step > MONTH_STEPS) {
         window.clearInterval(monthRun);
         monthRun = 0;
-        api.setClock(null);
-        say("back to the real hour");
+        endRun(api);
         return;
       }
       api.stepClock(new Date(from + step * 86400000));

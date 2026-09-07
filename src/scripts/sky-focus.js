@@ -32,5 +32,8 @@ if (hero) {
   enter?.addEventListener('click',()=>setFocus(true));
   exit.addEventListener('click',()=>setFocus(false));
   window.addEventListener('skywatchstart',()=>setFocus(true));
+  // A timed run is a finite piece of theatre: when it is over it gives the page
+  // back. The watch button is the mode you stay in, and it never sends this.
+  window.addEventListener('skywatchfinish',()=>setFocus(false));
   document.addEventListener('keydown',e=>{if(e.key==='Escape' && root.hasAttribute('data-sky-focus'))setFocus(false);});
 }

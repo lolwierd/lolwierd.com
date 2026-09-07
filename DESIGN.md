@@ -126,3 +126,65 @@ removes that attenuation. The sunset glow follows the solar position.
 
 Double-click, Konami and the timelapse/month words dispatch the same day/month
 handlers; those handlers own entering watch mode and starting their timers.
+
+## How the sky gets out of the way
+
+The scene defers to the writing, but nothing up there ever moves aside and
+nothing is ever cut out. Both of those had crept in, and both showed.
+
+Clearance is measured against line boxes, not against the copy block. The block's
+union rectangle plus its margin covered more than half the band the clouds travel
+through, so a cloud crossing the hero came out with a straight-edged bite taken
+from it — the rectangle was legible in the sky. Line boxes let the weather thread
+between the lines and past the short ones, and the halo around each line is 52px
+rather than 80.
+
+Nothing yields to zero. Cloud thins to about a third of its density over type and
+keeps its silhouette; it goes thin as it passes and thickens again on the far
+side. A body dims as a whole object rather than picking up a rectangular gradient
+across its face, and stops well short of transparent — the sun at just over half,
+the moon at just under a third, because bone on bone is the one overlap that
+genuinely costs a reader something. What really smears over type is the diffuse
+part, so the corona and the lunar aura yield per cell and yield further. A washed
+out sun reads as a bug, not as deference.
+
+## What stands over this range
+
+Four forms, each with its own altitude, speed and edge: cirrus high and quick on
+the jet stream; cumulus lower, slower and lumpier, and far more of it by day
+because convection needs the sun; the lenticular lens that forms in the standing
+wave downwind of the ridge — domed on top, cut flat underneath at the
+condensation level, tapering to points, and almost stationary; and the bank that
+lies at pass height. The summit banner is not modelled — nothing in a field of
+drifting viewport fractions can be honest about a cloud that belongs to one
+mountain rather than to the sky.
+
+## Cloud does not stop at the skyline
+
+A sky that ends in a clean line along the ridge is what reads as a sticker, and
+over this range it is also wrong: the ordinary sight in the sanctuary is a deck
+lying in the valley with the summits standing clear of it, cloud pouring through
+the passes, cloud on the mid-slopes while the tops are in sun. So the low forms
+are allowed below the skyline and the high ones are not — cirrus is eight
+kilometres up and can no more lie on a slope than the moon can.
+
+Anything in front of the mountain prints bright. Ink on shadowed rock is not
+merely invisible, it is backwards, which the valley fog had already learned. The
+cloud layer keeps two plates and sorts cells into them by the ridge height under
+their own column; that sorting is also what replaced a clip path the renderer was
+building a thousand line segments for on every frame. On the range the deck is
+thinned to well under half, because the photograph is the point.
+
+The valley fog stays daylight-only. Radiation fog is genuinely at its thickest
+overnight, and running it after dark was tried: at the exposure the night terrain
+can carry it read as a grey wash lying over the left of the range rather than as
+mist in a basin, and it took the mountain's shape down with it. The cloud deck
+that crosses the ridge covers the same ground more honestly, so the fog was left
+where it works.
+
+## Timed runs give the page back
+
+The day run and the month run are finite theatre. They open watch mode, and when
+their timer is up they close it again and return the reader to the page. The
+watch button is the mode you stay in. A run started while already watching leaves
+that view alone, because the visitor chose it.

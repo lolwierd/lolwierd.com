@@ -272,29 +272,91 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
 
 
   // Atmosphere yields to the writing, with a feathered margin rather than a panel.
-  var copyBox = null;
+  //
+  // It used to yield to one rectangle drawn around the whole block. The copy is
+  // ragged-right and about 250px tall, so that union box plus its margin covered
+  // well over half the band the clouds live in, and any cloud crossing it came
+  // out with a straight-edged bite taken from it -- the box itself was legible
+  // in the sky. Line boxes instead: the weather threads between the lines and
+  // past the short ones, and the only thing it keeps clear of is actual type.
+  var copyLines = null;
+  var copyBounds = null;
+
   function measureCopy(state) {
+    copyLines = null;
+    copyBounds = null;
     var copy = document.querySelector(".hero-copy");
-    if (!copy || document.documentElement.hasAttribute("data-sky-focus")) { copyBox = null; return; }
-    // Measure the actual text, not the full grid cell's unused right edge.
-    var boxes = Array.from(copy.querySelectorAll('h1,p,.hero-action')).map(function (node) {
-      var range = document.createRange(); range.selectNodeContents(node);
-      return range.getBoundingClientRect();
-    }).filter(function (box) { return box.width && box.height; });
-    if (!boxes.length) { copyBox = null; return; }
-    var a = {left:Math.min(...boxes.map(b=>b.left)),right:Math.max(...boxes.map(b=>b.right)),
-      top:Math.min(...boxes.map(b=>b.top)),bottom:Math.max(...boxes.map(b=>b.bottom))};
-    var b = canvas.getBoundingClientRect();
+    if (!copy || document.documentElement.hasAttribute("data-sky-focus")) return;
+
+    var frame = canvas.getBoundingClientRect();
     var scale = state.dpr;
-    copyBox = { left: (a.left-b.left)*scale, right: (a.right-b.left)*scale,
-      top: (a.top-b.top)*scale, bottom: (a.bottom-b.top)*scale };
+    var lines = [];
+
+    Array.prototype.forEach.call(copy.querySelectorAll("h1,p,.hero-action"), function (node) {
+      var range = document.createRange();
+      range.selectNodeContents(node);
+      // getClientRects gives one rect per line box, so a short last line stops
+      // reserving the sky above the words that are not there.
+      Array.prototype.forEach.call(range.getClientRects(), function (box) {
+        if (!box.width || !box.height) return;
+        lines.push({
+          left: (box.left - frame.left) * scale,
+          right: (box.right - frame.left) * scale,
+          top: (box.top - frame.top) * scale,
+          bottom: (box.bottom - frame.top) * scale
+        });
+      });
+    });
+
+    if (!lines.length) return;
+    copyLines = lines;
+    copyBounds = {
+      left: Math.min.apply(null, lines.map(function (l) { return l.left; })),
+      right: Math.max.apply(null, lines.map(function (l) { return l.right; })),
+      top: Math.min.apply(null, lines.map(function (l) { return l.top; })),
+      bottom: Math.max.apply(null, lines.map(function (l) { return l.bottom; }))
+    };
   }
+
+  // 0 hard against a line of type, 1 out in open sky. Distance to the nearest
+  // line box rather than to the block, so the gaps between and beside the lines
+  // are sky again. The far edge is 52px rather than the old 80: a halo that size
+  // around every line is already more room than the type needs, and the wider
+  // one was most of why the clearance read as a panel.
+  var INK_NEAR = 9;
+  var INK_FAR = 52;
+
   function inkRoom(x, y, state) {
-    if (!copyBox) return 1;
-    var dx = Math.max(copyBox.left-x, 0, x-copyBox.right);
-    var dy = Math.max(copyBox.top-y, 0, y-copyBox.bottom);
-    return smoothstep(12*state.dpr, 80*state.dpr, Math.hypot(dx, dy));
+    if (!copyLines) return 1;
+    var far = INK_FAR * state.dpr;
+    if (x < copyBounds.left - far || x > copyBounds.right + far ||
+        y < copyBounds.top - far || y > copyBounds.bottom + far) return 1;
+
+    var best = Infinity;
+    for (var i = 0; i < copyLines.length; i++) {
+      var line = copyLines[i];
+      // dx and dy are each a lower bound on the distance to this line, so a
+      // line that already loses on one axis never costs a square root.
+      var dy = Math.max(line.top - y, 0, y - line.bottom);
+      if (dy >= best) continue;
+      var dx = Math.max(line.left - x, 0, x - line.right);
+      if (dx >= best) continue;
+      var d = dx ? Math.sqrt(dx * dx + dy * dy) : dy;
+      if (d < best) {
+        best = d;
+        if (!best) return 0;
+      }
+    }
+    return smoothstep(INK_NEAR * state.dpr, far, best);
   }
+
+  // The disc does not yield. It is 44px of the one object the whole scene is
+  // about, and a sun that fades out because a sentence drifted under it reads as
+  // a rendering fault, not as manners. What actually smears over type is the
+  // corona -- three times the diameter, dithered, and low contrast to begin with
+  // -- so that is what steps back, per cell, and it is enough.
+  var SUN_CORONA_FLOOR = 0.25;
+
   function buildSun(state, altitude) {
     sunScene = null;
     if (altitude <= -0.83) return;
@@ -319,7 +381,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     // occludes the disc; never pull sunrise/sunset into an available gap.
     var sunX = Math.round(state.celestial.sun.x);
     var sunY = Math.round(state.celestial.sun.y);
-    var textFade = 0.12 + 0.88 * inkRoom(sunX, sunY, state);
 
     var solid = [];
     var marginal = [];
@@ -336,6 +397,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         var density;
         var alpha;
 
+        var textFade;
+
         if (d <= radius) {
           // Solid to the rim. The old dithered limb thinned cells to ~50% just
           // inside the edge while the corona started at ~100% just outside it,
@@ -343,6 +406,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
           // softening now happens outside the disc, in the corona's falloff.
           density = 1;
           alpha = 1;
+          textFade = 1;
         } else {
           // Start the corona inside the disc's dithered limb, otherwise the sparse
           // annulus between the two reads as a pale eclipse ring around the sun.
@@ -352,6 +416,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
           var falloff = 1 - (d - radius) / (coronaR - radius);
           density = Math.pow(falloff, 1.9) * spread + Math.pow(falloff, 14) * (1 - spread);
           alpha = 0.05 + Math.pow(falloff, 1.15) * 0.95;
+          textFade = SUN_CORONA_FLOOR + (1 - SUN_CORONA_FLOOR) * inkRoom(cx, cy, state);
         }
 
         // density >= 1 is the disc's solid body. Without this guard the cells whose
@@ -450,7 +515,11 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   }
 
   function renderScene(now) {
-    if (!base || !ctx) return;
+    // The 24fps loop can land between the canvas being created and snapshotBase
+    // giving it a size. drawImage throws on a zero-sized source, and the throw
+    // took out everything after it in this function -- including publishBodies,
+    // so the sun and moon quietly stopped being hoverable for that frame.
+    if (!base || !base.width || !base.height || !ctx) return;
     // One GPU blit of the cached sky is cheaper and far simpler than tracking
     // dirty rectangles for motes spread along the whole ridge.
     ctx.clearRect(0, 0, base.width, base.height);
