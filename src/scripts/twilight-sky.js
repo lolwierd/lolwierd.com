@@ -9,6 +9,7 @@ import {
   isNight,
   onSkyPhase,
   onFrame,
+  sceneNow,
   flickerOffset,
   effects,
   budget,
@@ -647,7 +648,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));
     snapshotBase(state);
-    renderScene(performance.now());
+    renderScene(sceneNow());
     startSunLoop();
   }
 

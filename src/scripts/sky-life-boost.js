@@ -6,7 +6,8 @@ import {
   baseState,
   terrainExposure,
   listenMedia as listen,
-  onFrame
+  onFrame,
+  sceneNow
 } from "./sky-shared.js";
 
 (function () {
@@ -191,6 +192,13 @@ import {
       if (tries++ < 80) setTimeout(build, 80);
       return;
     }
+    // The stage measures a pixel wide for a frame while the browser restores a
+    // hidden pane. Building against that stretches one column of snow across the
+    // whole frame as bands, so wait for a real one instead.
+    if (next.width < 8 || next.height < 8) {
+      if (tries++ < 80) setTimeout(build, 80);
+      return;
+    }
 
     ensureCanvas();
     state = next;
@@ -206,7 +214,7 @@ import {
 
     seedSnowCrystals();
     seedShadowCouloirs();
-    draw(reduced ? FIXED_TIME : performance.now());
+    draw(reduced ? FIXED_TIME : sceneNow());
 
     last = 0;
   }
@@ -290,6 +298,8 @@ import {
 
   onFrame(tick);
   window.addEventListener("skyphasechange", build);
+  // sky-v3 relayouts for more than a window resize, and announces each one.
+  window.addEventListener("skylayout", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
     build();
@@ -304,7 +314,7 @@ import {
 
   window.__portfolioLife = {
     build: build,
-    step: function (now) { draw(now == null ? (reduced ? FIXED_TIME : performance.now()) : now); },
+    step: function (now) { draw(now == null ? (reduced ? FIXED_TIME : sceneNow()) : now); },
     state: function () {
       return {
         ready: !!state,

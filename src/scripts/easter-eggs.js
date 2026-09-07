@@ -25,6 +25,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     ["ridge", "show the skyline the page computed"],
     ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
+    ["fast", "run it at double, then triple"],
     ["↑↑↓↓←→←→ba", "a whole day in thirty seconds"],
     ["?", "this list"]
   ];
@@ -322,6 +323,24 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     still: function () {
       effects.frozen = !effects.frozen;
       say(effects.frozen ? "everything holds still" : "moving again");
+    },
+
+    // The other half of `still`. Scene time is one multiplier in the shared
+    // loop, so this reaches the clouds, the corona, the lunar aura, the ridge
+    // motes, the snow, the birds and the comets at once without any of them
+    // knowing. It does not move the hour: the sun is where the sun is, and the
+    // words for walking the clock already exist.
+    fast: function () {
+      if (motionMedia.matches) {
+        say("your system asks for less motion, so there is none to speed up");
+        return;
+      }
+      // Held still and then asked to go fast is a request to go fast.
+      effects.frozen = false;
+      effects.rate = effects.rate >= 3 ? 1 : effects.rate >= 2 ? 3 : 2;
+      say(effects.rate === 1 ? "back to real time"
+        : effects.rate === 2 ? "double speed"
+        : "triple speed");
     },
 
     ridge: function () {

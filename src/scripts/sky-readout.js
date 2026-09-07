@@ -1,4 +1,4 @@
-import { effects, motionMedia, isCoarse } from "./sky-shared.js";
+import { effects, motionMedia, isCoarse, sceneNow } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -294,7 +294,10 @@ import { effects, motionMedia, isCoarse } from "./sky-shared.js";
 
   hero.addEventListener("pointerdown", function (event) {
     var kind = bodyAt(event.clientX, event.clientY);
-    if (kind) effects.bodyPulse = { kind: kind, start: performance.now() };
+    // Read back against frame time in twilight-sky, so it has to be the same
+    // clock. A wall-clock start here and a scene-clock now there is a pulse that
+    // either never finishes or is over before it is drawn.
+    if (kind) effects.bodyPulse = { kind: kind, start: sceneNow() };
   }, { passive: true });
 
   // Double-click a body and it does the thing that body is for: the sun moves

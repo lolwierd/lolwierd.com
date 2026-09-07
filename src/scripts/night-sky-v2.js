@@ -5,7 +5,8 @@ import {
   hash,
   baseState,
   listenMedia as listen,
-  onFrame
+  onFrame,
+  sceneNow
 } from "./sky-shared.js";
 
 (function () {
@@ -557,8 +558,8 @@ import {
     canvas.style.height = state.cssHeight + "px";
 
     seedStars();
-    armFirstComet(performance.now());
-    draw(reduced ? 1400 : performance.now());
+    armFirstComet(sceneNow());
+    draw(reduced ? 1400 : sceneNow());
 
     last = 0;
   }
@@ -583,7 +584,7 @@ import {
     build: build,
     cometNow: function () {
       if (!state || !state.dark || reduced || comet.active) return;
-      scheduleComet(performance.now());
+      scheduleComet(sceneNow());
     },
     state: function () {
       return {

@@ -214,3 +214,38 @@ The day run and the month run are finite theatre. They open watch mode, and when
 their timer is up they close it again and return the reader to the page. The
 watch button is the mode you stay in. A run started while already watching leaves
 that view alone, because the visitor chose it.
+
+## One clock, and a word to speed it up
+
+Every layer now takes its time from a single scene clock kept by the shared
+loop, rather than from the wall. That is what makes `fast` a one-line change:
+the multiplier lives in the loop, and the clouds, the corona, the lunar aura,
+the ridge motes, the snow, the birds and the comets all follow without any of
+them knowing it happened. It steps the sky through double and triple speed and
+back. It does not move the hour, because the words for walking the clock
+already exist.
+
+The layers must not mix clocks. Several used to seed a rebuild with
+performance.now() and then take frame times from the loop, which was harmless
+only while the two agreed. Under a multiplier they do not: deltas come out
+negative and the layer either runs backwards or stops. Wall time is still the
+right answer for three things and they keep it, being the frame-rate meter, the
+double-tap window and the pointer velocity, none of which belong to the scene.
+
+## Nothing is laid out at one pixel
+
+A hidden or restoring pane measures the hero at nothing, and the renderer used
+to round that up to a pixel. That does not rescue the measurement, it launders
+it: a one-pixel plate was baked into the canvas and into the state every layer
+above reads, each of them drew its single column stretched across the frame, and
+the mountain came out as horizontal bands. Nothing corrected it afterwards,
+because every layer's staleness check compares against what it last built, and a
+bad build looks settled.
+
+The measurement is refused now, and a refusal schedules its own retry rather
+than waiting to be told. None of the signals that would tell us are guaranteed:
+resize is not fired for a pane being restored, and a ResizeObserver on an element
+that is not being laid out has nothing to report. The layers above hold the same
+line, and they watch skylayout as well as the frame loop, because that loop is
+halted while the tab is hidden, never starts under reduced motion, and is
+stopped outright by `still`.

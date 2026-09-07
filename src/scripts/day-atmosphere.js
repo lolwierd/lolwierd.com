@@ -8,6 +8,7 @@ import {
   isNight,
   onSkyPhase,
   onFrame,
+  sceneNow,
   listenMedia,
   motionMedia,
   budget,
@@ -707,6 +708,15 @@ import {
   function rebuild() {
     if (!state) return;
 
+    // The stage measures a pixel wide for a frame or two while the browser is
+    // restoring a hidden pane, and building against that bakes the bad size into
+    // the canvas -- where, stretched back across the frame, it draws the terrain
+    // as horizontal bands. Worse, the geometry watch compares against what was
+    // last built, so a canvas built at one pixel looks settled and stays there.
+    // Refusing to build means width keeps its old value, the watch keeps
+    // reporting a change, and the next sane state is the one that lands.
+    if (state.width < 8 || state.height < 8) return;
+
     width = state.width;
     height = state.height;
     dpr = state.dpr;
@@ -734,7 +744,7 @@ import {
     // Sooner than the comet's four and a half seconds. A visit is short, the
     // birds are the only thing that happens in daylight, and one that arrives
     // after you have gone is the same as no bird at all.
-    var boot = performance.now();
+    var boot = sceneNow();
     flightClock = 0;
     lastRealTime = 0;
     nextBird = 2000 + hash2(width, height, 907) * 1000;
@@ -863,7 +873,7 @@ import {
         birds.length = 0;
         budget.birds = 0;
       }
-      draw(reducedMotion ? FIXED_TIME : performance.now());
+      draw(reducedMotion ? FIXED_TIME : sceneNow());
     }, 60);
   });
 
@@ -879,6 +889,25 @@ import {
     }
     window.setTimeout(waitForScene, 120);
   }
+
+  // sky-v3 announces every relayout, so take it from there as well as from the
+  // frame loop. Watching only from inside tick put the geometry check inside the
+  // animation loop, and that loop is not always running: it is halted while the
+  // tab is hidden, it never starts under reduced motion, and `still` stops it
+  // outright. A resize during any of those left this canvas at whatever size it
+  // last built at until something else happened to resize the window.
+  function adopt() {
+    var next = baseState();
+    if (!next || !geometryChanged(next)) return;
+    state = next;
+    rebuild();
+  }
+
+  window.addEventListener("skylayout", adopt);
+  window.addEventListener("resize", adopt, { passive: true });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) adopt();
+  });
 
   onFrame(tick);
   waitForScene();

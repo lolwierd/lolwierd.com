@@ -12,6 +12,7 @@ import {
   markThemeShift,
   listenMedia,
   onFrame,
+  sceneNow,
   flickerOffset,
   SKY_THEMES,
   TERRAIN_TIERS,
@@ -768,9 +769,30 @@ import {
     var bounds = hero && hero.getBoundingClientRect();
     var cssW = bounds ? Math.round(bounds.width) : window.innerWidth;
     var cssH = bounds ? Math.round(bounds.height) : window.innerHeight;
+
+    // A hidden or restoring pane measures the hero at nothing, and rounding that
+    // up to a pixel does not rescue it. It launders a bad measurement into a
+    // legitimate-looking one: a one-pixel plate gets baked into this canvas and
+    // into the state every layer above reads, and each of them dutifully draws
+    // its one column stretched the width of the frame, which is where the
+    // horizontal banding over the mountain came from. Nothing then corrected it,
+    // because every layer's staleness check compares against what it last built
+    // and a bad build looks settled.
+    //
+    // Refuse the measurement instead, and come back for it. A refusal schedules
+    // its own retry rather than waiting to be told, because none of the signals
+    // that would tell us are guaranteed: `resize` is not fired for a pane being
+    // restored, and a ResizeObserver on an element that is not being laid out at
+    // all has nothing to report. The retry costs one rect read every eighth of a
+    // second and stops the moment there is a real size to read.
+    if (cssW < 8 || cssH < 8) {
+      onResize();
+      return false;
+    }
+
     dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    width = Math.max(1, Math.round(cssW * dpr));
-    height = Math.max(1, Math.round(cssH * dpr));
+    width = Math.round(cssW * dpr);
+    height = Math.round(cssH * dpr);
 
     canvas.width = width;
     canvas.height = height;
@@ -833,7 +855,7 @@ import {
     makeStars();
     updateSky();
 
-    var now = performance.now();
+    var now = sceneNow();
     comet.active = false;
     satellite.active = false;
     comet.next = state.dark ? now + 4500 + hash2(width, height, 901) * 3000 : Infinity;
@@ -845,6 +867,7 @@ import {
     // text sitting on an empty page while a 1.8MB plate decodes.
     document.documentElement.setAttribute("data-scene-ready", "");
     window.dispatchEvent(new Event("skylayout"));
+    return true;
   }
 
   function tick(now) {
@@ -871,10 +894,20 @@ import {
     layoutPlate();
   }
 
+  // getBoundingClientRect is only honest once the element has actually been laid
+  // out, and there is no moment at which that is guaranteed: a pane being
+  // restored reports zero for a frame or two, and a `resize` event is not sent
+  // for it. Watching the element catches the real size whenever it turns up.
+  if (window.ResizeObserver) {
+    var watched = document.querySelector(".hero");
+    if (watched) new window.ResizeObserver(onResize).observe(watched);
+  }
+
   function onResize() {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(build, 180);
   }
+
 
   onSkyPhase(function () {
     window.setTimeout(build, 0);
@@ -895,7 +928,7 @@ import {
   window.__portfolioSky = {
     build: build,
     step: function (now) {
-      drawFrame(reducedMotion ? FIXED_TIME : now == null ? performance.now() : now);
+      drawFrame(reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now);
     },
     // Move the sky to a moment: "dawn", "dusk", "night", "noon", or null to go
     // back to the real hour over Vadodara.
@@ -925,7 +958,7 @@ import {
       }
 
       window.dispatchEvent(new Event("skyclockstep"));
-      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      drawFrame(reducedMotion ? FIXED_TIME : sceneNow());
     },
 
     // The span a full-day run walks: first light through to the small hours.
@@ -969,16 +1002,16 @@ import {
       // Layers above cache geometry per phase, so make them all rebuild even when
       // the day/night label itself has not changed (noon -> dusk is still "day").
       window.dispatchEvent(new Event("skyphasechange"));
-      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      drawFrame(reducedMotion ? FIXED_TIME : sceneNow());
       return clockOverride;
     },
     cometNow: function (now) {
-      var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
+      var time = reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now;
       if (state && state.dark) scheduleComet(time);
       drawFrame(time);
     },
     satelliteNow: function (now) {
-      var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
+      var time = reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now;
       if (state && state.dark) scheduleSatellite(time);
       drawFrame(time);
     },
