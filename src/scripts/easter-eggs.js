@@ -25,13 +25,13 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     ["ridge", "show the skyline the page computed"],
     ["budget", "what this scene actually costs"],
     ["still", "stop every moving thing"],
+    ["fast", "run it at double, then triple"],
     ["↑↑↓↓←→←→ba", "a whole day in thirty seconds"],
     ["?", "this list"]
   ];
 
   var POINTER_NOTE =
-    "the sun, the moon and the constellations are all where they really are over " +
-    "vadodara right now.";
+    "the light and lunar phase follow vadodara. the scene leaves room for the writing.";
 
   var toast = null;
   var toastTimer = 0;
@@ -172,11 +172,37 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     }
   }
 
+  // Whether the run opened watch mode itself. Someone who pressed "watch the
+  // sky" and then typed "timelapse" chose that view; the run must not take it
+  // away from them when its thirty seconds are up.
+  var runOpenedWatch = false;
+
+  // handover says a run was already going when this one started. It matters
+  // because the answer must not be recomputed then: the mode is already open, so
+  // asking the page who opened it gets "the visitor did", and the run politely
+  // declines to close a view nobody actually chose. Pressing the code twice, or
+  // double-clicking the sun again while watching -- which is the obvious thing to
+  // do -- stranded you in watch mode with no way out but Escape.
+  function beginRun(handover) {
+    if (!handover) runOpenedWatch = !document.documentElement.hasAttribute("data-sky-focus");
+    window.dispatchEvent(new Event("skywatchstart"));
+  }
+
+  function endRun(api) {
+    api.setClock(null);
+    say("back to the real hour");
+    if (runOpenedWatch) window.dispatchEvent(new Event("skywatchfinish"));
+  }
+
   function runTheDay() {
+    // Read before anything is cleared, or the evidence is gone.
+    var handover = !!(dayRun || monthRun);
+    if (monthRun) { window.clearInterval(monthRun); monthRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.dayArc) return;
     if (dayRun) window.clearInterval(dayRun);
 
+    beginRun(handover);
     toTop();
     var arc = api.dayArc();
     var pacing = api.sunAltitudeAt ? paceArc(api, arc) : null;
@@ -188,8 +214,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (t >= 1) {
         window.clearInterval(dayRun);
         dayRun = 0;
-        api.setClock(null);
-        say("back to the real hour");
+        endRun(api);
         return;
       }
       // Ease the ends so the run settles into dawn and out at night instead of
@@ -207,10 +232,13 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   var MONTH_MS = 8000;
 
   function runTheMonth() {
+    var handover = !!(dayRun || monthRun);
+    if (dayRun) { window.clearInterval(dayRun); dayRun = 0; }
     var api = sky();
     if (!api || !api.stepClock || !api.clock) return;
     if (monthRun) window.clearInterval(monthRun);
 
+    beginRun(handover);
     var from = api.clock().getTime();
     var step = 0;
     say("a lunar month, eight seconds");
@@ -220,13 +248,18 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (step > MONTH_STEPS) {
         window.clearInterval(monthRun);
         monthRun = 0;
-        api.setClock(null);
-        say("back to the real hour");
+        endRun(api);
         return;
       }
       api.stepClock(new Date(from + step * 86400000));
     }, MONTH_MS / MONTH_STEPS);
   }
+
+  window.addEventListener("skywatchend", function () {
+    window.clearInterval(dayRun); window.clearInterval(monthRun);
+    dayRun = 0; monthRun = 0;
+    var api = sky(); if (api && api.setClock) api.setClock(null);
+  });
 
   window.addEventListener("skyrunday", function () { markUsed(); runTheDay(); });
   window.addEventListener("skyrunmonth", function () {
@@ -241,6 +274,8 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
   });
 
   var WORDS = {
+    timelapse: function () { window.dispatchEvent(new Event("skyrunday")); },
+    month: function () { window.dispatchEvent(new Event("skyrunmonth")); },
     dawn: function () { setClock("dawn", "dawn over vadodara"); },
     sunrise: function () { setClock("dawn", "dawn over vadodara"); },
     dusk: function () { setClock("dusk", "dusk over vadodara"); },
@@ -297,6 +332,24 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     still: function () {
       effects.frozen = !effects.frozen;
       say(effects.frozen ? "everything holds still" : "moving again");
+    },
+
+    // The other half of `still`. Scene time is one multiplier in the shared
+    // loop, so this reaches the clouds, the corona, the lunar aura, the ridge
+    // motes, the snow, the birds and the comets at once without any of them
+    // knowing. It does not move the hour: the sun is where the sun is, and the
+    // words for walking the clock already exist.
+    fast: function () {
+      if (motionMedia.matches) {
+        say("your system asks for less motion, so there is none to speed up");
+        return;
+      }
+      // Held still and then asked to go fast is a request to go fast.
+      effects.frozen = false;
+      effects.rate = effects.rate >= 3 ? 1 : effects.rate >= 2 ? 3 : 2;
+      say(effects.rate === 1 ? "back to real time"
+        : effects.rate === 2 ? "double speed"
+        : "triple speed");
     },
 
     ridge: function () {
@@ -372,7 +425,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
     // No nudge on touch: there is no keyboard to press ? on.
     if (nudged || document.hidden || isCoarse()) return;
     markUsed();
-    say("psst — the sky does tricks. press ?", 11000);
+    say("psst. the sky does tricks. press ?", 11000);
   }, 12000);
 
   document.addEventListener("keydown", function (event) {
@@ -408,7 +461,7 @@ import { isNight, effects, budget, motionMedia, isCoarse } from "./sky-shared.js
       if (typed === KONAMI) {
         arrows = [];
         buffer = "";
-        runTheDay();
+        window.dispatchEvent(new Event("skyrunday"));
         return;
       }
     }

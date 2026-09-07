@@ -1,4 +1,4 @@
-import { effects, motionMedia, isCoarse } from "./sky-shared.js";
+import { effects, motionMedia, isCoarse, sceneNow } from "./sky-shared.js";
 
 (function () {
   "use strict";
@@ -224,6 +224,7 @@ import { effects, motionMedia, isCoarse } from "./sky-shared.js";
   }
 
   function onPoint(event) {
+    if (document.documentElement.hasAttribute("data-sky-focus")) { hide(); return; }
     var bodies = window.__skyBodies;
     if (!bodies) return;
 
@@ -286,13 +287,17 @@ import { effects, motionMedia, isCoarse } from "./sky-shared.js";
   }
 
   function activate(kind) {
+    hide();
     if (kind === "sun") window.dispatchEvent(new Event("skyrunday"));
     else if (kind === "moon") window.dispatchEvent(new Event("skyrunmonth"));
   }
 
   hero.addEventListener("pointerdown", function (event) {
     var kind = bodyAt(event.clientX, event.clientY);
-    if (kind) effects.bodyPulse = { kind: kind, start: performance.now() };
+    // Read back against frame time in twilight-sky, so it has to be the same
+    // clock. A wall-clock start here and a scene-clock now there is a pulse that
+    // either never finishes or is over before it is drawn.
+    if (kind) effects.bodyPulse = { kind: kind, start: sceneNow() };
   }, { passive: true });
 
   // Double-click a body and it does the thing that body is for: the sun moves
@@ -342,6 +347,7 @@ import { effects, motionMedia, isCoarse } from "./sky-shared.js";
     tapY = event.clientY;
   }, { passive: true });
   window.addEventListener("scroll", hide, { passive: true });
+  window.addEventListener("skyfocuschange", hide);
 
   if (el) el.addEventListener("pointerenter", keep);
 

@@ -84,3 +84,206 @@ light mode is warm paper, charcoal ink, and a single rust accent.
 dark mode is near-black, bone ink, and the same rust made slightly brighter.
 
 the themes are composed separately. mountain tone mapping and weather have theme-specific density/alpha; dark gets the active sky, light gets the heavier weather. neither is an inversion of the other.
+
+## September editorial revision
+
+The daytime scene now uses a cool upper sky, warm horizon and an irregular,
+moving dithered cloud banks to balance the copy. The hero fills the viewport.
+Clouds swell at midday, flatten and warm near sunset, and thin at night.
+Double-clicking the sun or moon enters a reversible, unobstructed watch mode;
+the explicit watch button provides the same view without a timed animation.
+Solar timing and lunar phase remain calculated, but screen placement is composed
+for legibility: the sun occupies the right of the desktop scene and celestial
+bodies yield to the writing. This is an illustration driven by a real clock,
+not a sky chart. These choices supersede exact screen-position constraints above.
+
+Three work examples lead; the remaining seven are preserved in native details.
+The handover figures precede the examples. CBManager has a real screenshot from
+its repository, and contact ends with a readable email address. Mobile labels
+use whole-pixel font sizes and roomier tap targets.
+
+## September lighting revision
+
+Cloud layers now travel sideways at distinct, readily visible speeds. Daytime
+snow has a cool surface colour rather than inheriting white page paper. Night
+terrain and snow glints follow moon illumination and altitude, with a restrained
+ambient floor for moonless nights. This is an illustrative exposure curve.
+
+Watch mode belongs to the landscape: its entry sits in the lower-right corner,
+away from selected work. A small close glyph replaces the boxed exit label,
+while retaining a 44px target, accessible name and Escape support.
+
+## Continuous weather and celestial paths
+
+Clouds retain an identity while travelling left to right. Only after leaving
+the frame are they replaced offscreen with varied width, height, form and wind
+speed. Randomness happens at birth, never per frame.
+
+The sun traverses one left-to-right daylight arc. Both celestial bodies use a
+shared altitude projection and are occluded by the terrain, with no copy-avoidance
+position changes. Reading mode softens a body near actual text; watch mode
+removes that attenuation. The sunset glow follows the solar position.
+
+Double-click, Konami and the timelapse/month words dispatch the same day/month
+handlers; those handlers own entering watch mode and starting their timers.
+
+## How the sky gets out of the way
+
+The scene defers to the writing, but nothing up there ever moves aside and
+nothing is ever cut out. Both of those had crept in, and both showed.
+
+Clearance is measured against line boxes, not against the copy block. The block's
+union rectangle plus its margin covered more than half the band the clouds travel
+through, so a cloud crossing the hero came out with a straight-edged bite taken
+from it, and the rectangle itself was legible in the sky. Line boxes let the weather thread
+between the lines and past the short ones, and the halo around each line is 52px
+rather than 80.
+
+Nothing yields to zero. Cloud thins to about a third of its density over type and
+keeps its silhouette; it goes thin as it passes and thickens again on the far
+side. A body dims as a whole object rather than picking up a rectangular gradient
+across its face, and stops well short of transparent: the sun at just over half,
+the moon at just under a third, because bone on bone is the one overlap that
+genuinely costs a reader something. What really smears over type is the diffuse
+part, so the corona and the lunar aura yield per cell and yield further. A washed
+out sun reads as a bug, not as deference.
+
+## What stands over this range
+
+Four forms, each with its own altitude, speed and edge: cirrus high and quick on
+the jet stream; cumulus lower, slower and lumpier, and far more of it by day
+because convection needs the sun; the lenticular lens that forms in the standing
+wave downwind of the ridge, domed on top, cut flat underneath at the
+condensation level, tapering to points, and almost stationary; and the bank that
+lies at pass height. The summit banner is not modelled, because nothing in a field of
+drifting viewport fractions can be honest about a cloud that belongs to one
+mountain rather than to the sky.
+
+The sheets run off both edges of the frame and the discrete forms do not, which
+is the actual difference between them. Cirrus and stratus are one layer laid
+over the whole sky; a cumulus is a single body of air and a lenticular is one
+wave standing over one ridge. Sheets cut to half the width read as islands and
+left the sky looking sparse. Their surface wobble is written in cloud-relative
+units, so it is scaled by width as well, or a sheet three times the size of a
+puff gets the same few undulations stretched across the frame and comes out
+glassy.
+
+An ordered dither is also a lattice, and a lattice at roughly half density is a
+checkerboard. Daylight hides it; at night every lit cell is bright against
+near-black and the grid is the first thing you see. The fix is a nudge and not a
+replacement: the ordering is what makes a smooth density field read as one body
+rather than as grain, and swapping in a per-cell hash outright scatters the cells
+at random and the cloud comes out as static. The hash takes an eighth of the
+threshold. The cell itself is two CSS pixels rather than three, because the
+terrain dithers at one and a cloud lying on the ridge is read directly against
+that grain.
+
+## Cloud does not stop at the skyline
+
+A sky that ends in a clean line along the ridge is what reads as a sticker, and
+over this range it is also wrong: the ordinary sight in the sanctuary is a deck
+lying in the valley with the summits standing clear of it, cloud pouring through
+the passes, cloud on the mid-slopes while the tops are in sun. So the low forms
+are allowed below the skyline and the high ones are not. Cirrus is eight
+kilometres up and can no more lie on a slope than the moon can.
+
+Anything in front of the mountain prints bright. Ink on shadowed rock is not
+merely invisible, it is backwards, which the valley fog had already learned. The
+cloud layer keeps two plates and sorts cells into them by the ridge height under
+their own column; that sorting is also what replaced a clip path the renderer was
+building a thousand line segments for on every frame. On the range the deck is
+thinned to well under half, because the photograph is the point.
+
+The valley fog stays daylight-only. Radiation fog is genuinely at its thickest
+overnight, and running it after dark was tried: at the exposure the night terrain
+can carry it read as a grey wash lying over the left of the range rather than as
+mist in a basin, and it took the mountain's shape down with it. The cloud deck
+that crosses the ridge covers the same ground more honestly, so the fog was left
+where it works.
+
+## Timed runs give the page back
+
+The day run and the month run are finite theatre. They open watch mode, and when
+their timer is up they close it again and return the reader to the page. The
+watch button is the mode you stay in. A run started while already watching leaves
+that view alone, because the visitor chose it.
+
+That last rule needs one qualification, and it is the whole reason the runs used
+to strand people. A run restarted while another is still going must not ask the
+page who opened watch mode: the mode is already open, the answer comes back "the
+visitor did", and the run then politely declines to close a view nobody chose.
+Pressing the code twice, or double-clicking the sun again while watching, which
+is the obvious thing to do, left no way out but Escape. A restarted run inherits
+the previous run's answer instead of recomputing it.
+
+## One clock, and a word to speed it up
+
+Every layer now takes its time from a single scene clock kept by the shared
+loop, rather than from the wall. That is what makes `fast` a one-line change:
+the multiplier lives in the loop, and the clouds, the corona, the lunar aura,
+the ridge motes, the snow, the birds and the comets all follow without any of
+them knowing it happened. It steps the sky through double and triple speed and
+back. It does not move the hour, because the words for walking the clock
+already exist.
+
+The layers must not mix clocks. Several used to seed a rebuild with
+performance.now() and then take frame times from the loop, which was harmless
+only while the two agreed. Under a multiplier they do not: deltas come out
+negative and the layer either runs backwards or stops. Wall time is still the
+right answer for three things and they keep it, being the frame-rate meter, the
+double-tap window and the pointer velocity, none of which belong to the scene.
+
+## Nothing is laid out at one pixel
+
+A hidden or restoring pane measures the hero at nothing, and the renderer used
+to round that up to a pixel. That does not rescue the measurement, it launders
+it: a one-pixel plate was baked into the canvas and into the state every layer
+above reads, each of them drew its single column stretched across the frame, and
+the mountain came out as horizontal bands. Nothing corrected it afterwards,
+because every layer's staleness check compares against what it last built, and a
+bad build looks settled.
+
+The measurement is refused now, and a refusal schedules its own retry rather
+than waiting to be told. None of the signals that would tell us are guaranteed:
+resize is not fired for a pane being restored, and a ResizeObserver on an element
+that is not being laid out has nothing to report. The layers above hold the same
+line, and they watch skylayout as well as the frame loop, because that loop is
+halted while the tab is hidden, never starts under reduced motion, and is
+stopped outright by `still`.
+
+## Overcast is real and it is still not here
+
+Eight oktas is the commonest sky there is, and over this range in monsoon season
+it is most days, so a layer that fills the frame was built. It came out again.
+An overcast sky is the one sky with nothing in it, and the subject of this page
+is a mountain: a weather state whose entire content is that you cannot see the
+mountain makes the page worse for every minute it is up. Being true to the place
+is not the only bar a thing has to clear. Nothing in the field spans the frame
+now.
+
+## Long is not the same as unbroken
+
+A thin ellipse stretched across half the frame is a lozenge, not a cirrus, and at
+sixty to one it reads as a rule drawn on the picture. Cirrus is ice falling
+through wind shear: it arrives as strands with sky between them and it varies
+along its length. So the forms carry a fibre value, and the body of a fibrous one
+is cut by two slow waves beaten against each other and clipped at zero, which
+thins it and parts it as it goes. Cirrus is fully fibrous, the bank about half,
+the overcast barely, and the lens not at all, because an unbroken outline is the
+entire reason a lens reads as a lens.
+
+That is also the answer to length. A long form does not need to be short, it
+needs to stop being one continuous object.
+
+## Lopsided and leaning
+
+An ellipse is perfectly symmetric about its centre, so every cloud was putting
+its densest point exactly in the middle and lying exactly level. At cumulus
+proportions nobody notices. Stretched to a band across most of the sky it is the
+whole problem: it reads as a lozenge ruled onto the picture, and no amount of
+breaking it into strands fixes a shape that is still bilaterally symmetric.
+
+So each cloud is born with a heavy end and a slope. One side carries up to half
+again what the other does, and the long axis walks off level as it crosses,
+further for the fibrous forms than the solid ones. The shape was never the
+problem with a long cloud. The symmetry was.

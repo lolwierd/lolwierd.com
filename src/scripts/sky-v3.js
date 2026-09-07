@@ -12,12 +12,14 @@ import {
   markThemeShift,
   listenMedia,
   onFrame,
+  sceneNow,
   flickerOffset,
   SKY_THEMES,
   TERRAIN_TIERS,
   atkinsonTiers,
   terrainCrop,
   terrainPaper,
+  terrainExposure,
   budget,
   effects,
   motionMedia
@@ -62,6 +64,8 @@ import {
   // 20MB at 2x, twenty-four times a second -- which is the single most expensive
   // thing the page did, and which Safari handles far worse than Chrome.
   var terrainCanvas = null;
+  var terrainShape = null;
+  var terrainLight = 1;
   var terrainInk = [];
   var terrainFlickerAlpha = [];
 
@@ -354,7 +358,7 @@ import {
 
     for (var t = 0; t < TERRAIN_TIERS; t++) {
       if (!paths[t]) continue;
-      ctx.globalAlpha = terrainFlickerAlpha[t];
+      ctx.globalAlpha = terrainFlickerAlpha[t] * terrainLight;
       ctx.fillStyle = terrainInk[t];
       ctx.fill(paths[t]);
     }
@@ -427,7 +431,7 @@ import {
   }
 
   function projectAltitude(altitude) {
-    return height * (0.50 - (clamp(altitude, 0, 90) / 90) * 0.42);
+    return height * (0.80 - (clamp(altitude, -6, 90) / 90) * 0.70);
   }
 
   function updateCelestial(date) {
@@ -741,6 +745,15 @@ import {
     if (!state || !terrainCanvas) return;
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, width, height);
+    terrainLight = state.dark ? terrainExposure(celestial) : 1;
+    if (terrainShape) {
+      // Snow used to be bare page paper. Give it its own cool surface instead.
+      const highSun = smoothstep(4, 50, celestial.sun.altitude);
+      const snow = [lerp(210,197,highSun),lerp(207,209,highSun),lerp(196,214,highSun)];
+      ctx.fillStyle = state.dark ? "#0b1017" : `rgb(${snow.map(Math.round).join(',')})`;
+      ctx.fill(terrainShape);
+    }
+    ctx.globalAlpha = terrainLight;
     if (terrainCanvas) ctx.drawImage(terrainCanvas, 0, 0);
     flickerTerrain(now);
     drawEdge(now);
@@ -752,11 +765,34 @@ import {
   }
 
   function layoutPlate() {
-    var cssW = window.innerWidth;
-    var cssH = window.innerHeight;
+    var hero = document.querySelector(".hero");
+    var bounds = hero && hero.getBoundingClientRect();
+    var cssW = bounds ? Math.round(bounds.width) : window.innerWidth;
+    var cssH = bounds ? Math.round(bounds.height) : window.innerHeight;
+
+    // A hidden or restoring pane measures the hero at nothing, and rounding that
+    // up to a pixel does not rescue it. It launders a bad measurement into a
+    // legitimate-looking one: a one-pixel plate gets baked into this canvas and
+    // into the state every layer above reads, and each of them dutifully draws
+    // its one column stretched the width of the frame, which is where the
+    // horizontal banding over the mountain came from. Nothing then corrected it,
+    // because every layer's staleness check compares against what it last built
+    // and a bad build looks settled.
+    //
+    // Refuse the measurement instead, and come back for it. A refusal schedules
+    // its own retry rather than waiting to be told, because none of the signals
+    // that would tell us are guaranteed: `resize` is not fired for a pane being
+    // restored, and a ResizeObserver on an element that is not being laid out at
+    // all has nothing to report. The retry costs one rect read every eighth of a
+    // second and stops the moment there is a real size to read.
+    if (cssW < 8 || cssH < 8) {
+      onResize();
+      return false;
+    }
+
     dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    width = Math.max(1, Math.round(cssW * dpr));
-    height = Math.max(1, Math.round(cssH * dpr));
+    width = Math.round(cssW * dpr);
+    height = Math.round(cssH * dpr);
 
     canvas.width = width;
     canvas.height = height;
@@ -769,7 +805,7 @@ import {
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.58));
+    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.55));
     var overscan = Math.round(height * (portrait ? 0.18 : 0.14));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
@@ -809,12 +845,17 @@ import {
       drawHeight: drawH
     };
 
+    terrainShape = new Path2D();
+    terrainShape.moveTo(0, height);
+    for (var x = 0; x < width; x++) terrainShape.lineTo(x, skyline[x]);
+    terrainShape.lineTo(width, height);
+    terrainShape.closePath();
     makeTerrain(luminance, skyline);
     makeEdgeDots();
     makeStars();
     updateSky();
 
-    var now = performance.now();
+    var now = sceneNow();
     comet.active = false;
     satellite.active = false;
     comet.next = state.dark ? now + 4500 + hash2(width, height, 901) * 3000 : Infinity;
@@ -825,6 +866,8 @@ import {
     // waits on this so the mountain arrives before the words, rather than the
     // text sitting on an empty page while a 1.8MB plate decodes.
     document.documentElement.setAttribute("data-scene-ready", "");
+    window.dispatchEvent(new Event("skylayout"));
+    return true;
   }
 
   function tick(now) {
@@ -851,10 +894,20 @@ import {
     layoutPlate();
   }
 
+  // getBoundingClientRect is only honest once the element has actually been laid
+  // out, and there is no moment at which that is guaranteed: a pane being
+  // restored reports zero for a frame or two, and a `resize` event is not sent
+  // for it. Watching the element catches the real size whenever it turns up.
+  if (window.ResizeObserver) {
+    var watched = document.querySelector(".hero");
+    if (watched) new window.ResizeObserver(onResize).observe(watched);
+  }
+
   function onResize() {
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(build, 180);
   }
+
 
   onSkyPhase(function () {
     window.setTimeout(build, 0);
@@ -875,7 +928,7 @@ import {
   window.__portfolioSky = {
     build: build,
     step: function (now) {
-      drawFrame(reducedMotion ? FIXED_TIME : now == null ? performance.now() : now);
+      drawFrame(reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now);
     },
     // Move the sky to a moment: "dawn", "dusk", "night", "noon", or null to go
     // back to the real hour over Vadodara.
@@ -905,7 +958,7 @@ import {
       }
 
       window.dispatchEvent(new Event("skyclockstep"));
-      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      drawFrame(reducedMotion ? FIXED_TIME : sceneNow());
     },
 
     // The span a full-day run walks: first light through to the small hours.
@@ -949,16 +1002,16 @@ import {
       // Layers above cache geometry per phase, so make them all rebuild even when
       // the day/night label itself has not changed (noon -> dusk is still "day").
       window.dispatchEvent(new Event("skyphasechange"));
-      drawFrame(reducedMotion ? FIXED_TIME : performance.now());
+      drawFrame(reducedMotion ? FIXED_TIME : sceneNow());
       return clockOverride;
     },
     cometNow: function (now) {
-      var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
+      var time = reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now;
       if (state && state.dark) scheduleComet(time);
       drawFrame(time);
     },
     satelliteNow: function (now) {
-      var time = reducedMotion ? FIXED_TIME : now == null ? performance.now() : now;
+      var time = reducedMotion ? FIXED_TIME : now == null ? sceneNow() : now;
       if (state && state.dark) scheduleSatellite(time);
       drawFrame(time);
     },

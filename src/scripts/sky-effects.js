@@ -330,7 +330,7 @@ export function drawRidge(ctx, state) {
 var MOON_BAND = 0.11;
 var MOON_AMP = 0.12;
 
-export function buildMoon(state, clearOfCopy) {
+export function buildMoon(state, inkRoom) {
   var moon = state.celestial && state.celestial.moon;
   if (!moon || !moon.visible) return null;
 
@@ -338,9 +338,7 @@ export function buildMoon(state, clearOfCopy) {
   var core = Math.max(1, Math.round(dpr));
   var radius = Math.round((state.portrait ? 20 : 27) * dpr);
   var x = moon.x;
-  // Unlike the sun this nudges in any orientation: the moon is small and the
-  // sky is wide, and a crescent sitting behind a paragraph reads as a defect.
-  var y = clearOfCopy ? clearOfCopy(state, moon.x, moon.y, radius * 1.6, true) : moon.y;
+  var y = moon.y;
 
   var cos = Math.cos(moon.limbAngle);
   var sin = Math.sin(moon.limbAngle);
@@ -352,7 +350,12 @@ export function buildMoon(state, clearOfCopy) {
   // sun is properly down -- which is also every hour the typed commands land on.
   var reveal = 1 - smoothstep(-4, 4, state.celestial.sun.altitude);
   if (reveal < 0.03) return null;
+  // The disc does not yield, for the same reason the sun's does not: a moon that
+  // goes dim under a line of type is a smudge, not deference. It is 27px. The
+  // aura around it is the wide, diffuse, low-contrast part that actually sits on
+  // the words, so the aura is what steps back.
   var strength = 0.45 + reveal * 0.55;
+  var discStrength = strength;
 
   var solid = [];
   var marginal = [];
@@ -379,7 +382,7 @@ export function buildMoon(state, clearOfCopy) {
       var density = 1 - edge * 0.76;
       if (hash2(dx, dy, seed) < 0.035 + edge * 0.08) continue;
 
-      var alpha = (0.66 + (1 - edge) * 0.24) * strength;
+      var alpha = (0.66 + (1 - edge) * 0.24) * discStrength;
       var bayer = bayerThreshold(px / core, py / core);
       var margin = density >= 0.98 ? 1 : density - bayer;
 
@@ -415,7 +418,8 @@ export function buildMoon(state, clearOfCopy) {
       reach: (illuminated ? 3 + hash2(ray, radius, seed + 37) * 8 : 2 + hash2(ray, radius, seed + 37) * 5) * dpr,
       alpha: (illuminated
         ? 0.075 + hash2(ray, radius, seed + 41) * 0.095
-        : 0.035 + hash2(ray, radius, seed + 41) * 0.045) * strength,
+        : 0.035 + hash2(ray, radius, seed + 41) * 0.045) *
+        strength * (inkRoom ? 0.12 + 0.88 * inkRoom(x + ex, y + ey, state) : 1),
       phase: hash2(ray, radius, seed + 43) * Math.PI * 2,
       phase2: hash2(ray, radius, seed + 45) * Math.PI * 2,
       tangent: (0.25 + hash2(ray, radius, seed + 46) * 0.75) * dpr,

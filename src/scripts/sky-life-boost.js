@@ -4,8 +4,10 @@ import {
   hash,
   hash2,
   baseState,
+  terrainExposure,
   listenMedia as listen,
-  onFrame
+  onFrame,
+  sceneNow
 } from "./sky-shared.js";
 
 (function () {
@@ -190,6 +192,13 @@ import {
       if (tries++ < 80) setTimeout(build, 80);
       return;
     }
+    // The stage measures a pixel wide for a frame while the browser restores a
+    // hidden pane. Building against that stretches one column of snow across the
+    // whole frame as bands, so wait for a real one instead.
+    if (next.width < 8 || next.height < 8) {
+      if (tries++ < 80) setTimeout(build, 80);
+      return;
+    }
 
     ensureCanvas();
     state = next;
@@ -205,7 +214,7 @@ import {
 
     seedSnowCrystals();
     seedShadowCouloirs();
-    draw(reduced ? FIXED_TIME : performance.now());
+    draw(reduced ? FIXED_TIME : sceneNow());
 
     last = 0;
   }
@@ -215,7 +224,8 @@ import {
   function drawSnowCrystals(now) {
     if (!snowCrystals.length) return;
 
-    var color = state.dark ? "#e4dac8" : "#293039";
+    var exposure = state.dark ? terrainExposure(baseState()?.celestial) : 1;
+    var color = state.dark ? "#c6d2db" : "#293039";
     var t = now * 0.0005;
 
     ctx.fillStyle = color;
@@ -239,7 +249,7 @@ import {
       var alpha = (state.dark ? 0.28 : 0.22) * dot.weight * smooth(0.10, 0.70, intensity) + cursorGlint * 0.35;
       if (alpha < 0.02) continue;
 
-      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.45 : 0.38);
+      ctx.globalAlpha = clamp(alpha, 0, state.dark ? 0.45 : 0.38) * exposure;
       ctx.fillRect(dot.x, dot.y, 1, 1);
     }
   }
@@ -288,6 +298,8 @@ import {
 
   onFrame(tick);
   window.addEventListener("skyphasechange", build);
+  // sky-v3 relayouts for more than a window resize, and announces each one.
+  window.addEventListener("skylayout", build);
   listen(motionMedia, function (event) {
     reduced = event.matches;
     build();
@@ -302,7 +314,7 @@ import {
 
   window.__portfolioLife = {
     build: build,
-    step: function (now) { draw(now == null ? (reduced ? FIXED_TIME : performance.now()) : now); },
+    step: function (now) { draw(now == null ? (reduced ? FIXED_TIME : sceneNow()) : now); },
     state: function () {
       return {
         ready: !!state,

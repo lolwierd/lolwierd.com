@@ -7,19 +7,20 @@ import SiteFooter from "../components/SiteFooter.astro";
 <BaseLayout ambient>
   <a class="skip-link" href="#work">skip to work</a>
 
-  <header class="hero" id="top">
+  <header class="hero portfolio-hero" id="top">
     <div class="hero-frame">
       <SiteHeader />
 
       <div class="hero-copy">
         <h1>i build systems<br />from the machine up.</h1>
         <p>
-          for three years i built a public cloud from the hypervisor up — QEMU/KVM, SPDK,
-          Kubernetes, identity, DNS — and spent most of that time on the parts that fail.
+          i spent three years building a public cloud, starting at the hypervisor.
+          QEMU/KVM, SPDK, Kubernetes, identity, DNS.
         </p>
         <a class="hero-action" href="#work">selected work ↓</a>
       </div>
     </div>
+    <button class="watch-sky" data-watch-sky>watch the sky ↗</button>
   </header>
 
   <main class="reading-ground">
@@ -33,7 +34,7 @@ import SiteFooter from "../components/SiteFooter.astro";
         <div class="section-body">
           <p class="section-lede">
             three years building and running Excloud's core platform with <a href="https://www.linkedin.com/in/arjun-hemrajani-416581ab/" rel="noreferrer">Arjun</a>, its
-            founder — from hosts and storage up to the APIs and tools customers used.
+            founder, from the hosts and the storage up to the APIs and tools customers used.
           </p>
 
           <article class="experience-entry">
@@ -47,11 +48,20 @@ import SiteFooter from "../components/SiteFooter.astro";
               </header>
             </div>
 
+            <p class="measurements">
+              <span class="measurements-label">at handover, aug 2026</span>
+              <span>4,000+ accounts</span>
+              <span>380 active VMs</span>
+              <span>140 managed Postgres clusters</span>
+              <span>20+ internal services</span>
+            </p>
+
             <div class="prose">
               <p>
-                most of it was not happy-path provisioning. it was recovery: reconciling partial state,
-                making attach/detach/resize idempotent, cleaning up failed transitions, and debugging
-                protocol-level failures in production.
+                provisioning that works is the easy half. most of my time went on what happens when
+                it does not: state left half written, attach and detach and resize that had to be safe
+                to run twice, transitions that died somewhere in the middle. the protocol bugs were the
+                worst, because those only ever showed up in production.
               </p>
             </div>
 
@@ -83,8 +93,8 @@ import SiteFooter from "../components/SiteFooter.astro";
               <div>
                 <dt>identity / objects</dt>
                 <dd>
-                  the identity and account plane — IMDS tokens, Valkey-backed caching, IAM
-                  authorization, encrypted secrets — and the S3-compatible object storage API with
+                  the identity and account plane: IMDS tokens, Valkey-backed caching, IAM
+                  authorization, encrypted secrets. also the S3-compatible object storage API with
                   multipart uploads, presigned URLs and SigV4 checksums.
                 </dd>
               </div>
@@ -107,7 +117,7 @@ import SiteFooter from "../components/SiteFooter.astro";
                 <dd>
                   the Go foundation the services are built on: an HTTP framework deriving OpenAPI 3.1
                   from Go types by reflection, a typed error taxonomy, domain types and OpenTelemetry
-                  middleware — used by every service on the platform.
+                  middleware. every service on the platform is built on it.
                 </dd>
               </div>
               <div>
@@ -144,14 +154,6 @@ import SiteFooter from "../components/SiteFooter.astro";
               <span>Next.js</span><span>React</span><span>Electron</span><span>DNS</span>
               <span>HTTP/2</span><span>TLS</span>
             </p>
-
-            <p class="measurements">
-              <span class="measurements-label">at handover, aug 2026</span>
-              <span>4,000+ accounts</span>
-              <span>380 active VMs</span>
-              <span>140 managed Postgres clusters</span>
-              <span>20+ internal services</span>
-            </p>
           </article>
         </div>
       </section>
@@ -186,6 +188,10 @@ import SiteFooter from "../components/SiteFooter.astro";
                 a native macOS clipboard manager with instant paste-back, OCR for copied images,
                 local search, and SQLite persistence.
               </p>
+              <figure class="project-preview">
+                <a href="/assets/cbmanager.webp" aria-label="View CBManager screenshot at full size"><img src="/assets/cbmanager.webp" width="1400" height="909" loading="lazy" alt="CBManager: clipboard history on the left and a preview of the selected item on the right." /></a>
+                <figcaption>CBManager · clipboard history and item preview</figcaption>
+              </figure>
             </article>
 
             <article class="project-row">

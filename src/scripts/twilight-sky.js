@@ -1,3 +1,4 @@
+import { paintClouds, invalidateClouds } from "./sky-clouds.js";
 import {
   clamp,
   smoothstep,
@@ -8,6 +9,7 @@ import {
   isNight,
   onSkyPhase,
   onFrame,
+  sceneNow,
   flickerOffset,
   effects,
   budget,
@@ -36,7 +38,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
 
 
   var PALETTES = {
-    day: { top: "#eee9df", horizon: "#eadfd1" },
+    day: { top: "#e2e7e5", horizon: "#ead7bb" },
     gold: { top: "#eaded8", horizon: "#dfa27c" },
     civil: { top: "#d8d7dc", horizon: "#d89373" },
     nautical: { top: "#c9cdd6", horizon: "#d6b2a2" },
@@ -122,32 +124,6 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     ctx = canvas.getContext("2d", { alpha: true });
   }
 
-  function findValleyX(state) {
-    var start = Math.floor(state.width * 0.22);
-    var end = Math.ceil(state.width * 0.78);
-    var bestX = Math.floor(state.width * 0.5);
-    var bestY = -Infinity;
-    var radius = Math.max(4, Math.round(7 * state.dpr));
-
-    for (var x = start; x < end; x += Math.max(1, Math.round(state.dpr))) {
-      var total = 0;
-      var count = 0;
-      for (var dx = -radius; dx <= radius; dx += Math.max(1, Math.round(state.dpr))) {
-        var sampleX = x + dx;
-        if (sampleX < 0 || sampleX >= state.width) continue;
-        total += state.skyline[sampleX];
-        count++;
-      }
-      var y = count ? total / count : state.skyline[x];
-      if (y > bestY) {
-        bestY = y;
-        bestX = x;
-      }
-    }
-
-    return bestX;
-  }
-
   function clipSky(state) {
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -172,7 +148,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         if (y >= ridge) continue;
         var distance = ridge - y;
         var envelope = 1 - clamp(distance / horizonReach, 0, 1);
-        var density = envelope * envelope * 0.86;
+        var density = envelope * envelope * 0.86 * inkRoom(x, y, state);
         if (density <= bayerThreshold(x / step, y / step)) continue;
         ctx.fillRect(x, y, step, step);
       }
@@ -196,7 +172,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         var ny = (y - centerY) / radiusY;
         var distance = nx * nx + ny * ny;
         if (distance >= 1) continue;
-        var density = (1 - distance) * peak * 0.42;
+        var density = (1 - distance) * peak * 0.42 * inkRoom(x, y, state);
         if (density <= bayerThreshold(x / step, y / step)) continue;
         ctx.fillRect(x, y, step, step);
       }
@@ -296,17 +272,93 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   var FLICKER_AMP = 0.15;
 
 
-  // The sun and the moon used to be nudged out from behind the hero copy, which
-  // meant their seats depended on how tall that copy happened to be. Every page
-  // has a different amount of writing over the scene, so the same moon at the
-  // same minute sat somewhere different on each of them -- and a sky that moves
-  // when you navigate is not the sky over one place.
+  // Atmosphere yields to the writing, with a feathered margin rather than a panel.
   //
-  // They are placed by altitude and hour now, full stop, and the writing sits on
-  // top of them. The page is layered for it: the copy is above the canvas, and
-  // everything that has to be read at length is on the opaque ground below.
+  // It used to yield to one rectangle drawn around the whole block. The copy is
+  // ragged-right and about 250px tall, so that union box plus its margin covered
+  // well over half the band the clouds live in, and any cloud crossing it came
+  // out with a straight-edged bite taken from it -- the box itself was legible
+  // in the sky. Line boxes instead: the weather threads between the lines and
+  // past the short ones, and the only thing it keeps clear of is actual type.
+  var copyLines = null;
+  var copyBounds = null;
 
-  function buildSun(state, altitude, valleyX) {
+  function measureCopy(state) {
+    copyLines = null;
+    copyBounds = null;
+    var copy = document.querySelector(".hero-copy");
+    if (!copy || document.documentElement.hasAttribute("data-sky-focus")) return;
+
+    var frame = canvas.getBoundingClientRect();
+    var scale = state.dpr;
+    var lines = [];
+
+    Array.prototype.forEach.call(copy.querySelectorAll("h1,p,.hero-action"), function (node) {
+      var range = document.createRange();
+      range.selectNodeContents(node);
+      // getClientRects gives one rect per line box, so a short last line stops
+      // reserving the sky above the words that are not there.
+      Array.prototype.forEach.call(range.getClientRects(), function (box) {
+        if (!box.width || !box.height) return;
+        lines.push({
+          left: (box.left - frame.left) * scale,
+          right: (box.right - frame.left) * scale,
+          top: (box.top - frame.top) * scale,
+          bottom: (box.bottom - frame.top) * scale
+        });
+      });
+    });
+
+    if (!lines.length) return;
+    copyLines = lines;
+    copyBounds = {
+      left: Math.min.apply(null, lines.map(function (l) { return l.left; })),
+      right: Math.max.apply(null, lines.map(function (l) { return l.right; })),
+      top: Math.min.apply(null, lines.map(function (l) { return l.top; })),
+      bottom: Math.max.apply(null, lines.map(function (l) { return l.bottom; }))
+    };
+  }
+
+  // 0 hard against a line of type, 1 out in open sky. Distance to the nearest
+  // line box rather than to the block, so the gaps between and beside the lines
+  // are sky again. The far edge is 52px rather than the old 80: a halo that size
+  // around every line is already more room than the type needs, and the wider
+  // one was most of why the clearance read as a panel.
+  var INK_NEAR = 9;
+  var INK_FAR = 52;
+
+  function inkRoom(x, y, state) {
+    if (!copyLines) return 1;
+    var far = INK_FAR * state.dpr;
+    if (x < copyBounds.left - far || x > copyBounds.right + far ||
+        y < copyBounds.top - far || y > copyBounds.bottom + far) return 1;
+
+    var best = Infinity;
+    for (var i = 0; i < copyLines.length; i++) {
+      var line = copyLines[i];
+      // dx and dy are each a lower bound on the distance to this line, so a
+      // line that already loses on one axis never costs a square root.
+      var dy = Math.max(line.top - y, 0, y - line.bottom);
+      if (dy >= best) continue;
+      var dx = Math.max(line.left - x, 0, x - line.right);
+      if (dx >= best) continue;
+      var d = dx ? Math.sqrt(dx * dx + dy * dy) : dy;
+      if (d < best) {
+        best = d;
+        if (!best) return 0;
+      }
+    }
+    return smoothstep(INK_NEAR * state.dpr, far, best);
+  }
+
+  // The disc does not yield. It is 44px of the one object the whole scene is
+  // about, and a sun that fades out because a sentence drifted under it reads as
+  // a rendering fault, not as manners. What actually smears over type is the
+  // corona -- three times the diameter, dithered, and low contrast to begin with
+  // -- so that is what steps back, per cell, and it is enough.
+  var SUN_CORONA_FLOOR = 0.25;
+
+  function buildSun(state, altitude) {
     sunScene = null;
     if (altitude <= -0.83) return;
 
@@ -317,7 +369,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     // The corona answers to the hour: tight and contained at noon, spreading and
     // thickening as the sun drops toward the ridge and the light goes long.
     var blaze = 1 - smoothstep(2, 55, altitude);
-    var coronaR = radius * (1.85 + blaze * 1.35);
+    var coronaR = radius * (1.35 + blaze * 0.55);
     var spread = 0.5 + blaze * 0.42;
     // The low sun's corona covers ~3x the area of the noon one, so constant
     // settings would treble the motion exactly when the sky is at its most
@@ -326,10 +378,10 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var band = FLICKER_BAND * (1 - blaze * 0.66);
     var amp = FLICKER_AMP * (1 - blaze * 0.5);
 
-    var lowBlend = 1 - smoothstep(4, 15, altitude);
-    var sunX = Math.round(lerp(state.celestial.sun.x, valleyX, lowBlend * 0.55));
-    var ridgeY = state.skyline[clamp(sunX, 0, state.width - 1)];
-    var sunY = Math.round(lerp(state.celestial.sun.y, ridgeY - radius * 0.55, lowBlend));
+    // One horizon and one path in reading and watch mode. The ridge itself
+    // occludes the disc; never pull sunrise/sunset into an available gap.
+    var sunX = Math.round(state.celestial.sun.x);
+    var sunY = Math.round(state.celestial.sun.y);
 
     var solid = [];
     var marginal = [];
@@ -346,6 +398,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
         var density;
         var alpha;
 
+        var textFade;
+
         if (d <= radius) {
           // Solid to the rim. The old dithered limb thinned cells to ~50% just
           // inside the edge while the corona started at ~100% just outside it,
@@ -353,6 +407,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
           // softening now happens outside the disc, in the corona's falloff.
           density = 1;
           alpha = 1;
+          textFade = 1;
         } else {
           // Start the corona inside the disc's dithered limb, otherwise the sparse
           // annulus between the two reads as a pale eclipse ring around the sun.
@@ -362,14 +417,15 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
           var falloff = 1 - (d - radius) / (coronaR - radius);
           density = Math.pow(falloff, 1.9) * spread + Math.pow(falloff, 14) * (1 - spread);
           alpha = 0.05 + Math.pow(falloff, 1.15) * 0.95;
+          textFade = SUN_CORONA_FLOOR + (1 - SUN_CORONA_FLOOR) * inkRoom(cx, cy, state);
         }
 
         // density >= 1 is the disc's solid body. Without this guard the cells whose
         // Bayer threshold happens to sit above 0.8 fall inside the flicker band and
         // punch holes through the nucleus.
         var margin = density >= 0.98 ? 1 : density - bayer;
-        if (margin > band) solid.push(cx, cy, alpha);
-        else if (margin > -band) marginal.push({ x: cx, y: cy, a: alpha, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
+        if (margin > band) solid.push(cx, cy, alpha * textFade);
+        else if (margin > -band) marginal.push({ x: cx, y: cy, a: alpha * textFade, d: density, b: bayer, s: hash(cx * 0.37 + cy * 0.71) });
       }
     }
 
@@ -460,7 +516,11 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   }
 
   function renderScene(now) {
-    if (!base || !ctx) return;
+    // The 24fps loop can land between the canvas being created and snapshotBase
+    // giving it a size. drawImage throws on a zero-sized source, and the throw
+    // took out everything after it in this function -- including publishBodies,
+    // so the sun and moon quietly stopped being hoverable for that frame.
+    if (!base || !base.width || !base.height || !ctx) return;
     // One GPU blit of the cached sky is cheaper and far simpler than tracking
     // dirty rectangles for motes spread along the whole ridge.
     ctx.clearRect(0, 0, base.width, base.height);
@@ -473,6 +533,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     if (!state) return;
     // Always at night now, quietly. "stars" lifts them rather than summoning them.
     if (state.dark) drawConstellations(ctx, state, skyDate(), effects.stars, effects.hovered);
+    paintClouds(ctx, state, now, inkRoom);
     // Touch feedback sits above the bodies but below the weather. `night` is
     // local to draw(); reaching for it here threw on every frame that had a
     // pulse running, which killed the rest of this function -- including
@@ -546,6 +607,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       canvas.style.height = state.cssHeight + "px";
     }
 
+    measureCopy(state);
+    invalidateClouds();
     ctx.clearRect(0, 0, state.width, state.height);
     stopSunLoop();
     sunScene = null;
@@ -556,7 +619,7 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     var altitude = state.celestial.sun.altitude;
     var night = isNight();
     var colors = palette(altitude);
-    var valleyX = findValleyX(state);
+    var glowX = clamp(Math.round(state.celestial.sun.x), 0, state.width - 1);
 
     // The page's own colours flip at -6 degrees, but the sky does not: there are
     // another twelve degrees of real twilight after that. Painting stopped dead
@@ -571,7 +634,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
       clipSky(state);
       ctx.globalAlpha = veil;
       drawDitheredSky(state, colors);
-      drawAfterglow(state, altitude, valleyX);
+      drawAfterglow(state, altitude, glowX);
+
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -579,12 +643,12 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
     buildRidge(state, night ? "#e4dac8" : colors.top, night);
     // Both bodies, every hour. A moon hanging in a sunset is the commonest sight
     // in the sky and the old night-only moon could never show it.
-    moonScene = buildMoon(state, null);
-    buildSun(state, altitude, valleyX);
+    moonScene = buildMoon(state, inkRoom);
+    buildSun(state, altitude);
     paintSunSolids();
     paintMoonSolids(ctx, moonScene, moonInk(night));
     snapshotBase(state);
-    renderScene(performance.now());
+    renderScene(sceneNow());
     startSunLoop();
   }
 
@@ -600,6 +664,8 @@ import { drawSnow, drawConstellations, figureHits, drawRidge, drawBodyHalo, draw
   if (motionMedia.addEventListener) motionMedia.addEventListener("change", redrawSoon);
   else if (motionMedia.addListener) motionMedia.addListener(redrawSoon);
   window.addEventListener("resize", redrawSoon, { passive: true });
+  window.addEventListener("herocopyplaced", redrawSoon);
+  window.addEventListener("skyfocuschange", draw);
 
   // Coming back to a tab that has been in the background for an hour used to
   // show an hour-old sun for up to another minute, because the only thing that

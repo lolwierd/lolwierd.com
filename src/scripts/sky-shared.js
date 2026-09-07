@@ -149,8 +149,30 @@ export var effects = {
   bodyHover: null,
   bodyPulse: null,
   ridge: false,
-  frozen: false
+  frozen: false,
+  // How fast scene time runs against the wall. `still` is this at zero by
+  // another route; `fast` moves it up.
+  rate: 1
 };
+
+// Scene time, which is not wall time.
+//
+// Everything that moves reads its clock from here, so one multiplier speeds the
+// whole sky up at once and no layer has to know it happened. It is accumulated
+// rather than scaled, so changing the rate bends the curve from where the scene
+// already is instead of teleporting it, and steps are capped so coming back to a
+// backgrounded tab does not fast-forward an hour of weather in one frame.
+//
+// The point of exporting it is that the layers must not mix clocks. Several used
+// to seed a rebuild with performance.now() and then take frame times from the
+// loop; once those two disagree, deltas come out negative and the layer either
+// runs backwards or freezes.
+var sceneTime = 0;
+var lastPumpAt = 0;
+
+export function sceneNow() {
+  return sceneTime;
+}
 
 // What the "budget" overlay reports. Every layer contributes its own counts so
 // the panel is describing the real renderer rather than an estimate of it.
@@ -192,6 +214,9 @@ window.addEventListener("scroll", function () {
 function pump(now) {
   raf = window.requestAnimationFrame(pump);
 
+  // The frame counter is the one thing here that wants the wall: a scene running
+  // at three times speed is not running at three times the frame rate, and the
+  // meter would be lying if it said so.
   budget.frames++;
   if (!budget.since) budget.since = now;
   else if (now - budget.since >= 1000) {
@@ -200,12 +225,15 @@ function pump(now) {
     budget.since = now;
   }
 
+  if (lastPumpAt) sceneTime += Math.min(250, now - lastPumpAt) * effects.rate;
+  lastPumpAt = now;
+
   if (effects.frozen) return;
   for (var i = 0; i < callbacks.length; i++) {
     // Painters stand down while the page is moving; anything that follows the
     // scroll has to keep up with it, or it is the jank.
     if (scrolling && !callbacks[i].whileScrolling) continue;
-    callbacks[i](now);
+    callbacks[i](sceneTime);
   }
 }
 
@@ -215,6 +243,9 @@ function resume() {
 }
 
 function halt() {
+  // Dropped so the first frame after a resume measures from that frame rather
+  // than from whenever the loop was stopped.
+  lastPumpAt = 0;
   if (!raf) return;
   window.cancelAnimationFrame(raf);
   raf = 0;
@@ -244,17 +275,24 @@ listenMedia(motionMedia, function () {
 // looks like and how the photograph's luminance becomes ink density are defined
 // once, here, rather than tuned twice and allowed to drift apart.
 
+// Art-directed exposure, driven by the same ephemeris as the visible moon.
+// Keep an ambient floor so unlit terrain remains legible. This is not a lux model.
+export function terrainExposure(celestial) {
+  if (!celestial) return 0.22;
+  const moon = celestial.moon;
+  const moonlight = Math.pow(clamp(moon.fraction, 0, 1), 1.6)
+    * smoothstep(0, 45, moon.altitude);
+  const twilight = smoothstep(-18, -6, celestial.sun.altitude);
+  return clamp(0.22 + 0.70 * moonlight + 0.45 * twilight, 0.22, 0.92);
+}
+
 export var SKY_THEMES = {
   dark: {
     ink: "#e4dac8",
-    // The plate prints in three inks rather than one. Tier 0 is the moonlit
-    // snow and keeps the old colour, so the ridge line is unchanged; the two
-    // below it are the shadowed snow and the aerial haze, and they are cool
-    // because that is what moonlight on snow actually does. The bottom tier
-    // is deliberately faint -- it has to describe the near buttress without
-    // filling it in, or the range stops being a silhouette.
+    // Cool snow, shadowed snow, then faint rock. Overall exposure follows
+    // the moon's illuminated fraction and altitude when the plate is drawn.
     terrainRamp: [
-      { ink: "#ece0cb", weight: 1.00 },
+      { ink: "#c6d2db", weight: 1.00 },
       { ink: "#94a2ad", weight: 0.95 },
       { ink: "#3c5470", weight: 0.46 }
     ],
