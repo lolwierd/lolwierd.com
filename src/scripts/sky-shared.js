@@ -399,6 +399,30 @@ export function atkinsonTiers(paper, skyline, width, height) {
   return dots;
 }
 
+// The plate prints mirrored.
+//
+// The photograph's tallest ridge is at its left edge and the skyline runs
+// downhill from there: 447 at x=0 against a mean of 764 and around 900 across
+// the right third, where the range gives out into a featureless near slope.
+// The hero copy is set flush left, so unmirrored the heaviest part of the
+// photograph and the only text on the page are stacked in the same corner --
+// hero-clearance lifts the copy to clear the peak -- while the side of the
+// page with nothing on it gets the emptiest part of the frame. Mirrored, the
+// copy sits over the low end of the range and the peaks carry the right.
+//
+// Nothing in the scene is handed; the range reads the same either way.
+export var PLATE_FLIP = true;
+
+// How much tighter than the full frame the landscape crop sits. Only the
+// landscape branch takes it: that branch is the one that prints the whole
+// width of the photograph, so it is the one with room to give. Portrait
+// already shows about a third of the width and tightening that clips peaks.
+//
+// The vertical origin stays at 0.17 of the plate, above the highest point of
+// the skyline at 0.21, so a tighter crop cannot pull the ridge above the band
+// the renderer measures luminance in.
+export var PLATE_ZOOM = 1.15;
+
 // The crop of the photograph that fills a frame of the given size. The hero
 // uses it for a whole viewport; the interior pages use it for a short band, and
 // because the rule is the same the ridge lands in the same place in both.
@@ -412,7 +436,12 @@ export function terrainCrop(plateW, plateH, targetW, targetH, portrait) {
   var focus = portrait ? 0.55 : 0.52;
 
   if (targetAspect > sourceAspect) {
+    // Centred rather than on `focus`: the tighter crop is a trim off both ends
+    // of the frame, and taking it evenly is the only version of that which
+    // means the same thing whether or not the plate is mirrored.
+    sw = plateW / PLATE_ZOOM;
     sh = sw / targetAspect;
+    sx = clamp(plateW * 0.5 - sw / 2, 0, Math.max(0, plateW - sw));
     sy = clamp(plateH * 0.17, 0, Math.max(0, plateH - sh));
   } else {
     sw = sh * targetAspect;

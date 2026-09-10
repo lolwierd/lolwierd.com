@@ -19,6 +19,7 @@ import {
   atkinsonTiers,
   terrainCrop,
   terrainPaper,
+  PLATE_FLIP,
   terrainExposure,
   budget,
   effects,
@@ -179,11 +180,19 @@ import {
     return terrainCrop(plate.naturalWidth, plate.naturalHeight, targetW, targetH, portrait);
   }
 
+  // Where a rendered column reads from inside the crop. The mirror lives here
+  // and in the one drawImage below, and the two have to agree: this is the
+  // ridge the scene is measured against, and that is the ridge it printed.
+  function cropOffset(x) {
+    var t = (x + 0.5) / width;
+    return PLATE_FLIP ? 1 - t : t;
+  }
+
   function buildRenderedSkyline(crop, bandTop, drawH) {
     var skyline = new Int32Array(width);
 
     for (var x = 0; x < width; x++) {
-      var sourceX = crop.sx + ((x + 0.5) / width) * crop.sw - 0.5;
+      var sourceX = crop.sx + cropOffset(x) * crop.sw - 0.5;
       var sourceY = sampleSourceSkyline(sourceX);
       skyline[x] = clamp(
         Math.round(bandTop + ((sourceY - crop.sy) / crop.sh) * drawH),
@@ -811,7 +820,15 @@ import {
     var bandTop = height - visibleBandH;
     var crop = sourceCrop(width, drawH, portrait);
 
-    bufferCtx.drawImage(plate, crop.sx, crop.sy, crop.sw, crop.sh, 0, bandTop, width, drawH);
+    if (PLATE_FLIP) {
+      bufferCtx.save();
+      bufferCtx.translate(width, 0);
+      bufferCtx.scale(-1, 1);
+      bufferCtx.drawImage(plate, crop.sx, crop.sy, crop.sw, crop.sh, 0, bandTop, width, drawH);
+      bufferCtx.restore();
+    } else {
+      bufferCtx.drawImage(plate, crop.sx, crop.sy, crop.sw, crop.sh, 0, bandTop, width, drawH);
+    }
     var pixels = bufferCtx.getImageData(0, 0, width, height).data;
     var luminance = new Uint8Array(width * height);
 
