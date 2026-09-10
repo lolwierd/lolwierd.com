@@ -417,16 +417,41 @@ export var PLATE_FLIP = true;
 // landscape branch takes it: that branch is the one that prints the whole
 // width of the photograph, so it is the one with room to give. Portrait
 // already shows about a third of the width and tightening that clips peaks.
+export var PLATE_ZOOM = 1.4;
+
+// The ridge trace's own extent, and where the crop's top edge sits at 1x, all
+// as fractions of plate height. Two things depend on these.
 //
-// The vertical origin stays at 0.17 of the plate, above the highest point of
-// the skyline at 0.21, so a tighter crop cannot pull the ridge above the band
-// the renderer measures luminance in.
-export var PLATE_ZOOM = 1.15;
+// First, the zoom is taken about the top of the ridge rather than about the
+// top edge of the crop, and the difference is the whole effect. Hold the top
+// edge still and a tighter window puts the skyline further down inside it, so
+// the range slides toward the bottom of the viewport and the page gains sky:
+// zooming in, and getting a smaller mountain. Taken about the ridge, the
+// skyline stays put and the range grows underneath it. It also keeps the
+// origin above the ridge at every zoom, which is what stops a tighter crop
+// pulling the skyline out of the band the renderer measures luminance in and
+// printing the bare paper above it as solid ink.
+//
+// Second, the zoom is capped so the whole ridge stays inside the part of the
+// band the viewport actually shows. The skyline drops 0.29 of the plate from
+// its high point to its low one, and a column whose ridge falls past the
+// bottom of the viewport is all sky: no mountain in it at all. On a 16:9
+// screen there is room for about 1.47x before that starts happening; on an
+// ultrawide there is room for almost none, and a fixed zoom applied blind
+// there empties the left half of the page. So the cap is computed per layout
+// from how much of the drawn band is on screen, and PLATE_ZOOM is the ceiling
+// rather than the value.
+var PLATE_ORIGIN = 0.17;
+var PLATE_RIDGE_TOP = 0.211;
+var PLATE_RIDGE_LOW = 0.499;
 
 // The crop of the photograph that fills a frame of the given size. The hero
 // uses it for a whole viewport; the interior pages use it for a short band, and
 // because the rule is the same the ridge lands in the same place in both.
-export function terrainCrop(plateW, plateH, targetW, targetH, portrait) {
+//
+// `visible` is how much of that frame the viewport actually shows -- the band
+// is drawn with overscan below the fold -- and only the zoom cap reads it.
+export function terrainCrop(plateW, plateH, targetW, targetH, portrait, visible) {
   var sourceAspect = plateW / plateH;
   var targetAspect = targetW / targetH;
   var sx = 0;
@@ -436,13 +461,22 @@ export function terrainCrop(plateW, plateH, targetW, targetH, portrait) {
   var focus = portrait ? 0.55 : 0.52;
 
   if (targetAspect > sourceAspect) {
-    // Centred rather than on `focus`: the tighter crop is a trim off both ends
-    // of the frame, and taking it evenly is the only version of that which
-    // means the same thing whether or not the plate is mirrored.
-    sw = plateW / PLATE_ZOOM;
+    // The whole trim comes off the plate's right end, and it has to. The
+    // highest point of the ridge is at x=112 of 3000, so a centred crop eats
+    // the tallest peak in the photograph before it takes anything else, which
+    // is the one thing on the plate worth keeping. The right end is the
+    // featureless near slope. Mirrored, that reads as trimming the empty side
+    // of the page and holding the peaks against the other edge.
+    var full = plateW / targetAspect;
+    var lift = plateH * (PLATE_RIDGE_TOP - PLATE_ORIGIN);
+    var reach = plateH * (PLATE_RIDGE_LOW - PLATE_RIDGE_TOP);
+    var onscreen = full * clamp(visible || 1, 0, 1);
+    var zoom = clamp((onscreen - lift) / reach, 1, PLATE_ZOOM);
+
+    sw = plateW / zoom;
     sh = sw / targetAspect;
-    sx = clamp(plateW * 0.5 - sw / 2, 0, Math.max(0, plateW - sw));
-    sy = clamp(plateH * 0.17, 0, Math.max(0, plateH - sh));
+    sx = 0;
+    sy = clamp(plateH * PLATE_RIDGE_TOP - lift / zoom, 0, Math.max(0, plateH - sh));
   } else {
     sw = sh * targetAspect;
     sx = clamp(plateW * focus - sw / 2, 0, Math.max(0, plateW - sw));
