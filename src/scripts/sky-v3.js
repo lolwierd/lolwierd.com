@@ -176,8 +176,8 @@ import {
     return lerp(skylineData.y[left], skylineData.y[right], position - left);
   }
 
-  function sourceCrop(targetW, targetH, portrait, visible) {
-    return terrainCrop(plate.naturalWidth, plate.naturalHeight, targetW, targetH, portrait, visible);
+  function sourceCrop(targetW, targetH, portrait) {
+    return terrainCrop(plate.naturalWidth, plate.naturalHeight, targetW, targetH, portrait);
   }
 
   // Where a rendered column reads from inside the crop. The mirror lives here
@@ -814,11 +814,11 @@ import {
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.55));
+    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.68));
     var overscan = Math.round(height * (portrait ? 0.18 : 0.14));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
-    var crop = sourceCrop(width, drawH, portrait, visibleBandH / drawH);
+    var crop = sourceCrop(width, drawH, portrait);
 
     if (PLATE_FLIP) {
       bufferCtx.save();
