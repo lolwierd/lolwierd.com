@@ -437,15 +437,12 @@ a { -webkit-tap-highlight-color: transparent; }
   margin-top: max(0px, calc(var(--hero-copy-top) - var(--hero-copy-lift, 0px)));
 }
 
-/* One line, one rhythm: name, role, where the work is. That third clause was
-   availability once, and before that a second mono phrase with its own bullet and
-   its own separators -- longer than the name it sat beside, and a filled status
-   dot is dashboard vocabulary this page does not otherwise speak. It is still one
-   clause on the name's own separator, marked by colour rather than by a dot. The
-   specifics live in the footer. */
-/* Scoped through .site-name, which also colours its spans and would otherwise
-   win on specificity regardless of order. */
-.site-name .site-where {
+/* Where the work is now, carried by the sentence that explains it rather than as
+   a third clause bolted onto the name. The masthead held that clause for a while
+   -- first availability, then the employer -- and it was always the longest thing
+   on a line meant to read as one. One accented word in the tagline says the same
+   thing where a reader is already looking. */
+.hero-copy .hero-where {
   color: var(--accent);
 }
 
@@ -652,6 +649,16 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 .prose p + p { margin-top: 1.35rem; }
+
+/* An entry whose whole body is one paragraph. The gap under the heading is sized
+   for the measurements rule that normally sits in it, and with nothing there it
+   reads as a hole rather than as spacing. */
+.entry-sticky + .prose { margin-top: 1.25rem; }
+
+/* And such an entry ends on a line of prose, so the next entry's rule needs to be
+   held off it. The entries that carry notes and a stack end on their own rule and
+   never needed this. */
+.experience-entry + .experience-entry { margin-top: clamp(2.75rem, 5vw, 4rem); }
 
 .work-notes {
   max-width: 51rem;
