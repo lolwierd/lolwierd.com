@@ -437,14 +437,15 @@ a { -webkit-tap-highlight-color: transparent; }
   margin-top: max(0px, calc(var(--hero-copy-top) - var(--hero-copy-lift, 0px)));
 }
 
-/* One line, one rhythm. The availability used to be a second mono phrase in the
-   masthead with its own bullet and its own separators -- longer than the name it
-   sat beside, and a filled status dot is dashboard vocabulary this page does not
-   otherwise speak. It is now a third clause on the name's own separator, marked
-   by colour instead. The specifics live in the footer. */
+/* One line, one rhythm: name, role, where the work is. That third clause was
+   availability once, and before that a second mono phrase with its own bullet and
+   its own separators -- longer than the name it sat beside, and a filled status
+   dot is dashboard vocabulary this page does not otherwise speak. It is still one
+   clause on the name's own separator, marked by colour rather than by a dot. The
+   specifics live in the footer. */
 /* Scoped through .site-name, which also colours its spans and would otherwise
    win on specificity regardless of order. */
-.site-name .site-open {
+.site-name .site-where {
   color: var(--accent);
 }
 
