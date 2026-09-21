@@ -23,6 +23,13 @@ import { onFrame, motionMedia, isCoarse } from "./sky-shared.js";
     root.style.setProperty("--hero-scene-height", next.height + "px");
   }
 
+  function layoutChanged(next) {
+    return !last ||
+      Math.abs(next.width - last.width) > 1 ||
+      Math.abs(next.height - last.height) > 1 ||
+      Math.abs(next.dpr - last.dpr) > 0.01;
+  }
+
   apply(measure());
 
   // Mobile Safari changes window.innerHeight while its browser chrome collapses and
@@ -32,19 +39,22 @@ import { onFrame, motionMedia, isCoarse } from "./sky-shared.js";
   // resize reach the renderers when the actual hero geometry (or DPR) changed.
   window.addEventListener("resize", function (event) {
     var next = measure();
-    var layoutChanged =
-      !last ||
-      Math.abs(next.width - last.width) > 1 ||
-      Math.abs(next.height - last.height) > 1 ||
-      Math.abs(next.dpr - last.dpr) > 0.01;
-
-    if (!layoutChanged) {
+    if (!layoutChanged(next)) {
       event.stopImmediatePropagation();
       return;
     }
 
     apply(next);
   }, { capture: true, passive: true });
+
+  // Viewport units can settle after the resize event. Observe the final hero
+  // size too, so the canvas does not stay at the previous viewport's height.
+  new ResizeObserver(function () {
+    var next = measure();
+    if (!layoutChanged(next)) return;
+    apply(next);
+    if (window.__portfolioSky) window.__portfolioSky.build();
+  }).observe(hero);
 
   // Parallax: the scene is absolutely positioned at the top of the document, so
   // without help it scrolls away at 1:1 with the text. Translating it down by a

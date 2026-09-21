@@ -103,22 +103,15 @@ import { baseState } from "./sky-shared.js";
     var headroom = Math.max(0, naturalTop - topbar.getBoundingClientRect().bottom - TOPBAR_GAP);
     var next = Math.round(Math.min(wanted, headroom));
 
-    // Lift alone cannot always clear the ridge without crowding the masthead.
-    // Flag the leftover so the link can pick up a paper backing, and only then.
-    if (wanted - next > 1) copy.setAttribute("data-ridge-overlap", "");
-    else copy.removeAttribute("data-ridge-overlap");
-
     // Deadband: sub-pixel churn is not worth a layout shift.
     if (Math.abs(next - lift) <= 1) return true;
     lift = next;
     copy.style.setProperty("--hero-copy-lift", lift + "px");
-    window.dispatchEvent(new Event("herocopyplaced"));
     return false;
   }
 
   function release() {
     document.documentElement.removeAttribute("data-hero-hold");
-    window.dispatchEvent(new Event("herocopyplaced"));
   }
 
   // Let the scene start fading up before the words settle onto it, so the order

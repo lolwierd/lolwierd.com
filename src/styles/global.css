@@ -337,12 +337,6 @@ a { -webkit-tap-highlight-color: transparent; }
   z-index: 1;
   min-height: 100svh;
   isolation: isolate;
-  /* The ground the hero paints its own small backings on. It has to be a token
-     separate from --page because the veil rules below move the hero's ink
-     independently of the page's, and any plate drawn behind that ink has to
-     travel with it. Defaults to the page colour, which is what it is in every
-     band that leaves the ink alone. */
-  --hero-ground: var(--page);
 }
 
 .hero-frame {
@@ -465,9 +459,6 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-strong: #181a1e;
   --ink-dim: #5a5954;
   --ink-faint: #6b6961;
-  /* Day ink needs day ground under it: the night --page here would put the
-     dark plate of .hero-action behind dark text and erase the link. */
-  --hero-ground: #eee9df;
 }
 
 /* The accent has to move with the sky too. Measured behind the masthead across
@@ -498,17 +489,14 @@ a { -webkit-tap-highlight-color: transparent; }
 .hero-copy > p {
   max-width: 31rem;
   margin: clamp(1.25rem, 2.5vh, 1.8rem) 0 0;
-  color: var(--ink-dim);
+  color: var(--ink);
   font-size: clamp(0.94rem, 1.12vw, 1.05rem);
   line-height: 1.65;
   text-wrap: pretty;
 }
 
-/* The hero copy is placed by CSS, the ridge by the canvas. On short laptop
-   viewports the ridge climbs into the CTA and swallowed it whole.
-   hero-clearance.js lifts the block clear of the terrain; when the masthead caps
-   that lift it also marks the overlap, and only then does the link get a
-   feathered paper backing. No backing in the common case, so no stray box. */
+/* Keep the link transparent like the rest of the copy. hero-clearance.js
+   lifts the text above the ridge on shorter viewports. */
 .hero-action {
   display: inline-block;
   margin-top: 1.35rem;
@@ -518,11 +506,6 @@ a { -webkit-tap-highlight-color: transparent; }
   font: 12px/1.2 var(--mono);
   letter-spacing: 0.025em;
   text-decoration-color: color-mix(in srgb, var(--accent) 68%, transparent);
-}
-
-.hero-copy[data-ridge-overlap] .hero-action {
-  background: color-mix(in srgb, var(--hero-ground) 90%, transparent);
-  box-shadow: 0 0 0.9rem 0.55rem color-mix(in srgb, var(--hero-ground) 90%, transparent);
 }
 
 .reading-ground {
@@ -1023,8 +1006,9 @@ a { -webkit-tap-highlight-color: transparent; }
 }
 
 /* Editorial pass: a compact landscape followed by a readable field notebook. */
+/* Short screens need enough sky for wrapped copy without a backing over the ridge. */
 .portfolio-hero,
-.portfolio-hero .hero-frame { min-height: 100svh; }
+.portfolio-hero .hero-frame { min-height: max(100svh, 42rem); }
 .portfolio-hero .hero-copy { --hero-copy-top: clamp(4rem, 11vh, 7rem); }
 .hero-nav a[aria-current="page"] { color: var(--ink-strong); text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 5px; }
 .section-label, .entry-role, .entry-date, .work-notes dt,
@@ -1043,7 +1027,6 @@ a { -webkit-tap-highlight-color: transparent; }
 .footer-links { align-content: start; }
 .footer-links a { padding-block: 0.3rem; }
 @media (max-width: 760px) {
-  .portfolio-hero, .portfolio-hero .hero-frame { min-height: 100svh; }
   .site-name, .hero-nav { font-size: 11px; }
   .hero-nav { flex-wrap: wrap; gap: 0.2rem 1rem; }
   .hero-nav a { padding-block: 0.55rem; }

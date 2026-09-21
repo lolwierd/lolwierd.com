@@ -36,15 +36,12 @@ const LATTICE = 0.88;
 function threshold(x, y) {
   return bayerThreshold(x, y) * LATTICE + hash2(x, y, 9173) * (1 - LATTICE);
 }
-// How much cloud survives directly over a line of type. Low enough that the
-// stipple behind small text stays quiet, high enough that the silhouette holds.
-const INK_FLOOR = 0.32;
 // The mountain is the photograph and the photograph is the point. Cloud lying
 // against it is thinned so the ridge still reads through the deck.
 const LAND_DENSITY = 0.58;
 const field = createCloudField();
 
-export function paintClouds(ctx, state, now, inkRoom) {
+export function paintClouds(ctx, state, now) {
   const still = motionMedia.matches || effects.frozen;
   const dt = lastFrame && !still ? Math.min(250, now - lastFrame) / 1000 : 0;
   elapsed += dt;
@@ -144,12 +141,7 @@ export function paintClouds(ctx, state, now, inkRoom) {
           // much that the taper to the tips disappears and it reads as a slab.
           const edge=smooth ? Math.min(1, fill*(1+smooth*0.45)) : fill;
           const folds = lerp(0.65 + 0.2*Math.sin(nx*13+ny*4+elapsed*0.07+bank.seed), 0.8, smooth);
-          // Thin over the writing, never erase. Zeroing the density cut a hole
-          // the exact shape of the clearance, so a cloud crossing the hero came
-          // out amputated; holding a floor under it means the same cloud simply
-          // goes thin as it passes and thickens again on the far side.
-          const room = INK_FLOOR + (1-INK_FLOOR)*inkRoom(x*scale,y*scale,state);
-          const density=edge*folds*strands*heft*(0.86-0.34*night)*room*weight*(onLand ? LAND_DENSITY : 1);
+          const density=edge*folds*strands*heft*(0.86-0.34*night)*weight*(onLand ? LAND_DENSITY : 1);
           if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
         }
       }

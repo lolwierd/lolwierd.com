@@ -94,7 +94,7 @@ Double-clicking the sun or moon enters a reversible, unobstructed watch mode;
 the explicit watch button provides the same view without a timed animation.
 Solar timing and lunar phase remain calculated, but screen placement is composed
 for legibility: the sun occupies the right of the desktop scene and celestial
-bodies yield to the writing. This is an illustration driven by a real clock,
+bodies continue behind the writing. This is an illustration driven by a real clock,
 not a sky chart. These choices supersede exact screen-position constraints above.
 
 Three work examples lead; the remaining seven are preserved in native details.
@@ -121,32 +121,23 @@ speed. Randomness happens at birth, never per frame.
 
 The sun traverses one left-to-right daylight arc. Both celestial bodies use a
 shared altitude projection and are occluded by the terrain, with no copy-avoidance
-position changes. Reading mode softens a body near actual text; watch mode
-removes that attenuation. The sunset glow follows the solar position.
+position changes. Reading and watch modes use the same sky, including behind
+the text. The sunset glow follows the solar position.
 
 Double-click, Konami and the timelapse/month words dispatch the same day/month
 handlers; those handlers own entering watch mode and starting their timers.
 
-## How the sky gets out of the way
+## Sky behind the text
 
-The scene defers to the writing, but nothing up there ever moves aside and
-nothing is ever cut out. Both of those had crept in, and both showed.
+The sky continues behind the hero text at full density. Clearing even feathered
+gaps around individual lines left pale patches in the sunset and made the text
+look pasted on. Clouds, afterglow, the sun's corona and the moon's aura no longer
+measure or fade around the copy. The selected-work link has no backing either.
 
-Clearance is measured against line boxes, not against the copy block. The block's
-union rectangle plus its margin covered more than half the band the clouds travel
-through, so a cloud crossing the hero came out with a straight-edged bite taken
-from it, and the rectangle itself was legible in the sky. Line boxes let the weather thread
-between the lines and past the short ones, and the halo around each line is 52px
-rather than 80.
-
-Nothing yields to zero. Cloud thins to about a third of its density over type and
-keeps its silhouette; it goes thin as it passes and thickens again on the far
-side. A body dims as a whole object rather than picking up a rectangular gradient
-across its face, and stops well short of transparent: the sun at just over half,
-the moon at just under a third, because bone on bone is the one overlap that
-genuinely costs a reader something. What really smears over type is the diffuse
-part, so the corona and the lunar aura yield per cell and yield further. A washed
-out sun reads as a bug, not as deference.
+The paragraph uses the normal ink colour for contrast. The existing placement
+logic still lifts the copy above the mountain on short screens. Watch mode
+hides the text without changing the sky underneath it. The homepage hero has a
+42rem minimum height so wrapped copy and the link clear the ridge on small phones.
 
 ## What stands over this range
 
