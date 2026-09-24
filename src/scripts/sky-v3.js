@@ -179,11 +179,33 @@ import {
     return terrainCrop(plate.naturalWidth, plate.naturalHeight, targetW, targetH, portrait);
   }
 
+  // The range is drawn mirrored. The photograph's highest ground is its far
+  // left -- the trace runs from y=422 there to y=814 on the right, a fifth of
+  // the frame's height -- and the writing lives in the top left corner, so the
+  // one part of the sky the composition actually needs is the one part the
+  // summits were standing in. Mirroring hands that corner back and lets the
+  // range rise much further up the frame than it otherwise could.
+  //
+  // The cost is that the geography is now backwards, which is a real cost on a
+  // page that is careful about this photograph being a particular place. It is
+  // a composition rather than a map, and nothing on the page claims which way
+  // round the Annapurna massif runs.
+  //
+  // Both the plate and the ridge trace have to mirror together or the terrain
+  // parts company with its own edge.
+  var MIRRORED = true;
+
+  function sourceXAt(x, crop) {
+    var across = (x + 0.5) / width;
+    if (MIRRORED) across = 1 - across;
+    return crop.sx + across * crop.sw - 0.5;
+  }
+
   function buildRenderedSkyline(crop, bandTop, drawH) {
     var skyline = new Int32Array(width);
 
     for (var x = 0; x < width; x++) {
-      var sourceX = crop.sx + ((x + 0.5) / width) * crop.sw - 0.5;
+      var sourceX = sourceXAt(x, crop);
       var sourceY = sampleSourceSkyline(sourceX);
       skyline[x] = clamp(
         Math.round(bandTop + ((sourceY - crop.sy) / crop.sh) * drawH),
@@ -741,6 +763,136 @@ import {
     ctx.fillRect(x, y, 1, 1);
   }
 
+  // Alpenglow. The sky already burns at sunset and the range was the one thing
+  // in the frame that never noticed: the snow stayed the coolest surface on the
+  // page while the air behind it went to rose, which is backwards, and it is the
+  // single most recognisable thing a big range does.
+  //
+  // The part worth getting right is not the colour, it is the line. A mountain
+  // does not dim all over as the sun goes down -- the shadow climbs it. The
+  // valley loses the sun while the summits are still lit, and for a few minutes
+  // the top of the range is burning over a basin that has already gone blue. So
+  // the boundary between the warm and the cool is driven straight off the solar
+  // altitude and walks from the foot of the terrain up to the highest ridge as
+  // the sun crosses from +6 to -6.
+  //
+  // Drawn as an overlay rather than a wash, because overlay leaves darks dark
+  // and lifts lights toward the blend colour, which is the behaviour wanted
+  // here: snow takes the light, shadowed rock only takes the hue. A flat fill
+  // would have painted the whole massif pink, rock and all.
+  function drawAlpenglow() {
+    // Night has its own exposure curve running off the moon; two systems
+    // grading the same plate would fight. The window below flips to the day
+    // theme at -6 anyway, which is where most of this lives.
+    if (!terrainShape || state.dark) return;
+
+    var altitude = celestial.sun.altitude;
+    // Off while the sun is properly up, full across the horizon crossing, gone
+    // by the time the sky itself has stopped carrying any colour.
+    var glow = (1 - smoothstep(0, 6, altitude)) * smoothstep(-8, -2, altitude);
+    if (glow <= 0.01) return;
+
+    var top = state.ridgeTop;
+    var span = height - top;
+    if (span <= 0) return;
+
+    var shadowLine = lerp(top, height, smoothstep(-6, 6, altitude));
+    var at = clamp((shadowLine - top) / span, 0.04, 0.96);
+
+    var wash = ctx.createLinearGradient(0, top, 0, height);
+    wash.addColorStop(0, "rgba(247, 152, 110, " + (0.90 * glow).toFixed(3) + ")");
+    wash.addColorStop(at * 0.55, "rgba(236, 143, 112, " + (0.52 * glow).toFixed(3) + ")");
+    wash.addColorStop(at, "rgba(128, 128, 128, 0)");
+    wash.addColorStop(1, "rgba(78, 100, 142, " + (0.46 * glow).toFixed(3) + ")");
+
+    ctx.save();
+    ctx.clip(terrainShape);
+    ctx.globalCompositeOperation = "overlay";
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, top, width, span);
+    ctx.restore();
+  }
+
+  // Two lights in the valley, after dark.
+  //
+  // The night frame had no warm thing in it and, more to the point, nothing
+  // with a known size. A range photographed from across a valley gives the eye
+  // no way to judge how big it is; a lit window does, because everyone knows
+  // roughly how far off a light has to be before it is that small. The scale
+  // of the mountain is the whole subject of the picture and it was the one
+  // thing the picture could not say.
+  //
+  // They are placed in the photograph's own coordinates rather than in the
+  // frame's, on the flat benches above the moraine where the trail actually
+  // runs, so they stay on the same ground at every crop instead of drifting
+  // onto a ridge when the viewport changes shape. Anything the crop has cut
+  // away, or that ends up above the skyline, simply is not drawn.
+  var LODGES = [
+    { sx: 1480, sy: 1452, seed: 0.37 },
+    { sx: 1845, sy: 1385, seed: 0.81 }
+  ];
+
+  function screenXOf(sourceX, crop) {
+    var across = (sourceX + 0.5 - crop.sx) / crop.sw;
+    if (MIRRORED) across = 1 - across;
+    return across * width - 0.5;
+  }
+
+  function drawLodges(now) {
+    if (!state.dark) return;
+
+    // Fade in through the end of twilight rather than snapping on at the theme
+    // flip, which is a full six degrees before the sky is actually dark enough
+    // for a lamp miles away to register.
+    var night = 1 - smoothstep(-13, -7, celestial.sun.altitude);
+    if (night <= 0.01) return;
+
+    // A full moon puts enough light on the valley to wash a distant lamp out,
+    // so they give some of it back. Same moonlight term terrainExposure grades
+    // the whole plate by, rather than a second curve that could drift from it:
+    // one moon, lighting everything it lights by the same amount.
+    var moon = celestial.moon;
+    var moonlight = Math.pow(clamp(moon.fraction, 0, 1), 1.6) * smoothstep(0, 45, moon.altitude);
+    night *= lerp(1, 0.62, moonlight);
+
+    var crop = state.crop;
+    var bandTop = state.bandTop;
+    var drawH = state.drawHeight;
+    if (!crop || !crop.sh || !drawH) return;
+
+    var core = Math.max(1, Math.round(dpr));
+    var halo = core * 6;
+
+    for (var i = 0; i < LODGES.length; i++) {
+      var lodge = LODGES[i];
+      if (lodge.sy < crop.sy || lodge.sy > crop.sy + crop.sh) continue;
+
+      var x = Math.round(screenXOf(lodge.sx, crop));
+      var y = Math.round(bandTop + ((lodge.sy - crop.sy) / crop.sh) * drawH);
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      if (y <= state.skyline[x]) continue; // in the sky, not on the ground
+
+      // A lamp at this distance is seen through several miles of moving air, so
+      // it scintillates rather than pulses. Long private cycle per light, and
+      // it never goes out.
+      var shimmer = reducedMotion
+        ? 1
+        : 0.72 + 0.28 * Math.sin(now / (2600 + lodge.seed * 1700) + lodge.seed * 11);
+      var alpha = night * shimmer;
+
+      var glow = ctx.createRadialGradient(x, y, 0, x, y, halo);
+      glow.addColorStop(0, "rgba(255, 184, 112, " + (0.46 * alpha).toFixed(3) + ")");
+      glow.addColorStop(1, "rgba(255, 184, 112, 0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, halo, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 212, 162, " + alpha.toFixed(3) + ")";
+      ctx.fillRect(x, y, core, core);
+    }
+  }
+
   function drawFrame(now) {
     if (!state || !terrainCanvas) return;
     ctx.globalAlpha = 1;
@@ -756,7 +908,13 @@ import {
     ctx.globalAlpha = terrainLight;
     if (terrainCanvas) ctx.drawImage(terrainCanvas, 0, 0);
     flickerTerrain(now);
+    ctx.globalAlpha = 1;
+    drawAlpenglow();
+    ctx.globalAlpha = terrainLight;
     drawEdge(now);
+    ctx.globalAlpha = 1;
+    drawLodges(now);
+    ctx.globalAlpha = terrainLight;
     drawStars(now);
     drawSatellite(now);
     drawComet(now);
@@ -805,13 +963,19 @@ import {
     bufferCtx.imageSmoothingQuality = "high";
 
     var portrait = cssW < cssH;
-    var visibleBandH = Math.round(height * (portrait ? 0.72 : 0.55));
-    var overscan = Math.round(height * (portrait ? 0.18 : 0.14));
+    var visibleBandH = Math.round(height * (portrait ? 0.86 : 0.82));
+    var overscan = Math.round(height * (portrait ? 0.14 : 0.10));
     var drawH = visibleBandH + overscan;
     var bandTop = height - visibleBandH;
     var crop = sourceCrop(width, drawH, portrait);
 
+    if (MIRRORED) {
+      bufferCtx.save();
+      bufferCtx.translate(width, 0);
+      bufferCtx.scale(-1, 1);
+    }
     bufferCtx.drawImage(plate, crop.sx, crop.sy, crop.sw, crop.sh, 0, bandTop, width, drawH);
+    if (MIRRORED) bufferCtx.restore();
     var pixels = bufferCtx.getImageData(0, 0, width, height).data;
     var luminance = new Uint8Array(width * height);
 
