@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>from the machine up</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; }
+  body { display: grid; place-items: center; }
+  canvas { display: block; width: min(100vw, 177.78vh); height: auto; }
+  body.capture { display: block; }
+  body.capture canvas { width: 1920px; height: 1080px; }
+  #hint {
+    position: fixed; left: 16px; bottom: 14px; margin: 0;
+    font: 11px/1 "Departure Mono", ui-monospace, monospace; color: #7e7a70;
+  }
+  body.capture #hint { display: none; }
+</style>
+</head>
+<body>
+<canvas id="reel" width="1920" height="1080"></canvas>
+<p id="hint">click to play · space pause · ←/→ seek</p>
+<audio id="score" preload="auto">
+  <source src="out/score.wav" type="audio/wav" />
+  <source src="out/reel.mp4" type="video/mp4" />
+</audio>
+<script src="reel.js"></script>
+</body>
+</html>
