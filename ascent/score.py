@@ -12,7 +12,7 @@ footsteps are a felt pulse under everything, thinned so it never becomes a
 clickfest. College is a music box in F. The gate year is a clock that limps
 when the cramming cracks, and the music goes under the ground with the camera.
 The job hunt walks down D, C, Bb, A into the fog until there is only a cursor
-blinking at the bottom of the valley, one ping from far away, and a quarter
+blinking at the bottom of the valley, one ping from far away, and half a
 second of real silence before "yes.". The climb is the reel's drive, with the
 stack built under his feet as rising arpeggios; it tape-stops when the
 provision crashes and comes back reconciled. At the top the camera pulls back,
@@ -110,11 +110,16 @@ def passes(x):
 
 
 def walking_again(after):
-    """The first step after `after` that is part of a real walk, not a shuffle."""
+    """The first step after `after` where he is properly climbing, not easing off."""
     ts = [t for t, _ in STEPS if t >= after]
     for i in range(len(ts) - 3):
-        if ts[i + 3] - ts[i] < 1.2:
+        if ts[i + 3] - ts[i] < 0.6:
             return ts[i]
+
+
+def earliest(*vals):
+    vals = [v for v in vals if v is not None]
+    return min(vals) if vals else None
 
 
 # ================================================================ the film, in one table
@@ -126,14 +131,14 @@ def walking_again(after):
 S = {}
 S["start"] = first(opt("start"), opt("step"), 0.0)                        # he starts walking
 S["title"] = first(opt("word", 3), S["start"] + 1.0)                     # "the long way up"
-S["college"] = first(plus(opt("word", 0), -0.2), plus(opt("join"), -0.6), S["title"] + 6.0)
-S["goal"] = first(opt("word", 1), plus(opt("word", 2), -1.3), plus(opt("leave", i=-1), 1.0), S["college"] + 16.0)
-S["gate"] = first(opt("day"), plus(opt("crack"), -6.0), S["goal"] + 6.0)
+S["college"] = first(earliest(plus(opt("word", 0), -0.2), plus(opt("join"), -0.6)), S["title"] + 6.0)
+S["goal"] = first(opt("word", 1), plus(opt("word", 2), -0.7), plus(opt("leave", i=-1), 0.1), S["college"] + 11.0)
+S["gate"] = first(opt("day"), plus(opt("crack"), -5.0), S["goal"] + 8.0)
 S["crack"] = first(opt("crack"), S["gate"] + 5.0)
-S["under"] = first(opt("under"), S["crack"] + 2.0)
-S["surface"] = first(opt("surface"), S["under"] + 4.0)
-S["tinker"] = S["surface"] + 0.6
-S["alone"] = first(opt("alone"), plus(opt("reply"), -3.0), S["tinker"] + 20.0)
+S["under"] = first(opt("under"), S["crack"] + 1.2)
+S["surface"] = first(opt("surface"), S["under"] + 3.6)                  # the camera starts back up
+S["tinker"] = S["surface"] + 1.4                                          # and is back on the surface
+S["alone"] = first(opt("alone"), plus(opt("reply"), -3.9), S["tinker"] + 18.0)
 S["fog"] = first(opt("fog"), S["alone"] - 11.0)
 _valley = int(np.argmin(HEIGHT))                                         # the last rise before the valley
 _crest = max(0, _valley - 90) + int(np.argmax(HEIGHT[max(0, _valley - 90):_valley]))
@@ -155,14 +160,18 @@ S["summit"] = first(opt("summit"), plus(opt("step", i=-1), 0.0), S["burst"] + 11
 S["spur"] = first(opt("spur"), S["burst"] + 0.4 * (S["summit"] - S["burst"]))
 S["runners"] = first(opt("runners"), S["spur"] + 0.4 * (S["summit"] - S["spur"]))
 S["pull"] = first(opt("pull"), S["summit"] + 0.4)
-S["print"] = first(opt("print"), S["pull"] + 1.9)
-S["press"] = first(opt("press"), S["print"] + 3.1)
-S["hold"] = first(opt("hold"), S["press"] - 1.0)                        # the dominant, held
-S["pressed"] = first(opt("pressed"), S["press"] + 2.0)
+S["print"] = first(opt("print"), S["pull"] + 3.5)
+S["press"] = first(opt("press"), plus(opt("flip"), 0.7), S["print"] + 4.2)
+S["hold"] = first(opt("hold"), S["press"] - 2.7)                        # the line is inked: the dominant, held
+S["flip"] = first(opt("flip"), S["press"] - 0.7)                        # the plate turns over onto the bed
+S["pressed"] = first(opt("pressed"), S["press"] + 1.6)
 S["sunrise"] = first(opt("sunrise"), S["pressed"] + 0.4)
-# D major arrives with the sun, or as the roller lets go if the day is already up
-S["resolve"] = S["sunrise"] if S["sunrise"] > S["pressed"] + 0.05 else S["pressed"] + 0.1
-S["closing"] = first(opt("closing"), S["resolve"] + 2.8)
+# D major lands as the roller hits its stop. If the roller uncovers the sun on
+# its way across, the chord starts to turn under it there; if the sun comes up
+# after the print, it waits for the sun.
+S["resolve"] = S["sunrise"] if S["sunrise"] > S["pressed"] + 0.05 else S["pressed"]
+S["turn"] = min(S["sunrise"], S["resolve"])
+S["closing"] = first(opt("closing"), S["resolve"] + 1.0)
 
 # ---------------------------------------------------------------- pitch
 
@@ -543,15 +552,16 @@ PLAN = (
     + fit(S["gate"], S["crack"], ["Dm", "Bb", "Gm"], tail=["A"])
     + [(S["crack"] + min(1.7, 0.5 * (S["under"] - S["crack"])), "Gm")]
     + fit(S["under"], S["tinker"], ["Dm", "Bbmaj7", "C"], bar=1.5, cycle=False)
-    + fit(S["tinker"], S["fall"], DRIVE, tail=["Dm"])
+    + fit(S["tinker"], S["fall"], DRIVE)
     + fit(S["fall"], S["alone"], ["Dm", "C", "Bb", "A", "Gm", "A"], cycle=False)
     + [(S["alone"], "D5"), (S["land"], "Bbmaj7"), (S["quote"], "A"), (S["yes"], "Dm")]
     + fit(drive_anchor, S["crash"] + 1.0, DRIVE, exact=True)
-    + [(S["crash"] + 0.6 * (S["reconcile"] - S["crash"]), "Gm"), (S["reconcile"], "Asus4"), (S["fixed"], "Dm"),
-       (S["gather"], "Bb"), (S["numeral"], "F")]
+    + [(S["crash"] + 0.6 * (S["reconcile"] - S["crash"]), "Gm"), (S["reconcile"], "Asus4")]
+    + fit(S["fixed"], S["gather"], ["Dm", "Bb", "Gm"], cycle=False)
+    + [(S["gather"], "C"), (S["numeral"], "F")]
     + fit(S["burst"], S["summit"] - 0.8, ["C", "Dm", "Bb", "F"], tail=["Gm"])
-    + [(S["summit"] - 0.8, "A"), (S["summit"], "Dm"), (S["pull"], "Bbmaj7"), (min(S["pull"] + 2, S["hold"] - 0.5), "Gm9"),
-       (S["hold"], "Asus4"), (S["press"], "A"), (S["resolve"], "D")]
+    + [(S["summit"] - 0.8, "A"), (S["summit"], "Dm"), (S["pull"], "Bbmaj7"), (min(S["print"], S["hold"] - 0.5), "Gm9"),
+       (S["hold"], "Asus4"), (S["press"], "A"), (S["turn"], "D")]
 )
 PLAN.sort(key=lambda p: p[0])
 
@@ -626,7 +636,7 @@ def drums(t0, t1, style, level=1.0, anchor=None):
                 place("drums", t, kick(0.4 * level, 0.35, low=48))
         elif style == "grind":
             if beat % 2 == 0:
-                place("drums", t, kick(0.42 * level, 0.35, low=50))
+                place("drums", t, kick(0.5 * level, 0.35, low=50))
             for q in range(4):
                 place("drums", t + q * BEAT / 4, hat((0.035 if q % 2 else 0.05) * level), pan=-0.15 + 0.1 * q)
         elif style == "four":
@@ -682,12 +692,12 @@ for c in cues("blink"):
         place("sfx", c["t"], blip(hz("D4"), 0.1, 0.1, 0))
 place("air", 0.0, noise_bed(st + 1.0, 200, 3000, 0.012, lfo=0.3) * fades(st + 1.0, 1.2, 0.8))
 place("air", st - 0.5, whoosh(1.5, 400, 6000, 0.12, peak=0.95))
-bed(st, col, 0.07, attack=1.2, dark=lambda t: 0.6 - 0.25 * np.minimum(1, t / 4))
-held_bass(st, col, 0.26, tau=2.5)
+bed(st, col, 0.045, attack=1.2, dark=lambda t: 0.6 - 0.25 * np.minimum(1, t / 4))
+held_bass(st, col, 0.18, tau=2.5)
 place("bell", st, pluck(hz("D3"), 0.8, 0.12, harm=5, bright=1.2))
 for c in cues("word", 3):   # the title
-    place("bass", c["t"], sub_boom(0.4, 2.2))
-    place("air", c["t"], hat(0.12, open_=True))
+    place("bass", c["t"], sub_boom(0.32, 2.2))
+    place("air", c["t"], hat(0.1, open_=True))
     for k, nn in enumerate(["D4", "F4", "A4", "C5", "E5"]):
         place("bell", c["t"] + k * 0.035, bell(hz(nn), 2.8, 0.065), pan=-0.4 + 0.2 * k)
 for c in cues("word", 4):   # his name under it
@@ -701,8 +711,8 @@ for d, nn in [(3.0, "A4"), (4.0, "F4"), (5.0, "C5"), (6.0, "G4"), (6.5, "A4")]:
 
 goal, gate = S["goal"], S["gate"]
 leave0 = first(opt("leave"), goal - 2.0)
-bed(col, goal, 0.075, attack=0.3, dark=flat(0.4))
-held_bass(col, goal, 0.3, tau=1.8)
+bed(col, goal, 0.09, attack=0.3, dark=flat(0.4))
+held_bass(col, goal, 0.33, tau=1.8)
 # the music box: the chord, broken into eighths
 k = 0
 for a, b, ch in spans(col, leave0 + 1.0):
@@ -710,7 +720,7 @@ for a, b, ch in spans(col, leave0 + 1.0):
     t = snap(a, col) if k else col
     k = int(round((t - col) / 0.25))
     while t < b - 1e-6:
-        place("bell", t, bell(tones[[0, 2, 1, 3, 2, 3, 1, 2][k % 8] % len(tones)], 0.9, 0.034 + 0.01 * (k % 2 == 0)), pan=0.3 * np.sin(k))
+        place("bell", t, bell(tones[[0, 2, 1, 3, 2, 3, 1, 2][k % 8] % len(tones)], 0.9, 0.038 + 0.011 * (k % 2 == 0)), pan=0.3 * np.sin(k))
         t += 0.25
         k += 1
 drums(first(plus(opt("join", i=-1), 0.2), col + 2.0), leave0, "soft", 1.0, anchor=col)
@@ -773,15 +783,16 @@ riser(breath1 - 1.6, 1.6, 0.08, f1=5000, glide_amp=0)
 # ================================================================ the gate year
 
 crack, under, surface = S["crack"], S["under"], S["surface"]
-bed(gate, crack, 0.08, attack=0.3, dark=flat(0.5))
-pulse_bass(gate, crack, 0.3, anchor=gate, octave_every=0)
+bed(gate, crack, 0.28, attack=0.3, dark=flat(0.5))
+held_bass(gate, crack, 0.16, tau=3.0)
+pulse_bass(gate, crack, 0.44, anchor=gate, octave_every=0)
 drums(gate, crack, "grind", 1.0)
 # the clock: tick, tock, on every beat until the cramming cracks, then it limps
 t, k = gate, 0
 while t < under - 1e-6:
     limp = t >= crack
     if not limp or k % 3 == 0:
-        a = 0.06 if limp else 0.09
+        a = 0.07 if limp else 0.11
         f = (2700 if k % 2 == 0 else 1900) * (0.94 if limp else 1)
         place("drums", t, tick(a, f), pan=-0.25 if k % 2 == 0 else 0.25)
         place("drums", t, blip(f / 4, 0.05, a * 0.4, 0))
@@ -800,17 +811,18 @@ for c in cues("crack"):     # the tally marks rust and he shakes
     # the chord sags and goes out of tune
     for f in notes(chord_at(c["t"] - 0.01))[2:]:
         place("pad", c["t"], glide(f, f * 2 ** (-1.3 / 12), 1.8, 0.022, harm=0.35) * np.exp(-T(int(1.8 * SR)) / 0.9), pan=rng.uniform(-0.3, 0.3))
-bed(crack + min(1.2, 0.4 * (under - crack)), under, 0.05, attack=1.0, dark=flat(0.7))
-for a, b, ch in spans(crack + 1.0, under):
-    place("bass", a, subnote(hz(ROOT[ch]), b - a, 0.2, tau=2))
+bed(crack + min(1.2, 0.4 * (under - crack)), under, 0.05, attack=min(1.0, 0.4 * (under - crack)), dark=flat(0.7))
+for a, b, ch in spans(crack + min(1.0, 0.4 * (under - crack)), under):
+    if b - a > 0.3:
+        place("bass", a, subnote(hz(ROOT[ch]), b - a, 0.2, tau=2))
 # under the hood: the camera goes into the ground and the music is heard
 # through it; the five layers of a machine ring clear, top to bottom
 place("air", under - 0.1, whoosh(1.1, 6000, 250, 0.2, peak=0.25))
 place("bass", under, glide(90, 38, 1.4, 0.35, harm=0.2) * np.exp(-T(int(1.4 * SR)) / 0.8))
-bed(under, surface + 0.3, 0.12, attack=0.4, dark=flat(0.3))
-held_bass(under, surface + 0.3, 0.34, tau=2.2)
-drums(under + 0.4, surface, "heart", 1.3, anchor=gate)
-arp(under + 0.7, surface, 0.05, step=0.25, anchor=gate, octave=2, bright=1.2)
+bed(under, S["tinker"], 0.1, attack=0.4, dark=flat(0.3))
+held_bass(under, S["tinker"], 0.34, tau=2.2)
+drums(under + 0.4, surface, "heart", 1.3, anchor=under)
+arp(under + 0.7, S["tinker"] - 0.25, 0.05, step=0.25, anchor=under, octave=2, bright=1.2)
 HOOD_NOTES = ["A5", "F5", "D5", "A4", "F4"]
 for c in cues("hood"):
     nn = hz(HOOD_NOTES[int(c["v"]) % 5])
@@ -826,16 +838,16 @@ tk0, fl0 = S["tinker"], S["fall"]
 servers = cues("server")
 lift1 = snap(first(opt("pi"), tk0 + 1.5), tk0)                              # the pi boots: the beat comes in
 lift2 = snap(first(plus(opt("server", i=-1), 0.0), tk0 + 0.6 * (fl0 - tk0)), tk0)   # both servers up: sixteenths
-bed(tk0, fl0, 0.09, attack=0.25, dark=lambda t: 0.45 - 0.2 * t / (fl0 - tk0))
-pulse_bass(tk0, lift2, 0.34, anchor=tk0, octave_every=0)
-pulse_bass(lift2, fl0, 0.4, anchor=tk0)
-drums(tk0, lift1, "soft", 1.4)
-drums(lift1, lift2, "four", 0.55, anchor=tk0)
-drums(lift2, fl0, "four", 0.75, anchor=tk0)
+bed(tk0, fl0, 0.2, attack=0.25, dark=lambda t: 0.45 - 0.2 * t / (fl0 - tk0))
+pulse_bass(tk0, lift2, 0.44, anchor=tk0, octave_every=0)
+pulse_bass(lift2, fl0, 0.52, anchor=tk0)
+drums(tk0, lift1, "soft", 1.7)
+drums(lift1, lift2, "four", 0.7, anchor=tk0)
+drums(lift2, fl0, "four", 0.9, anchor=tk0)
 for q in np.arange(lift2 + 0.125, fl0, 0.25):
     place("drums", q, hat(0.04), pan=-0.3)
-arp(lift1, lift2, 0.035, step=0.25, anchor=tk0, bright=1.2)
-arp(lift2, fl0, 0.045, step=0.125, anchor=tk0, bright=1.8)
+arp(lift1, lift2, 0.045, step=0.25, anchor=tk0, bright=1.2)
+arp(lift2, fl0, 0.055, step=0.125, anchor=tk0, bright=1.8)
 for c in cues("pi"):
     place("sfx", c["t"], glide(200, 600, 0.35, 0.06))
     place("bell", c["t"] + 0.35, blip(hz("A5"), 0.12, 0.06, 0.3), pan=-0.2)
@@ -856,20 +868,20 @@ if servers:                 # the lights on the servers blink as they come up
 # ================================================================ the way down, the fog, the valley
 
 fog, alone, reply, land, quote, sil, yes = S["fog"], S["alone"], S["reply"], S["land"], S["quote"], S["silence"], S["yes"]
-bed(fl0, alone, 0.075, attack=0.4, release=0.8, dark=lambda t: 0.45 + 0.35 * t / (alone - fl0))
+bed(fl0, alone, 0.058, attack=0.4, release=0.8, dark=lambda t: 0.45 + 0.35 * t / (alone - fl0))
 for a, b, ch in spans(fl0, alone):
-    place("bass", a, subnote(hz(ROOT[ch]), b - a + 0.05, 0.3 - 0.13 * (a - fl0) / (alone - fl0), tau=2.0))
-drums(fl0, fog, "four", 0.5, anchor=fl0)
-drums(fog, min(fog + 3.0, alone), "soft", 0.8, anchor=fl0)
-drums(min(fog + 3.0, alone), min(fog + 6.5, alone), "heart", 0.6, anchor=fl0)
+    place("bass", a, subnote(hz(ROOT[ch]), b - a + 0.05, 0.22 - 0.1 * (a - fl0) / (alone - fl0), tau=2.0))
+drums(fl0, fog, "soft", 1.1, anchor=fl0)
+drums(fog, min(fog + 3.0, alone), "soft", 0.7, anchor=fl0)
+drums(min(fog + 3.0, alone), min(fog + 6.5, alone), "heart", 0.5, anchor=fl0)
 # a line that walks down with him, one note a chord
 for (a, _, _), nn in zip(spans(fl0, alone), ["A5", "G5", "F5", "E5", "D5", "C#5", "D5"]):
-    place("bell", a, bell(hz(nn), 2.4, 0.06), pan=-0.15)
-    place("far", a + 0.25, bell(hz(nn), 2.4, 0.04), pan=0.3)
+    place("bell", a, bell(hz(nn), 2.4, 0.05), pan=-0.15)
+    place("far", a + 0.25, bell(hz(nn), 2.4, 0.035), pan=0.3)
 # the fog, rising, until "yes." blows it away
 d = yes + 1.2 - fog
-place("air", fog, noise_bed(d, 120, 1400, 0.05, lfo=0.13, depth=0.6)
-      * sstep(0, min(9.0, alone - fog), T(int(d * SR))) * (1 - 0.4 * sstep(alone - fog, alone - fog + 1, T(int(d * SR)))), pan=-0.1)
+place("air", fog, noise_bed(d, 120, 1400, 0.04, lfo=0.13, depth=0.6)
+      * sstep(0, min(9.0, alone - fog), T(int(d * SR))) * (1 - 0.65 * sstep(alone - fog, alone - fog + 1, T(int(d * SR)))), pan=-0.1)
 sends = cues("send")        # applications go out, faster and faster; none come back
 for j, c in enumerate(sends):
     f = 1300 + 1100 * rng.random()
@@ -878,8 +890,8 @@ for j, c in enumerate(sends):
     place("sfx", c["t"], blip(f, 0.05, a, 0.3), pan=p)
     place("far", c["t"] + 0.05, glide(f, f * 1.6, 0.4, a * 0.5, harm=0.05), pan=min(1, p + 0.2))
 # alone, at the bottom: a low D, the fog, and the cursor
-place("bass", alone, subnote(hz("D2"), land - alone + 0.3, 0.12, tau=99) * fades(land - alone + 0.3, 0.8, 0.15))
-place("pad", alone, pad(notes("D5"), land - alone + 0.4, 0.05, attack=1.5, release=0.6, dark=flat(0.9)))
+place("bass", alone, subnote(hz("D2"), land - alone + 0.3, 0.07, tau=99) * fades(land - alone + 0.3, 0.8, 0.15))
+place("pad", alone, pad(notes("D5"), land - alone + 0.4, 0.03, attack=1.5, release=0.6, dark=flat(0.9)))
 for c in cues("blink"):
     if c["t"] >= alone:
         place("sfx", c["t"], tick(0.07, 2400))
@@ -888,8 +900,9 @@ for c in cues("layer"):     # the first of the stack is already being laid under
     if alone <= c["t"] < reply:
         place("bell", c["t"], pluck(hz(["D5", "A4", "F4", "D4", "A3", "D3"][int(c["v"]) % 6]), 0.4, 0.02, harm=3, bright=0.8), pan=-0.1)
 for c in cues("reply"):     # the one that came back: a ping from far away
-    x = blip(hz("E6"), 0.6, 0.1, 0.05)
+    x = blip(hz("E6"), 0.6, 0.2, 0.05)
     place("far", c["t"], x, pan=0.75)
+    place("sfx", c["t"], x, 0.12, pan=0.75)
     for k, dd in enumerate((0.13, 0.26)):
         place("far", c["t"] + dd, x, 0.45 ** (k + 1), pan=0.6 - 0.3 * k)
     if land - c["t"] > 0.2:
@@ -904,7 +917,7 @@ place("bass", quote, subnote(hz("A1"), sil - quote, 0.24, tau=4))
 for c in cues("word", 5):
     place("bell", c["t"], bell(hz("A4"), 2.0, 0.06))
     place("bell", c["t"] + 0.05, bell(hz("E5"), 2.0, 0.035), pan=0.2)
-riser(quote - 0.2, sil - quote + 0.2, 0.3, f1=8000, glide_amp=0.04)
+riser(quote - 0.2, sil - quote + 0.2, 0.22, f1=8000, glide_amp=0.035)
 roll(sil - min(0.85, sil - quote), sil, 0.04, 0.26)
 
 # ================================================================ yes.
@@ -970,9 +983,13 @@ for c in cues("fixed"):
 gth, num, bst, spur0, run0, summit, pull = (S[k] for k in ("gather", "numeral", "burst", "spur", "runners", "summit", "pull"))
 top = summit - 0.8
 # the drive comes back and climbs to the top
+back = min(fixed + 2.0, gth)                        # a bar to find its feet, then the drive again
 bed(fixed, summit, 0.15, attack=0.1, dark=flat(0.28))
 pulse_bass(fixed, summit, 0.5, anchor=yes)
-drums(fixed, num, "four", 0.75, anchor=yes)
+drums(fixed, back, "four", 0.8, anchor=yes)
+drums(back, gth, "drive", 1.0, anchor=yes)
+arp(back, gth, 0.04, step=0.25, anchor=yes, octave=2, bright=1.4, pattern=(0, 1, 2, 3, 2, 1))
+drums(gth, num, "four", 0.7, anchor=yes)
 drums(num, spur0 - 0.6, "drive", 1.0, anchor=yes)
 drums(spur0 - 0.6, run0, "bounce", 1.0, anchor=yes)
 drums(run0, top, "drive", 1.05, anchor=yes)
@@ -987,8 +1004,8 @@ for _ in range(160):
     f = swarm_notes[rng.integers(10)]
     place("bell", gth + 0.55 * rng.random(), glide(f, f * 1.9, 1.1, 0.005, harm=0.0) * np.exp(-T(int(1.1 * SR)) / 0.5), pan=rng.uniform(-0.8, 0.8))
 for c in cues("numeral"):
-    place("drums", c["t"], kick(0.85, 0.7))
-    place("bass", c["t"], sub_boom(0.5, 2.0))
+    place("drums", c["t"], kick(0.6, 0.7))
+    place("bass", c["t"], sub_boom(0.3, 2.0))
     for k, nn in enumerate(["F4", "A4", "C5", "F5", "A5"]):
         place("bell", c["t"] + k * 0.025, bell(hz(nn), 2.2, 0.06), pan=-0.4 + 0.2 * k)
 star_notes = scale(MINOR_PENT, 5, 14)
@@ -1034,30 +1051,39 @@ for grp in groups:
 roll(top, summit - 0.02, 0.05, 0.3)
 riser(summit - 1.6, 1.6, 0.14, f1=8000, glide_amp=0.03)
 for c in cues("summit") or [{"t": summit}]:
-    place("drums", c["t"], kick(0.9, 0.8))
-    place("bass", c["t"], sub_boom(0.55, 2.4))
+    place("drums", c["t"], kick(0.75, 0.8))
+    place("bass", c["t"], sub_boom(0.4, 2.4))
     place("air", c["t"], hat(0.35, open_=True))
     for k, nn in enumerate(["D5", "A5", "D6", "F6"]):
         place("bell", c["t"] + k * 0.03, bell(hz(nn), 2.4, 0.06), pan=-0.3 + 0.2 * k)
-    place("pad", c["t"], pad(notes("Dm"), pull - c["t"] + 0.6, 0.12, attack=0.02, release=0.6))
+    place("pad", c["t"], pad(notes("Dm"), pull - c["t"] + 0.4, 0.12, attack=0.02, release=0.5))
 
 # ================================================================ the whole ridge, then the press
 
-prn, hold, press, pressed, resolve = S["print"], S["hold"], S["press"], S["pressed"], S["resolve"]
-g9 = min(pull + 2, hold - 0.5)
-# the pull-back: a swell, the widest chords in the film
-place("pad", pull, pad(notes("Bbmaj7") + [hz("C5"), hz("F5")], g9 - pull + 0.8, 0.26, attack=1.2, release=0.8,
-                       dark=lambda t: 0.9 - 0.65 * np.minimum(1, t / 3.0)))
-place("pad", g9, pad(notes("Gm9") + [hz("D5"), hz("A5")], hold - g9 + 0.6, 0.24, attack=0.5, release=0.6, dark=flat(0.3)))
+prn, hold, flip, press, pressed = S["print"], S["hold"], S["flip"], S["press"], S["pressed"]
+turn, resolve = S["turn"], S["resolve"]
+g9 = min(prn, hold - 0.5)
+# the pull-back: a swell, the widest chords in the film; the terrain prints on
+# Gm9, and the dominant is held while the line is inked
+place("pad", pull, pad(notes("Bbmaj7") + [hz("C5"), hz("F5")], g9 - pull + 0.8, 1.15, attack=0.8 * (g9 - pull), release=0.8,
+                       dark=lambda t: 0.9 - 0.65 * np.minimum(1, t / (g9 - pull)),
+                       shape=lambda t: (0.35 + 0.65 * np.clip(t / (0.8 * (g9 - pull)), 0, 1) ** 1.5) / np.maximum(1e-3, np.minimum(1, t / (0.8 * (g9 - pull)))) * (1 - 0.4 * np.clip((t - (g9 - pull)) / 0.8, 0, 1))))
+place("pad", g9, pad(notes("Gm9") + [hz("D5"), hz("A5")], hold - g9 + 0.6, 0.22, attack=0.5, release=0.6, dark=flat(0.3)))
 place("pad", hold, pad(notes("Asus4"), press - hold + 0.3, 0.16, attack=0.4, release=0.4, dark=flat(0.4),
-                       shape=lambda t: 1 - 0.35 * np.clip((t - 0.8) / 1.5, 0, 1)))
+                       shape=lambda t: 1 - 0.4 * np.clip((t - 0.8) / (press - hold), 0, 1)))
 place("bass", pull, subnote(hz("Bb1"), g9 - pull + 0.1, 0.34, tau=3))
-place("bass", g9, subnote(hz("G1"), hold - g9 + 0.05, 0.32, tau=3))
-place("bass", hold, subnote(hz("A1"), press - hold + 0.05, 0.3, tau=3))
-place("air", pull - 0.2, whoosh(4.2, 150, 2500, 0.1, peak=0.55, q=0.4))
+place("bass", g9, subnote(hz("G1"), hold - g9 + 0.05, 0.3, tau=3))
+place("bass", hold, subnote(hz("A1"), press - hold + 0.05, 0.28, tau=3))
+place("air", pull - 0.2, whoosh(prn - pull + 0.9, 150, 2500, 0.2, peak=0.75, q=0.4))
 place("bass", pull, sub_boom(0.35, 3.0))
-# the line he walked, sung once from end to end as the markers come up:
-# higher on the ridge is higher in pitch
+for c in cues("print"):     # the range prints in below the line
+    place("foley", c["t"], felt(0.25, 60, 0.2))
+    place("foley", c["t"], crackle(2.8, 650, 0.28, decay=1.0))
+for c in cues("hold"):      # the line he walked is inked, end to end
+    place("foley", c["t"] - 0.4, noise_bed(0.9, 500, 3000, 0.035, lfo=1.1, depth=0.3) * np.sin(np.pi * T(int(0.9 * SR)) / 0.9))
+    place("foley", c["t"], felt(0.15, 70, 0.15))
+# the line, sung once from end to end as the markers come up on it: higher on
+# the ridge is higher in pitch
 wps = cues("waypoint")
 if len(wps) >= 2:
     wx = waypoint_xs(len(wps))
@@ -1072,19 +1098,16 @@ if len(wps) >= 2:
     place("bell", wt[0], np.stack([tone * np.cos(a), tone * np.sin(a)], 1))
     for w, x in zip(wps, wx):
         place("bell", w["t"], bell(nearest(hz("D4") * 2 ** (2 * height_at(x)), MINOR_PENT), 2.0, 0.07), pan=x / max(wx) * 1.6 - 0.8)
-for c in cues("print"):     # the range prints in below the line
-    place("foley", c["t"], felt(0.25, 60, 0.2))
-    place("foley", c["t"], crackle(2.8, 650, 0.28, decay=1.0))
-for c in cues("flip"):      # the plate turns over, onto the bed of the press
-    place("foley", c["t"] - 0.25, whoosh(0.5, 300, 3000, 0.12, peak=0.6))
-    place("foley", c["t"] + 0.2, felt(0.4, 50, 0.25))
-    place("foley", c["t"] + 0.2, clang(120, 0.4, 0.05))
+# the plate turns over onto the bed of the press: air as it goes edge-on, and
+# its weight as it lands
+place("foley", flip, whoosh(press - flip + 0.1, 200, 2600, 0.2, peak=0.55))
 
 
-def press_roll(t0, t1):
+def press_roll(t0, t1, marks=()):
     """A heavy roller crossing the plate left to right: the weight of it, the
     paper feeding under it, the gear teeth and one bump per turn, all with the
-    speed of the roller (fastest mid-frame, as film.js eases it)."""
+    speed of the roller (fastest mid-frame, as film.js eases it). `marks` are
+    the moments it uncovers something printed; the paper bites a little there."""
     dur = t1 - t0
     n = int(dur * SR)
     u = T(n) / dur
@@ -1094,38 +1117,47 @@ def press_roll(t0, t1):
     out = np.zeros((n, 2))
     cos_, sin_ = np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)
 
-    def add(x):
-        out[:, 0] += x * cos_
-        out[:, 1] += x * sin_
+    def add(x, i=0):
+        m = min(n - i, len(x))
+        out[i:i + m, 0] += x[:m] * cos_[i:i + m]
+        out[i:i + m, 1] += x[:m] * sin_[i:i + m]
 
-    add(butter(rng.standard_normal(n), "bandpass", [28, 180]) * (0.15 + 0.85 * speed) * 0.9)
-    add(np.sin(2 * np.pi * np.cumsum(42 + 16 * speed) / SR) * (0.1 + 0.5 * speed) * 0.35)
+    add(butter(rng.standard_normal(n), "bandpass", [28, 180]) * (0.2 + 0.8 * speed) * 1.3)
+    add(np.sin(2 * np.pi * np.cumsum(42 + 16 * speed) / SR) * (0.15 + 0.5 * speed) * 0.45)
     grain = np.minimum(1, np.abs(butter(rng.standard_normal(n), "lowpass", 40)) * 3)
     add(butter(rng.standard_normal(n), "bandpass", [1200, 6500]) * speed ** 1.4 * (0.6 + 0.4 * grain) * 0.1)
     travel = np.cumsum(speed) / SR
     for rate, make in ((26, lambda s: click(0.07 * (0.3 + 0.7 * s))), (3.2, lambda s: felt(0.3 * (0.4 + 0.6 * s), 55, 0.12))):
-        marks = travel * rate
-        for k in range(1, int(marks[-1]) + 1):
-            i = int(np.searchsorted(marks, k))
-            x = make(speed[i])
-            if i + len(x) < n:
-                out[i: i + len(x), 0] += x * cos_[i]
-                out[i: i + len(x), 1] += x * sin_[i]
+        ticks_ = travel * rate
+        for k in range(1, int(ticks_[-1]) + 1):
+            i = int(np.searchsorted(ticks_, k))
+            add(make(speed[i]), i)
+    for m in marks:
+        i = int((m - t0) * SR)
+        if 0 <= i < n:
+            add(crackle(0.3, 320, 0.16, decay=0.12), i)
     return out * fades(dur, 0.04, 0.03)[:, None]
 
 
-place("foley", press, press_roll(press, pressed))
-place("foley", press, clang(180, 0.5, 0.09), pan=-0.85)      # the latch
-place("foley", press, kick(0.35, 0.4, low=50), pan=-0.7)
+marks = [c["t"] for c in cues("header") + cues("sunrise") if press < c["t"] < pressed]
+place("foley", press, press_roll(press, pressed, marks))
+place("foley", press, kick(0.45, 0.45, low=45), pan=-0.7)          # the plate lands, the latch drops
+place("foley", press, clang(170, 0.5, 0.08), pan=-0.85)
 place("foley", press + 0.01, click(0.2), pan=-0.85)
-# the music holds its breath on the dominant while the roller runs
-place("pad", press, pad(notes("A"), pressed - press + 0.1, 0.1, attack=0.2, release=0.1, dark=flat(0.45)))
-place("bass", press, subnote(hz("A1"), pressed - press, 0.18, tau=5))
-for c in cues("header"):
-    for k in range(6):
-        place("sfx", c["t"] + k * 0.06, tick(0.035, 2800 - 150 * k), pan=-0.6 + 0.24 * k)
+for c in cues("header") + cues("sunrise"):   # anything printed after the roller has gone
+    if c["t"] >= pressed:
+        place("foley", c["t"], crackle(0.3, 200, 0.12))
+# the music holds its breath on the dominant while the roller runs, and turns
+# toward D under it as the sun is uncovered
+place("pad", press, pad(notes("A"), turn - press + 0.3, 0.1, attack=0.2, release=0.3, dark=flat(0.45)))
+place("bass", press, subnote(hz("A1"), turn - press + 0.1, 0.18, tau=5))
+if resolve - turn > 0.2:
+    place("pad", turn, pad(notes("D"), resolve - turn + 0.4, 0.12, attack=resolve - turn, release=0.4, dark=flat(0.8)))
+    place("sfx", turn, glide(hz("D3"), hz("D4"), resolve - turn + 0.05, 0.05, harm=0.3) * fades(resolve - turn + 0.05, resolve - turn, 0.03), pan=0.5)
+else:
+    place("sfx", resolve, glide(hz("D3"), hz("D4"), 1.2, 0.05, harm=0.3), pan=0.5)
 for c in cues("pressed") or [{"t": pressed}]:
-    place("foley", c["t"], kick(0.8, 0.6, low=40), pan=0.8)        # it hits the stop
+    place("foley", c["t"], kick(0.62, 0.6, low=40), pan=0.8)        # it hits the stop
     place("foley", c["t"], clang(140, 0.9, 0.16), pan=0.85)
     place("foley", c["t"] + 0.012, clang(311, 0.4, 0.06), pan=0.8)
     place("foley", c["t"] + 0.09, click(0.18), pan=0.9)             # the ratchet
@@ -1136,34 +1168,32 @@ for c in cues("pressed") or [{"t": pressed}]:
 # ================================================================ sunrise, D major
 
 rem = DUR - resolve
-place("sfx", resolve, glide(hz("D3"), hz("D4"), 1.2, 0.05, harm=0.3), pan=0.5)
-place("pad", resolve - 0.35, pad(notes("D"), rem + 0.35, 0.44, attack=0.9, release=1.2,
+place("pad", resolve - 0.05, pad(notes("D"), rem + 0.05, 0.62, attack=0.3, release=1.2,
                                  dark=lambda t: 1.0 - 0.8 * np.minimum(1, t / 1.8),
                                  shape=lambda t: 1 - 0.55 * np.clip((t - 2.5) / (rem - 2.0), 0, 1)))
-place("pad", resolve, pad([hz(n) for n in ["D5", "A5", "F#5", "E6"]], rem, 0.15, attack=0.5, release=1.2,
+place("pad", resolve, pad([hz(n) for n in ["D5", "A5", "F#5", "E6"]], rem, 0.2, attack=0.5, release=1.2,
                           dark=lambda t: 0.6 - 0.3 * np.minimum(1, t / 1.5),
                           shape=lambda t: 1 - 0.5 * np.clip((t - 2.5) / (rem - 2.0), 0, 1)))
-place("drums", resolve, kick(0.55, 0.9))
+if resolve - pressed > 0.15:                 # the stop already had its own weight
+    place("drums", resolve, kick(0.55, 0.9))
 place("bass", resolve, sub_boom(0.45, 2.2))
 n = int((rem + 0.1) * SR)
 place("bass", resolve - 0.1, subnote(hz("D2"), rem + 0.1, 0.44, tau=99)
-      * np.minimum(1, T(n) / 0.9) * (1 - 0.5 * np.clip((T(n) - 1.8) / (rem - 1.5), 0, 1)))
+      * np.minimum(1, T(n) / 0.5) * (1 - 0.5 * np.clip((T(n) - 1.8) / (rem - 1.5), 0, 1)))
 shimmer = scale(MAJOR_PENT, 5, 16)
 for k in range(16):
-    place("bell", resolve + k * 0.105, bell(shimmer[k], 1.6, 0.1 * (1 - k / 22)), pan=0.55 - k * 0.07)
+    place("bell", resolve + 0.03 + k * 0.105, bell(shimmer[k], 1.6, 0.1 * (1 - k / 22)), pan=0.55 - k * 0.07)
 for nn, g_, p in [("D5", 0.13, 0.5), ("F#5", 0.08, 0.55), ("A5", 0.065, 0.6)]:
-    place("bell", resolve, bell(hz(nn), 3.0, g_), pan=p)
-# a slow walk down the new chord while the page settles
-for d, nn in [(2.0, "A5"), (3.0, "F#5"), (4.0, "E5"), (5.0, "D5")]:
-    if resolve + d < DUR - 1.0:
-        place("bell", resolve + d, bell(hz(nn), 2.2, 0.045), pan=-0.2)
-for c in cues("type"):
+    place("bell", resolve + 0.03, bell(hz(nn), 3.0, g_), pan=p)
+for c in cues("type"):      # the address, typed; the last thing that ticks
     place("sfx", c["t"], tick(0.07, 2200 + 100 * (int(c["v"]) % 3)), pan=-0.55)
     place("sfx", c["t"], click(0.045), pan=-0.55)
-for c in cues("closing"):
+for c in cues("closing"):   # still climbing.
     place("bell", c["t"], bell(hz("D6"), 2.4, 0.05), pan=-0.5)
-for c in cues("cursor"):
-    place("sfx", c["t"], tick(0.12 * max(0.4, 1 - 0.1 * (c["t"] - S["closing"])), 2400), pan=-0.4)
+    # a slow walk down the new chord while the page settles
+    for d, nn in [(1.5, "A5"), (2.5, "F#5"), (3.5, "E5"), (4.5, "D5")]:
+        if c["t"] + d < DUR - 1.2:
+            place("bell", c["t"] + d, bell(hz(nn), 2.2, 0.04), pan=-0.2)
 
 # ================================================================ footsteps, and ink
 
@@ -1201,7 +1231,7 @@ for c in cues("word"):      # each line printing in: a little ink
 # the music goes under the ground with the camera, and into the fog with him
 FILTER = sorted([
     (0.0, 20000), (DUR, 20000),
-    (S["under"] - 0.05, 20000), (S["under"] + 0.5, 420), (S["surface"] - 0.2, 650), (S["surface"] + 0.45, 20000),
+    (S["under"], 20000), (S["under"] + 1.0, 420), (S["surface"], 600), (S["surface"] + 1.2, 20000),
     (S["fog"], 20000), (S["fog"] + 0.4 * (S["alone"] - S["fog"]), 3500), (S["alone"], 900), (S["land"], 1100),
     (S["quote"], 5000), (S["silence"], 20000),
 ])

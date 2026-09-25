@@ -588,7 +588,7 @@
       drawClouds(t, P);
     }
     // dawn glow (both themes; stronger before the light arrives)
-    const glowA = night ? sstep(24.3, 25.6, t) * 0.34 : 0.08;
+    const glowA = night ? sstep(24.3, 25.6, t) * 0.34 : 0;
     if (glowA > 0) {
       const sy = sunY(t);
       for (let x = Math.max(0, SUN_X - 420); x < Math.min(CW, SUN_X + 420); x++) {
@@ -851,7 +851,7 @@
   const passAt = (x) => PASS[clamp(Math.round(x), 0, CW)];
 
   // camera: where on screen he stands, and how close we are
-  const ANCHOR = [[0, 480, 270], [2.0, 480, 270], [6.5, 310, 300], [44, 320, 295], [50, 480, 280], [T.yes1, 480, 280], [72.5, 550, 190], [88.6, 550, 190], [90.4, 600, 285], [94.8, 600, 285], [97.6, 550, 190], [T.pull0, 550, 190]];
+  const ANCHOR = [[0, 480, 270], [2.0, 480, 270], [6.5, 310, 300], [44, 320, 295], [50, 480, 280], [T.yes1, 480, 280], [72.5, 550, 160], [88.6, 550, 160], [90.4, 600, 285], [94.8, 600, 285], [97.6, 550, 160], [T.pull0, 550, 190]];
   const ZOOM = [[0, 40, "hold"], [1.5, 40, "hold"], [4.5, 6, "expr"], [48, 6, "hold"], [55, 6.6, "sine"], [61.5, 10, "sine"], [T.yes1, 10, "hold"], [71.6, 5, "expr"], [T.pull0, 3.6, "sine"]];
   const pullE = (t) => E.inOutCubic(inv(T.pull0, T.pull1, t));
   function keyed(list, t, idx, ease) {
@@ -859,8 +859,9 @@
     for (let i = 1; i < list.length; i++) if (t <= list[i][0]) return lerp(list[i - 1][idx], list[i][idx], ease(inv(list[i - 1][0], list[i][0], t)));
     return list[list.length - 1][idx];
   }
+  const PLATE = 0.94;
   function zoomAt(t) {
-    if (t >= T.pull0) return Math.pow(3.6, 1 - pullE(t));
+    if (t >= T.pull0) return Math.pow(3.6, 1 - pullE(t)) * lerp(1, PLATE, pullE(t));
     for (let i = 1; i < ZOOM.length; i++) {
       const [t1, z1, kind] = ZOOM[i], [t0, z0] = ZOOM[i - 1];
       if (t <= t1) {
@@ -879,7 +880,7 @@
     const dip = E.inOutSine(pulse(T.hood0, T.hood0 + 1.4, T.hood1 - 1.4, T.hood1, t));
     const f = t >= T.pull0 ? pullE(t) : 0;
     const ax = keyed(ANCHOR, t, 1, E.inOutSine), ay = keyed(ANCHOR, t, 2, E.inOutSine) - 150 * dip;
-    return { z, cx, cy, sx: lerp(ax, cx, f), sy: lerp(ay, cy, f), f };
+    return { z, cx, cy, sx: lerp(ax, (cx - CW / 2) * PLATE + CW / 2, f), sy: lerp(ay, (cy - CH / 2) * PLATE + CH / 2, f), f };
   }
   function applyCam(c) { TS = c.z; OX = c.cx; OY = c.cy; TX = c.sx - c.cx; TY = c.sy - c.cy; }
   const scrX = (c, x) => (x - c.cx) * c.z + c.sx;
@@ -904,7 +905,7 @@
     { t0: T.thesis0, t1: T.thesis1, s: "after college, one goal:", k: "small" },
     { t0: 20.9, t1: T.thesis1, s: "build the things", k: "big", row: 0 },
     { t0: 21.4, t1: T.thesis1, s: "other people build on.", k: "big", row: 1 },
-    { t0: 29.0, t1: 33.2, s: "a year of gate prep. cramming didn't work," },
+    { t0: 29.0, t1: 35.0, s: "a year of gate prep. cramming didn't work," },
     { t0: 35.0, t1: 38.6, s: "so i went under the hood instead.", at: T.hood0 + 1.5 },
     { t0: 40.6, t1: 45.2, s: "two free oracle servers. i self-hosted everything." },
     { t0: 47.4, t1: 50.4, s: "i thought i was ready." },
@@ -913,7 +914,7 @@
     { t0: 63.5, t1: T.quote1, s: "arjun · vaultci", k: "attrib" },
     { t0: T.yes, t1: T.yes1, s: "yes.", k: "yes" },
     { t0: 72.4, t1: 77.4, s: "three years building a public cloud, from the hypervisor up." },
-    { t0: 85.8, t1: 89.8, s: "design for the scale you have. know where it breaks." },
+    { t0: 85.8, t1: 89.8, s: "design for the scale you have.\nknow where it breaks." },
     { t0: 98.8, t1: 103.2, s: "now: the infrastructure behind warpbuild's ci runners." }
   ];
 
@@ -937,7 +938,7 @@
       if (k === "yes") {
         const s = 1 + 0.14 * (1 - E.outBack(inv(T.yes, T.yes + 0.35, t), 2.2));
         const fade = 1 - sstep(T.yes1 - 0.4, T.yes1, t);
-        txt("yes.", 1190, 470, { screen: true, size: Math.round(270 * s), fam: SERIF, color: t < T.yes + 0.034 ? P.css.paper : P.css.strong, align: "center", ls: -7, alpha: fade });
+        txt("yes.", 1260, 430, { screen: true, size: Math.round(270 * s), fam: SERIF, color: t < T.yes + 0.034 ? P.css.paper : P.css.strong, align: "center", ls: -7, alpha: fade });
         continue;
       }
       if (k === "line") {
@@ -945,7 +946,7 @@
         const ta = w.at || w.t0, c = camAt(ta), X = walkX(ta);
         const dx = scrX(c, X) * C, dy = scrY(c, pathY(X)) * C;
         const left = Math.round(Math.min(dx + 100, 1920 - 80 - 860)), top = clamp(dy - 130, 120, 700);
-        const lines = wrap(w.s, 54, SERIF, 1920 - left - 80, -0.5);
+        const lines = w.s.split("\n").flatMap((l) => wrap(l, 54, SERIF, 1920 - left - 80, -0.5));
         const a = sstep(w.t0, w.t0 + 0.35, t) * (1 - sstep(w.t1 - 0.3, w.t1, t));
         const y0 = top - (lines.length - 1) * 62;
         lines.forEach((l, i) => txt(l, left, Math.round(y0 + i * 62), { screen: true, size: 54, fam: SERIF, color: P.css.strong, ls: -0.5, alpha: a }));
@@ -984,13 +985,13 @@
     if (t < 2.2) return "";
     if (t >= T.numeral0 - 0.3 && t < T.burst + 1.4) return "";
     if (t >= T.summit) return "now";
-    if (t >= T.yes && t < T.yes1) return "";
     const y = yearAt(t);
     if (t < 9) return String(y);
     if (t < 20) return `${y} · svit`;
     if (t < 28.5) return String(y);
     if (t < 39.8) return `${y} · gate · day ${Math.max(1, Math.round(inv(214, 252, walkX(t)) * 365))}`;
     if (t < 46.5) return `${y} · oracle free tier`;
+    if (t < T.send0) return `${y} · job hunt`;
     if (t < T.reply + 0.5) return `${y} · job hunt · 0 replies`;
     if (t < T.yes) return `${y} · job hunt · 1 reply`;
     if (t < 76) return `${y} · vaultci, later excloud`;
@@ -1042,18 +1043,28 @@
 
   function drawSky(t, P, c, dot) {
     const [ox, oy] = skyOff(c);
-    const occluded = (x, y) => y >= groundAt(x) - 1;
+    const pz = lerp(1, PLATE, c.f);
+    const inPlate = (x, y) => x >= scrX(c, 0) && x < scrX(c, CW) && y >= scrY(c, 0) && y < scrY(c, CH);
+    const occluded = (x, y) => {
+      if (c.f > 0 && !inPlate(x, y)) return true;
+      const g = groundAt(x);
+      if (y >= g - 1) return true;
+      // past the end of the walk, the ridge still hides what is under it
+      return c.f > 0 && g > 1e8 && y >= scrY(c, PATH[clamp(Math.floor(worldX(c, x)), 0, CW - 1)]) - 1;
+    };
+    const plate = (x, y) => (pz === 1 ? [x, y] : [(x - CW / 2) * pz + CW / 2, (y - CH / 2) * pz + CH / 2]);
     for (const s of SKY) {
       if (s.kind === "old") {
         if (t < s.t0) continue;
-        const x = wrapX(s.x + ox), y = s.y + oy;
+        const [x, y] = plate(wrapX(s.x + ox), s.y + oy);
         if (occluded(x, y)) continue;
         const tw = 0.65 + 0.35 * Math.sin(t * (2 + 4 * hu(Math.floor(s.x * 7))) + s.y);
         pS(Math.floor(x), Math.floor(y), P.tone("cell", s.b * tw * sstep(s.t0, s.t0 + 0.6, t)));
         continue;
       }
       if (t < T.numeral0 - 0.1) continue;
-      const [x, y, p, phase] = accountPos(s, t, c, dot);
+      const [x0, y0, p, phase] = accountPos(s, t, c, dot);
+      const [x, y] = phase === 2 ? plate(x0, y0) : [x0, y0];
       if (phase === 1 && p <= 0) continue;
       if (phase === 2 && p >= 0.999) {
         if (occluded(x, y)) continue;
@@ -1086,7 +1097,7 @@
     // the app he shipped: a flag planted where he stands
     const fx = walkX(T.flag), fp = EXPR(inv(T.flag, T.flag + 0.5, t));
     if (fp > 0) {
-      const a = 1 - sstep(27.5, 28.5, t);
+      const a = 1 - sstep(20.4, 21.0, t);
       const bx = scrX(c, fx), by = scrY(c, pathY(fx));
       const top = by - 34 * fp;
       for (let y = Math.round(top); y < by - 1; y++) pS(Math.round(bx), y, P.cell, a);
@@ -1143,8 +1154,9 @@
       const ta = passAt(p.x) - 0.9;
       if (t < ta || t > 49) continue;
       const a = sstep(ta, ta + 0.45, t) * (1 - sstep(47.5, 49, t));
-      const gy = pathY(p.x + p.w / 2);
-      const x0 = scrX(c, p.x), x1 = scrX(c, p.x + p.w), y0 = scrY(c, gy + p.d0), y1 = scrY(c, gy + p.d1);
+      const px = walkX(ta) - p.w - 4 + (p.kind === "pi" ? 0 : 6);
+      const gy = pathY(px + p.w / 2);
+      const x0 = scrX(c, px), x1 = scrX(c, px + p.w), y0 = scrY(c, gy + p.d0), y1 = scrY(c, gy + p.d1);
       dissolve(() => {
         fillS(Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), P.paper, 1);
         hS(Math.round(x0), Math.round(x1) - 1, Math.round(y0), P.cell); hS(Math.round(x0), Math.round(x1) - 1, Math.round(y1) - 1, P.cell);
@@ -1207,7 +1219,8 @@
     for (const s of SENDS) {
       const u = inv(s.t, s.t + 1.3, t);
       if (u <= 0 || u >= 1) continue;
-      const from = { x: X, y: Y - 3 }, to = { x: X + s.dx, y: Y + s.dy }, mid = { x: X + s.dx * 0.45, y: Y + s.dy - 10 * s.bend };
+      const lift = 40 / c.z;
+      const from = { x: X + 0.5, y: Y - lift }, to = { x: X + s.dx, y: Y + s.dy - lift }, mid = { x: X + s.dx * 0.45, y: Y + s.dy - lift - 10 * s.bend };
       const q = quad(from, mid, to, E.outQuad(u));
       envelope(scrX(c, q.x), scrY(c, q.y), P, (1 - u) * 1.02, P.cell);
     }
@@ -1218,15 +1231,18 @@
       const q = quad(from, mid, to, SWIFT(r));
       envelope(scrX(c, q.x), scrY(c, q.y), P, 1, P.strong);
     }
-    if (t >= T.land && t < T.yes) {
-      const ex = dot.x + 9, ey = dot.y - 3;
-      envelope(ex, ey, P, 1 - sstep(T.quote0 - 0.2, T.quote0 + 0.4, t) * 0.4, t - T.land < 0.08 ? P.strong : P.cell);
+    if (t >= T.land && t < T.silence) {
+      const X0 = Math.round(dot.x + dotSize(t) / 2 + 4), Y0 = Math.round(dot.y) - 9, col = t - T.land < 0.08 ? P.strong : P.cell;
+      dissolve(() => {
+        fillS(X0, Y0, X0 + 13, Y0 + 9, col, 1);
+        for (let k = 0; k <= 6; k++) { pS(X0 + k, Y0 + Math.round(k * 0.7), P.paper); pS(X0 + 12 - k, Y0 + Math.round(k * 0.7), P.paper); }
+      }, 1 - sstep(T.silence - 0.5, T.silence, t));
     }
   }
 
   // ---------------------------------------------------------------- the climb
 
-  const STRATA = ["sdk · cli · terraform · console", "managed kubernetes", "networking · dns", "block storage", "compute · firecracker · qemu/kvm", "metal"];
+  const STRATA = ["sdk · cli", "kubernetes", "network · dns", "block storage", "firecracker", "metal"];
   const BAND = 6;
   const CRASH_X = 525;
   const crashT = () => passAt(CRASH_X);
@@ -1284,7 +1300,7 @@
 
   function drawGround(t, P, c, dotX) {
     const fadeStrata = 1 - sstep(T.pull0 + 0.5, T.print0 + 0.5, t);
-    const fadeFill = 1 - sstep(T.pull0 + 0.3, T.print0, t);
+    const fadeFill = 1 - sstep(T.print0, T.print0 + 0.5, t);
     const bandH = BAND * c.z;
     const u0 = Math.round(scrX(c, 0));
     const lit = P.cell, dim = P.tone("cell", 0.62);
@@ -1307,14 +1323,14 @@
               const grow = clamp((t - ta) / 0.35);
               const vb = v - Math.round(k * bandH);
               if (vb === 0) { if ((s & 1) && 0.6 * fadeStrata * grow > THR[i]) buf[i] = P.faint; continue; }
-              let d = strataCell(k, s - u0, vb, t, x) * fadeStrata * grow;
+              let d;
               if (crash && k >= 2 && k <= 4) {
-                // broken ink: the layer scrambles instead of turning a colour
-                const n = h2(s, y, Math.floor(t * 20));
-                d = n > 0.55 ? 0.95 : 0;
-                if (d > THR[i]) buf[i] = P.strong;
-                continue;
-              }
+                // broken ink: the layer slips out of register and drops out, it never lights up
+                const tp = 1 - Math.abs(x - CRASH_X) / Math.max(1, crashR);
+                const slip = tp > 0.25 ? ((vb >> 1) & 1 ? 3 : -3) : 0;
+                d = strataCell(k, s + slip - u0, vb, t, x) * fadeStrata * grow;
+                if (h2(s, y, Math.floor(t * 4)) < 0.2 + 0.55 * tp) d = 0;
+              } else d = strataCell(k, s - u0, vb, t, x) * fadeStrata * grow;
               if (d > THR[i]) buf[i] = d > 0.85 ? lit : dim;
               continue;
             }
@@ -1330,26 +1346,56 @@
     }
   }
 
-  function strataLabels(t, P, c, dot) {
-    if (t < T.yes1 || t > T.pull0 + 0.8) return;
-    const s = Math.round(dot.x - 130), x = GROUNDX[clamp(s, 0, CW - 1)];
-    const g = groundAt(s);
-    if (g > 1e8 || x < 384) return;
-    const bandH = BAND * c.z;
-    const ct = crashT();
-    const a = (1 - sstep(T.pull0, T.pull0 + 0.8, t)) * (1 - pulse(T.numeral0 - 0.6, T.numeral0, T.burst + 0.6, T.burst + 1.2, t)) * (1 - pulse(ct, ct + 0.2, ct + 4.4, ct + 4.8, t));
-    if (a <= 0) return;
+  // The stack of labels starts behind him and runs toward him: on a climb the
+  // ground ahead of the column is higher, so the stack stays inside the mountain.
+  const LABEL_BACK = 175;
+  const labelName = (k, X) => (k === 0 && X > 812 ? "ci runners" : STRATA[k]);
+  // The stack hangs from the lowest ground across its width, so no label can
+  // cross the ridge; returns that origin and the column it starts at.
+  function labelStack(c, X, gAt) {
+    const d = scrX(c, X), s = Math.round(d - LABEL_BACK);
     OC.font = `33px ${MONO}`; OC.letterSpacing = "0px";
-    STRATA.forEach((name0, k) => {
-      const name = k === 0 && walkX(t) > 812 ? "ci runners" : name0;
-      const al = sstep(builtAt(k, x) + 0.2, builtAt(k, x) + 0.6, t) * a;
+    let wmax = 0;
+    for (let k = 0; k < STRATA.length; k++) wmax = Math.max(wmax, OC.measureText(labelName(k, X)).width / C);
+    let G = -1e9;
+    for (let q = s - 4; q <= s + wmax + 8; q += 2) G = Math.max(G, gAt(q));
+    return { s, d, G: G + 3, x1: s + wmax + 8 };
+  }
+  // how many labels fit at time t, counted down from the top of the stack
+  function labelsFit(t) {
+    const c = camAt(t), X = walkX(t);
+    const gAt = (q) => { const x = worldX(c, q + 0.5); return x >= 0 && x <= X ? scrY(c, pathY(x)) : 1e9; };
+    const { s, d, G, x1 } = labelStack(c, X, gAt);
+    if (worldX(c, s + 0.5) < 384 || s * C < 64 || G > 1e8 || x1 > d - 16) return 0;
+    const bandH = BAND * c.z;
+    for (let k = 0; k < STRATA.length; k++) if ((G + (k + 0.5) * bandH) * C + 8 > H - 10) return k;
+    return STRATA.length;
+  }
+  // Label k shows while the stack holds at least k + 1 labels, and never fewer
+  // than four: no orphans. A gap shorter than a second and a half never makes
+  // one blink.
+  function labelsA(t) {
+    const near = new Array(STRATA.length).fill(9);
+    for (let j = -6; j <= 6; j++) {
+      const n = labelsFit(t + j * 0.25);
+      for (let k = 0; k < STRATA.length; k++) if (n < Math.max(k + 1, 4)) near[k] = Math.min(near[k], Math.abs(j * 0.25));
+    }
+    return near.map((d) => (d > 1.5 ? 1 : clamp((d - 0.25) / 0.5)));
+  }
+
+  function strataLabels(t, P, c, dot) {
+    if (t < T.yes1 || t > 98.8) return;
+    const ct = crashT();
+    let a = (1 - sstep(98.3, 98.8, t)) * (1 - pulse(T.numeral0 - 0.6, T.numeral0, T.burst + 0.6, T.burst + 1.2, t)) * (1 - pulse(ct, ct + 0.2, ct + 4.4, ct + 4.8, t));
+    if (a <= 0) return;
+    const la = labelsA(t), X = walkX(t);
+    const { s, G } = labelStack(c, X, groundAt);
+    if (G > 1e8) return;
+    const x = GROUNDX[clamp(s, 0, CW - 1)], bandH = BAND * c.z;
+    STRATA.forEach((_, k) => {
+      const al = sstep(builtAt(k, x) + 0.2, builtAt(k, x) + 0.6, t) * a * la[k];
       if (al <= 0) return;
-      const yc = g + (k + 0.5) * bandH;
-      const wpx = OC.measureText(name).width, x0 = s - wpx / C - 8;
-      if (yc * C + 8 > H - 10) return;
-      // never let a label ride up into the sky
-      for (let q = Math.max(0, Math.floor(x0)); q <= s; q += 6) if (yc - 12 < groundAt(q)) return;
-      chip(name, ix(s), iy(yc + 7), { size: 33, color: P.css.ink, bg: P.css.paper, align: "right", alpha: al });
+      chip(labelName(k, X), ix(s), iy(G + (k + 0.5) * bandH + 7), { size: 33, color: P.css.ink, bg: P.css.paper, align: "left", alpha: al });
     });
   }
 
@@ -1380,11 +1426,12 @@
       const len = [16, 27, 38][k % 3], ang = -2.02 + 0.06 * (k % 2);
       const ex = x + Math.cos(ang) * len * p, ey = y + Math.sin(ang) * len * p;
       const n = Math.ceil(len * p * c.z / 3);
-      for (let q = 0; q < n; q++) { const f = q / Math.max(1, n); pt(lerp(x, ex, f), lerp(y, ey, f), P.cell, a); }
+      const la = a * (1 - 0.65 * sstep(98.2, 98.7, t));
+      for (let q = 0; q < n; q++) { const f = q / Math.max(1, n); pt(lerp(x, ex, f), lerp(y, ey, f), P.cell, la); }
       if (p > 0.95) {
         const sx = scrX(c, ex), sy = scrY(c, ey);
-        for (let d = 0; d < 5; d++) hS(Math.round(sx - d), Math.round(sx + d), Math.round(sy - 5 + d), P.cell, a);
-        txt(sp.name, sx * C, (sy - 10) * C, { screen: true, size: 33, color: P.css.ink, align: "center", alpha: a * sstep(sp.t + 0.3, sp.t + 0.5, t) });
+        for (let d = 0; d < 5; d++) hS(Math.round(sx - d), Math.round(sx + d), Math.round(sy - 5 + d), P.cell, la);
+        txt(sp.name, sx * C, (sy - 10) * C, { screen: true, size: 33, color: P.css.ink, align: "center", alpha: a * pulse(sp.t + 0.3, sp.t + 0.5, 98.2, 98.7, t) });
       }
     });
   }
@@ -1425,6 +1472,10 @@
 
   // ---------------------------------------------------------------- one frame of the plate
 
+  function dotSize(t) {
+    const lowPoint = inv(55, 61.5, t) * (1 - inv(T.yes1, 71.6, t));
+    return t < 4.5 ? Math.round(lerp(22, 8, EXPR(inv(1.5, 4.5, t)))) : lowPoint > 0.5 ? 10 : 8;
+  }
   let DOT = { x: 0, y: 0, size: 8 };
   function drawNight(t, P, fb, oc) {
     FB = fb; OC = oc; buf = fb;
@@ -1460,6 +1511,12 @@
       prev = y;
     }
 
+    const edgeA = sstep(T.pull1 - 0.4, T.pull1 + 0.2, t);
+    if (edgeA > 0) {
+      const x0 = Math.round(scrX(c, 0)) - 2, x1 = Math.round(scrX(c, CW)) + 1, y0 = Math.round(scrY(c, 0)) - 2, y1 = Math.round(scrY(c, CH)) + 1;
+      for (let k = 0; k < 2; k++) { hS(x0, x1, y0 + k, P.dim, edgeA); hS(x0, x1, y1 - k, P.dim, edgeA); vS(x0 + k, y0, y1, P.dim, edgeA); vS(x1 - k, y0, y1, P.dim, edgeA); }
+    }
+
     if (t > 9 && t < 29) drawCollege(t, P, c, dot);
     if (t > 28.5 && t < 40.5) drawGate(t, P, c, dot);
     if (t > 38 && t < 49.5) drawOracle(t, P, c);
@@ -1472,8 +1529,7 @@
     drawWaypoints(t, P, c);
 
     // him: rust, knocked out of whatever is behind him, blinking when he waits
-    const lowPoint = inv(55, 61.5, t) * (1 - inv(T.yes1, 71.6, t));
-    const size = t < 4.5 ? Math.round(lerp(22, 8, EXPR(inv(1.5, 4.5, t)))) : lowPoint > 0.5 ? 10 : 8;
+    const size = dotSize(t);
     const waiting = (t < 1.5) || (t >= T.alone && t < T.reply);
     const open = waiting ? ((t - (t < 1.5 ? 0 : T.alone)) % 0.5) < 0.27 : true;
     const bob = speedAt(t) > 2 && Math.floor(X / 1.2) % 2 ? -1 : 0;
@@ -1481,7 +1537,7 @@
     fillS(x0 - 1, y0 - 1, x0 + size + 1, y0 + size + 1, P.paper, 1);
     if (open) fillS(x0, y0, x0 + size, y0 + size, P.accent, 1);
     DOT = { x: dot.x, y: dot.y, size };
-    const tg = tagAt(t), ta = sstep(2.2, 2.8, t) * (1 - sstep(T.hold0 - 0.5, T.hold0, t));
+    const tg = tagAt(t), ta = sstep(2.2, 2.8, t) * (1 - sstep(T.pull0 + 0.8, T.pull0 + 1.4, t)) * (1 - pulse(62.9, 63.2, T.yes1, T.yes1 + 0.4, t));
     if (tg && ta > 0) txt(tg, Math.round(dot.x * C + size + 18), Math.round((dot.y - size - 6) * C), { screen: true, size: 33, color: P.css.dim, alpha: ta });
 
     words(t, P);
@@ -1513,6 +1569,18 @@
     resetCam(); TALPHA = 1; OGHOST = 0;
     const tau = t - DAY_OFFSET;
     sSummit(tau, DAY);
+    buf = fb;
+    const ty0 = 27.05 + DAY_OFFSET, ty1 = 27.6 + DAY_OFFSET, hop0 = ty0 - 0.3;
+    if (t < ty1 + 0.15) {
+      const n = Math.floor(inv(ty0, ty1, t) * 12 + 1e-6);
+      const w = n > 0 ? tw("lolwierd.com".slice(0, n), 44) : 0;
+      const m = EXPR(inv(hop0, ty0, t));
+      const x = lerp(12, (96 + w + 8) / C + 4, m), y = lerp(RIDGE[12], 416 / C, m) - Math.sin(Math.PI * m) * 26;
+      const on = t >= hop0 || ((t - T.press1) % 0.5 + 0.5) % 0.5 < 0.3;
+      const X0 = Math.round(x - 4), Y0 = Math.round(y) - 8;
+      fillS(X0 - 1, Y0 - 1, X0 + 9, Y0 + 9, DAY.paper, 1);
+      if (on) fillS(X0, Y0, X0 + 8, Y0 + 8, DAY.accent, 1);
+    }
     buf = layer;
   }
 
@@ -1546,10 +1614,13 @@
         const i = y * CW + x, behind = rx - x;
         if (behind <= 0) { out[i] = plate[i]; continue; }
         if (behind < 45) {
-          const shade = 0.2 + 0.7 * (1 - Math.sin((Math.PI * behind) / 45));
-          out[i] = shade > THR[i] ? DAY.strong : DAY.dim;
+          const u = Math.abs(behind / 45 - 0.5) * 2;
+          if (behind < 1 || behind >= 44) out[i] = DAY.strong;
+          else if (u < 3 / 22.5) out[i] = DAY.paper;
+          else out[i] = 0.2 + 0.75 * Math.pow(u, 0.8) > THR[i] ? DAY.strong : DAY.dim;
           continue;
         }
+        if (behind < 50) { out[i] = (1 - (behind - 45) / 5) * 0.55 > THR[i] ? DAY.dim : frameD[i]; continue; }
         out[i] = frameD[i];
       }
     blit(out);
