@@ -49,13 +49,14 @@ Same requirements as `reel/`: Playwright with Chromium, an ffmpeg with libx264
 | 1:02 | 2023 · job hunt · 1 reply | "want to give it a shot?" arjun · vaultci |
 | 1:07 | | yes. |
 | 1:12 | 2023 · vaultci, later excloud | three years building a public cloud, from the hypervisor up. |
+| 1:12 | | the stack under his feet: sdk · cli, kubernetes, network · dns, block storage, firecracker, metal |
 | 1:21 | 2024 · excloud | crashed mid-provision / reconciled |
 | 1:26 | 2025 · excloud | design for the scale you have. know where it breaks. |
 | 1:31 | | 4,000+ accounts |
 | 1:35 | 2026 · excloud | dbconsole, cbmanager, rig, tachyon, flickturn, lolwierd.com |
 | 1:39 | 2026 · warpbuild | now: the infrastructure behind warpbuild's ci runners. |
 | 1:49 | | 2018 · svit, 2023 · vaultci, 2026 · warpbuild |
-| 1:53 | | i build systems from the machine up. / lolwierd.com / still climbing. |
+| 1:52 | | i build systems from the machine up. the dot waits on the summit, then hops down and types lolwierd.com. still climbing. |
 
 The story comes from the drafts in `src/content/writing` (`journey`,
 `simple-design`, `mental-reset`, `kobo-shenanigans`) and the resume.
