@@ -720,11 +720,9 @@
     const hp = (t - 24.05) / 0.5;
     if (hp > 0) {
       const name = "ayaan retiwala", role = " · platform engineer";
-      const nav = "work    projects    writing    resume    contact";
       printIn(() => {
         txt(name, 64, 72, { screen: true, size: 22, color: P.css.ink });
         txt(role, 64 + tw(name, 22), 72, { screen: true, size: 22, color: P.css.faint });
-        txt(nav, 1856, 72, { screen: true, size: 22, color: P.css.dim, align: "right" });
       }, 40, 40, 1840, 44, (cx) => hp * 1.4 - Math.abs(cx - 480) / 480 + 0.2);
     }
     // the address, typed
@@ -736,8 +734,6 @@
       txt(s, X, 416, { screen: true, size: 44, color: P.css.accent });
       const w = tw(s, 44);
       if (n > 0) { OC.fillStyle = P.css.accent; OC.globalAlpha = 0.6; OC.fillRect(X, 426, w, 2); OC.globalAlpha = 1; }
-      const blink = t < 27.6 || t > 29.72 || (t - 27.6) % 0.5 < 0.27;
-      if (blink) { OC.fillStyle = P.css.ink; OC.fillRect(Math.round(X + w + 6), 384, 22, 40); }
     }
     const ca = sstep(27.4, 28.0, t);
     const credit = P === DAY ? P.css.paper : P.css.faint;
@@ -752,14 +748,15 @@
   //
   // One shot. A dot walks, and the ground appears under it as it goes. The
   // ground is the skyline of the range, mirrored, because that is how a plate
-  // is cut: everything he walked is engraved backwards, and at the end the
-  // press prints it the right way round, onto paper, as the front page.
+  // is cut: everything he walked is engraved backwards. At the end the plate
+  // turns over and a roller prints it the right way round, as the front page.
+  //
+  // Rust is his, and only his. Failures print as broken ink instead.
   // =================================================================
 
-  const DAY_OFFSET = 88.5; // film time = the reel's summit clock + this
+  const DAY_OFFSET = 86.5; // film time = the reel's summit clock + this
 
   const scratch = new Uint32Array(CW * CH);
-  // draw fn somewhere private, then print it through the dither at density d
   function dissolve(fn, d) {
     if (d <= 0.001) return;
     if (d >= 0.999) { fn(); return; }
@@ -769,6 +766,30 @@
     buf = saved; TALPHA = savedA;
     for (let i = 0; i < scratch.length; i++) { const v = scratch[i]; if (v && d > THR[i]) buf[i] = v; }
   }
+  function streakS(x, y, vx, vy, c, len, d = 1) {
+    const sp = Math.hypot(vx, vy), n = Math.min(len, Math.ceil(sp));
+    pS(Math.floor(x), Math.floor(y), c, d);
+    for (let k = 1; k <= n; k++) pS(Math.floor(x - (vx / sp) * k), Math.floor(y - (vy / sp) * k), c, d * (1 - k / (n + 1)));
+  }
+  const quad = (a, c, b, e) => ({
+    x: (1 - e) * (1 - e) * a.x + 2 * (1 - e) * e * c.x + e * e * b.x,
+    y: (1 - e) * (1 - e) * a.y + 2 * (1 - e) * e * c.y + e * e * b.y
+  });
+  function lineS(x0, y0, x1, y1, c, d = 1) {
+    let a = Math.round(x0), b = Math.round(y0);
+    const e = Math.round(x1), f = Math.round(y1);
+    const dx = Math.abs(e - a), dy = -Math.abs(f - b), sx = a < e ? 1 : -1, sy = b < f ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      pS(a, b, c, d);
+      if (a === e && b === f) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; a += sx; }
+      if (e2 <= dx) { err += dx; b += sy; }
+    }
+  }
+
+  // ---------------------------------------------------------------- the plate
 
   let PATH = null, PATHI = null, TIERS_M = null;
   const PASS = new Float32Array(CW + 1);
@@ -792,19 +813,30 @@
     TIERS_M = atkinson(pn, PATHI);
   }
 
-  // ---------------------------------------------------------------- walking
+  // ---------------------------------------------------------------- the clock
+
+  const T = {
+    title0: 3.0, title1: 8.6,
+    flag: 16.6,
+    thesis0: 20.2, thesis1: 25.6,
+    crack: 33.4, hood0: 34.6, hood1: 39.6,
+    fog0: 48.0, send0: 54.4, send1: 57.6, alone: 57.9,
+    reply: 61.8, land: 62.5, quote0: 63.0, quote1: 66.2, silence: 66.3, yes: 66.9, yes1: 69.4,
+    numeral0: 90.2, burst: 93.6,
+    spur0: 95.4, summit: 103.6,
+    pull0: 104.0, pull1: 107.5, print0: 107.5, hold0: 109.0,
+    flip0: 111.0, flip1: 111.7, press1: 113.3
+  };
 
   const WALK = [
-    [0, 0], [2.0, 0], [10, 44], [26, 184], [34, 214], [40.3, 244], [43.4, 247], [48, 270], [58, 331],
-    [69.6, 378], [70.6, 382], [78.0, 383], [86.3, 505], [88.2, 528], [91, 548], [96, 690], [100.5, 820], [105.6, 952], [200, 952]
+    [0, 0], [2.0, 0], [9.0, 30], [20.0, 184], [26, 200], [28.5, 214], [33.4, 238], [35.0, 240], [39.6, 252], [46.5, 331],
+    [56.5, 372], [57.9, 382], [T.yes, 383], [T.yes1, 392], [80, 520], [82.5, 530], [86, 548], [92, 690], [97, 800], [T.summit, 952], [200, 952]
   ];
   function linX(t) {
     if (t <= WALK[0][0]) return WALK[0][1];
     for (let i = 1; i < WALK.length; i++) if (t <= WALK[i][0]) return lerp(WALK[i - 1][1], WALK[i][1], inv(WALK[i - 1][0], WALK[i][0], t));
     return WALK[WALK.length - 1][1];
   }
-  // a box filter over the keyframes, so the dot eases between speeds instead of
-  // snapping; the dot is the one thing on screen the eye never leaves
   function walkX(t) { let s = 0; for (let k = 0; k < 9; k++) s += linX(t - 0.4 + k * 0.1); return s / 9; }
   const speedAt = (t) => (walkX(t + 0.03) - walkX(t - 0.03)) / 0.06;
 
@@ -818,11 +850,17 @@
   }
   const passAt = (x) => PASS[clamp(Math.round(x), 0, CW)];
 
-  const ZOOM = [[0, 40, "hold"], [1.5, 40, "hold"], [4.5, 6, "expr"], [59, 6, "hold"], [72, 8.2, "sine"], [78.0, 8.4, "sine"], [79.3, 5, "expr"], [106, 5, "hold"]];
-  const PULL0 = 106, PULL1 = 111;
-  const pullE = (t) => E.inOutCubic(inv(PULL0, PULL1, t));
+  // camera: where on screen he stands, and how close we are
+  const ANCHOR = [[0, 480, 270], [2.0, 480, 270], [6.5, 310, 300], [44, 320, 295], [50, 480, 280], [T.yes1, 480, 280], [72.5, 550, 190], [88.6, 550, 190], [90.4, 600, 285], [94.8, 600, 285], [97.6, 550, 190], [T.pull0, 550, 190]];
+  const ZOOM = [[0, 40, "hold"], [1.5, 40, "hold"], [4.5, 6, "expr"], [48, 6, "hold"], [55, 6.6, "sine"], [61.5, 10, "sine"], [T.yes1, 10, "hold"], [71.6, 5, "expr"], [T.pull0, 3.6, "sine"]];
+  const pullE = (t) => E.inOutCubic(inv(T.pull0, T.pull1, t));
+  function keyed(list, t, idx, ease) {
+    if (t <= list[0][0]) return list[0][idx];
+    for (let i = 1; i < list.length; i++) if (t <= list[i][0]) return lerp(list[i - 1][idx], list[i][idx], ease(inv(list[i - 1][0], list[i][0], t)));
+    return list[list.length - 1][idx];
+  }
   function zoomAt(t) {
-    if (t >= PULL0) return Math.pow(5, 1 - pullE(t));
+    if (t >= T.pull0) return Math.pow(3.6, 1 - pullE(t));
     for (let i = 1; i < ZOOM.length; i++) {
       const [t1, z1, kind] = ZOOM[i], [t0, z0] = ZOOM[i - 1];
       if (t <= t1) {
@@ -831,17 +869,17 @@
         return z0 * Math.pow(z1 / z0, e);
       }
     }
-    return 5;
+    return 3.6;
   }
-
   function camAt(t) {
     const z = zoomAt(t);
     let cx = 0, cy = 0;
     for (let k = 0; k < 6; k++) { const x = walkX(t - k * 0.1); cx += x; cy += pathY(x); }
     cx /= 6; cy /= 6;
-    const dip = pulse(43.6, 45.2, 46.9, 48.4, t);
-    const f = t >= PULL0 ? pullE(t) : 0;
-    return { z, cx, cy, sx: lerp(360, cx, f), sy: lerp(272 - 165 * E.inOutSine(dip), cy, f), f };
+    const dip = E.inOutSine(pulse(T.hood0, T.hood0 + 1.4, T.hood1 - 1.4, T.hood1, t));
+    const f = t >= T.pull0 ? pullE(t) : 0;
+    const ax = keyed(ANCHOR, t, 1, E.inOutSine), ay = keyed(ANCHOR, t, 2, E.inOutSine) - 150 * dip;
+    return { z, cx, cy, sx: lerp(ax, cx, f), sy: lerp(ay, cy, f), f };
   }
   function applyCam(c) { TS = c.z; OX = c.cx; OY = c.cy; TX = c.sx - c.cx; TY = c.sy - c.cy; }
   const scrX = (c, x) => (x - c.cx) * c.z + c.sx;
@@ -851,106 +889,136 @@
 
   const GROUND = new Float32Array(CW);
   const GROUNDX = new Float32Array(CW);
+  const groundAt = (s) => GROUND[clamp(Math.round(s), 0, CW - 1)];
 
   // ---------------------------------------------------------------- the words
+  //
+  // Few, large, and next to him: each line sits just ahead of where he is
+  // standing when it appears, and does not move. Only the lines that turn the
+  // story are printed in through the dither; the rest fade.
 
   const WORDS = [
-    { t0: 3.0, t1: 9.3, s: "the long way up", k: "title" },
-    { t0: 3.7, t1: 9.3, s: "ayaan retiwala", k: "sub" },
-    { t0: 10.2, t1: 13.6, s: "2018. computer engineering at svit, vasad." },
-    { t0: 13.9, t1: 17.6, s: "i ran web and design for the college fest." },
-    { t0: 18.2, t1: 22.0, s: "then the college asked us to build their app." },
-    { t0: 22.3, t1: 26.0, s: "a year and a half later, it shipped." },
-    { t0: 28.0, t1: 33.6, s: "after college, one goal:", k: "small" },
-    { t0: 29.3, t1: 33.6, s: "build the things", k: "big", row: 0 },
-    { t0: 29.8, t1: 33.6, s: "other people build on.", k: "big", row: 1 },
-    { t0: 35.0, t1: 39.4, s: "2022. a year of full-time gate prep." },
-    { t0: 39.8, t1: 43.2, s: "three months in, cramming stopped working." },
-    { t0: 43.6, t1: 47.6, s: "so i went under the hood instead." },
-    { t0: 48.6, t1: 51.8, s: "a raspberry pi. linux. go." },
-    { t0: 52.1, t1: 57.4, s: "two free oracle arm servers. i self-hosted everything," },
-    { t0: 54.6, t1: 57.4, s: "even my own mail.", row: 1 },
-    { t0: 59.0, t1: 62.2, s: "i thought i was ready." },
-    { t0: 62.5, t1: 65.7, s: "i couldn't even get interviews." },
-    { t0: 66.0, t1: 69.6, s: "so i applied to everything." },
-    { t0: 74.4, t1: 77.6, s: "2023. one reply: a frontend role at vaultci." },
-    { t0: 76.2, t1: 77.72, s: "“want to give it a shot?”", k: "quote" },
-    { t0: 76.55, t1: 77.72, s: "arjun, two days in", k: "attrib" },
-    { t0: 78.0, t1: 80.3, s: "yes.", k: "yes" },
-    { t0: 80.6, t1: 85.6, s: "three years building a public cloud," },
-    { t0: 82.6, t1: 85.6, s: "from the hypervisor up.", row: 1 },
-    { t0: 86.2, t1: 88.0, s: "arjun reviewed everything i built." },
-    { t0: 88.2, t1: 91.2, s: "design for the scale you have." },
-    { t0: 89.2, t1: 91.2, s: "know where it breaks.", row: 1 },
-    { t0: 96.2, t1: 100.2, s: "1 thing i love 2 do is overdo." },
-    { t0: 100.6, t1: 105.4, s: "now: the infrastructure behind warpbuild's ci runners." }
+    { t0: T.title0, t1: T.title1, s: "the long way up", k: "title" },
+    { t0: 3.7, t1: T.title1, s: "ayaan retiwala", k: "sub" },
+    { t0: 10.2, t1: 14.6, s: "in college, we built our college's app." },
+    { t0: T.thesis0, t1: T.thesis1, s: "after college, one goal:", k: "small" },
+    { t0: 20.9, t1: T.thesis1, s: "build the things", k: "big", row: 0 },
+    { t0: 21.4, t1: T.thesis1, s: "other people build on.", k: "big", row: 1 },
+    { t0: 29.0, t1: 33.2, s: "a year of gate prep. cramming didn't work," },
+    { t0: 35.0, t1: 38.6, s: "so i went under the hood instead.", at: T.hood0 + 1.5 },
+    { t0: 40.6, t1: 45.2, s: "two free oracle servers. i self-hosted everything." },
+    { t0: 47.4, t1: 50.4, s: "i thought i was ready." },
+    { t0: 50.9, t1: 54.2, s: "i couldn't even get interviews." },
+    { t0: T.quote0, t1: T.quote1, s: "“want to give it a shot?”", k: "quote" },
+    { t0: 63.5, t1: T.quote1, s: "arjun · vaultci", k: "attrib" },
+    { t0: T.yes, t1: T.yes1, s: "yes.", k: "yes" },
+    { t0: 72.4, t1: 77.4, s: "three years building a public cloud, from the hypervisor up." },
+    { t0: 85.8, t1: 89.8, s: "design for the scale you have. know where it breaks." },
+    { t0: 98.8, t1: 103.2, s: "now: the infrastructure behind warpbuild's ci runners." }
   ];
 
-  // Words hang in the sky and drift with the camera at a third of its speed,
-  // so they read as far away rather than stuck to the glass.
-  const skyShift = (t) => { const c = camAt(t); return c.cx * c.z; };
+  function wrap(s, size, fam, maxW, ls) {
+    OC.font = `${size}px ${fam}`;
+    OC.letterSpacing = ls + "px";
+    const out = [];
+    let line = "";
+    for (const w of s.split(" ")) {
+      const next = line ? line + " " + w : w;
+      if (OC.measureText(next).width > maxW && line) { out.push(line); line = w; } else line = next;
+    }
+    if (line) out.push(line);
+    return out;
+  }
 
   function words(t, P) {
     for (const w of WORDS) {
       if (t < w.t0 || t > w.t1) continue;
       const k = w.k || "line";
-      const drift = -(skyShift(t) - skyShift(w.t0)) * C * (k === "line" || k === "small" ? 0.34 : 0.14);
-      let size, fam, color, x, y, align = "left", italic = false, ls = 0;
-      if (k === "line") { size = 44; fam = SERIF; color = P.css.strong; x = 560 + drift; y = 150 + (w.row || 0) * 56; ls = -0.5; }
-      else if (k === "small") { size = 22; fam = MONO; color = P.css.dim; x = 560 + drift; y = 150; }
-      else if (k === "big") { size = 92; fam = SERIF; color = P.css.strong; x = 960 + drift; y = 330 + (w.row || 0) * 100; align = "center"; ls = -2; }
-      else if (k === "title") { size = 132; fam = SERIF; color = P.css.strong; x = 960 + drift; y = 380; align = "center"; ls = -3; }
-      else if (k === "sub") { size = 22; fam = MONO; color = P.css.dim; x = 960 + drift; y = 440; align = "center"; }
-      else if (k === "quote") { size = 72; fam = SERIF; color = P.css.strong; x = 960 + drift; y = 360; align = "center"; italic = true; ls = -1; }
-      else if (k === "attrib") { size = 22; fam = MONO; color = P.css.dim; x = 960 + drift; y = 416; align = "center"; }
-      else { // yes.
-        const s = 1 + 0.14 * (1 - E.outBack(inv(78.0, 78.35, t), 2.2));
-        const fade = 1 - sstep(79.9, 80.3, t);
-        txt("yes.", 960 + drift, 470, { screen: true, size: Math.round(270 * s), fam: SERIF, color: t < 78.034 ? P.css.paper : P.css.strong, align: "center", ls: -7, alpha: fade });
+      if (k === "yes") {
+        const s = 1 + 0.14 * (1 - E.outBack(inv(T.yes, T.yes + 0.35, t), 2.2));
+        const fade = 1 - sstep(T.yes1 - 0.4, T.yes1, t);
+        txt("yes.", 1190, 470, { screen: true, size: Math.round(270 * s), fam: SERIF, color: t < T.yes + 0.034 ? P.css.paper : P.css.strong, align: "center", ls: -7, alpha: fade });
+        continue;
+      }
+      if (k === "line") {
+        // anchored beside him at the moment the line appears
+        const ta = w.at || w.t0, c = camAt(ta), X = walkX(ta);
+        const dx = scrX(c, X) * C, dy = scrY(c, pathY(X)) * C;
+        const left = Math.round(Math.min(dx + 100, 1920 - 80 - 860)), top = clamp(dy - 130, 120, 700);
+        const lines = wrap(w.s, 54, SERIF, 1920 - left - 80, -0.5);
+        const a = sstep(w.t0, w.t0 + 0.35, t) * (1 - sstep(w.t1 - 0.3, w.t1, t));
+        const y0 = top - (lines.length - 1) * 62;
+        lines.forEach((l, i) => txt(l, left, Math.round(y0 + i * 62), { screen: true, size: 54, fam: SERIF, color: P.css.strong, ls: -0.5, alpha: a }));
+        continue;
+      }
+      let size, fam, color, x, y, italic = false, ls = 0, print = false;
+      if (k === "small") { size = 33; fam = MONO; color = P.css.dim; x = 960; y = 250; }
+      else if (k === "big") { size = 96; fam = SERIF; color = P.css.strong; x = 960; y = 360 + (w.row || 0) * 104; ls = -2; print = true; }
+      else if (k === "title") { size = 140; fam = SERIF; color = P.css.strong; x = 960; y = 390; ls = -3; print = true; }
+      else if (k === "sub") { size = 33; fam = MONO; color = P.css.strong; x = 960; y = 458; }
+      else if (k === "quote") { size = 84; fam = SERIF; color = P.css.strong; x = 1150; y = 400; italic = true; ls = -1; print = true; }
+      else { size = 33; fam = MONO; color = P.css.dim; x = 1150; y = 470; }
+      if (!print) {
+        const a = sstep(w.t0, w.t0 + 0.35, t) * (1 - sstep(w.t1 - 0.3, w.t1, t));
+        txt(w.s, x, y, { screen: true, size, fam, italic, color, align: "center", ls, alpha: a });
         continue;
       }
       OC.font = `${italic ? "italic " : ""}${size}px ${fam}`;
       OC.letterSpacing = ls + "px";
-      const wd = OC.measureText(w.s).width;
-      const x0 = align === "center" ? x - wd / 2 : x;
-      const pin = (t - w.t0) / (size > 60 ? 0.6 : 0.4), pout = (w.t1 - t) / 0.22;
-      printIn(() => txt(w.s, x, y, { screen: true, size, fam, italic, color, align, ls }),
+      const wd = OC.measureText(w.s).width, x0 = x - wd / 2;
+      const pin = (t - w.t0) / 0.6, pout = (w.t1 - t) / 0.3;
+      printIn(() => txt(w.s, x, y, { screen: true, size, fam, italic, color, align: "center", ls }),
         x0 - 12, y - size - 8, wd + 30, size * 1.35 + 16,
         (gx) => Math.min((pin * (wd / C + 60) - (gx - x0 / C)) / 30, pout * 1.15));
     }
   }
 
-  // the tag that walks with him
-  const TAGS = [[2, "2018"], [10, "2018 · svit"], [28, "2022"], [34, "2022 · gate"], [48, "2022 · oracle free tier"], [58, "2023 · job hunt"],
-    [74, "2023 · vaultci"], [78, "2023 · excloud"], [100.5, "2026 · warpbuild"], [105.6, "now"]];
-  const YEARS = [[10, 2018.6], [26, 2022.4], [34, 2022.5], [48, 2022.8], [70, 2023.3], [78, 2023.45], [100.5, 2026.62], [106, 2026.72]];
+  // the tag that walks with him: it owns every date in the film
+  const YEARS = [[9, 2018.6], [20, 2022.4], [28.5, 2022.5], [46.5, 2022.9], [57.9, 2023.3], [T.yes, 2023.45], [T.summit, 2026.7]];
+  function yearAt(t) {
+    let y = YEARS[0][1];
+    for (let i = 1; i < YEARS.length; i++) if (t >= YEARS[i - 1][0]) y = lerp(YEARS[i - 1][1], YEARS[i][1], inv(YEARS[i - 1][0], YEARS[i][0], t));
+    return Math.floor(y);
+  }
   function tagAt(t) {
-    let s = "";
-    for (const [t0, l] of TAGS) if (t >= t0) s = l;
-    if (t >= 10 && t < 105.6 && s.includes("·")) {
-      let y = YEARS[0][1];
-      for (let i = 1; i < YEARS.length; i++) if (t >= YEARS[i - 1][0]) y = lerp(YEARS[i - 1][1], YEARS[i][1], inv(YEARS[i - 1][0], YEARS[i][0], t));
-      s = s.replace(/^\d{4}/, String(Math.floor(y)));
-    }
-    if (t >= 34 && t < 48) s += ` · day ${Math.max(1, Math.round(inv(214, 270, walkX(t)) * 270))}`;
-    return s;
+    if (t < 2.2) return "";
+    if (t >= T.numeral0 - 0.3 && t < T.burst + 1.4) return "";
+    if (t >= T.summit) return "now";
+    if (t >= T.yes && t < T.yes1) return "";
+    const y = yearAt(t);
+    if (t < 9) return String(y);
+    if (t < 20) return `${y} · svit`;
+    if (t < 28.5) return String(y);
+    if (t < 39.8) return `${y} · gate · day ${Math.max(1, Math.round(inv(214, 252, walkX(t)) * 365))}`;
+    if (t < 46.5) return `${y} · oracle free tier`;
+    if (t < T.reply + 0.5) return `${y} · job hunt · 0 replies`;
+    if (t < T.yes) return `${y} · job hunt · 1 reply`;
+    if (t < 76) return `${y} · vaultci, later excloud`;
+    if (t < 98.8) return `${y} · excloud`;
+    return `${y} · warpbuild`;
   }
 
   // ---------------------------------------------------------------- the sky
 
-  const SKY = []; // {x, y, b, t0, kind}
-  const NUM_LIFT = -80;
+  const SKY = [];
+  const NUM_DX = -200, NUM_DY = -108;
   function buildSky() {
     const rnd = mulberry(952);
-    const seat = () => { const x = rnd() * CW; const y = 8 + (PATH[Math.floor(x)] - 22) * Math.pow(rnd(), 1.3); return [x, y]; };
-    for (let i = 0; i < 160; i++) { const [x, y] = seat(); SKY.push({ x, y, b: 0.18 + 0.4 * Math.pow(rnd(), 2), t0: 2.5 + rnd() * 5, kind: "old" }); }
+    const seat = (band) => {
+      for (;;) {
+        let x, y;
+        if (band) { const u = rnd(); x = u * CW; y = 40 + u * 180 + (rnd() + rnd() - 1) * 55; }
+        else { x = rnd() * CW; y = 8 + (PATH[Math.floor(x)] - 22) * Math.pow(rnd(), 1.3); }
+        if (y > 6 && y < PATH[Math.floor(x)] - 14) return [x, y];
+      }
+    };
+    for (let i = 0; i < 160; i++) { const [x, y] = seat(false); SKY.push({ x, y, b: 0.18 + 0.4 * Math.pow(rnd(), 2), t0: 2.5 + rnd() * 5, kind: "old" }); }
     for (let i = 0; i < 4000; i++) {
-      const [x, y] = seat();
+      const [x, y] = seat(rnd() < 0.55);
       const cls = rnd();
-      SKY.push({ x, y, b: cls < 0.05 ? 1 : cls < 0.2 ? 0.5 : 0.16, i, kind: "account", r1: rnd(), r2: rnd(), r3: rnd() });
+      SKY.push({ x, y, b: cls < 0.05 ? 1 : cls < 0.2 ? 0.5 : 0.16, big: cls < 0.05, i, kind: "account", r1: rnd(), r2: rnd(), r3: rnd() });
     }
   }
-  const APP_STAR = { x: 610, y: 150 };
   function skyOff(c) {
     const k = 1 - c.f;
     return [-0.05 * c.cx * c.z * k, -0.05 * (c.cy - 330) * c.z * k];
@@ -959,22 +1027,22 @@
 
   function accountPos(s, t, c, dot) {
     const [ox, oy] = skyOff(c);
-    const nx = NUM[s.i * 2], ny = NUM[s.i * 2 + 1] + NUM_LIFT;
-    const a0 = 91.0 + 0.55 * s.r1, a = EXPR(inv(a0, a0 + 1.1, t));
-    const b0 = 94.0 + 0.35 * s.r2, b = EXPR(inv(b0, b0 + 1.4, t));
+    const nx = NUM[s.i * 2] + NUM_DX, ny = NUM[s.i * 2 + 1] + NUM_DY;
+    const a0 = T.numeral0 + 0.55 * s.r1, a = EXPR(inv(a0, a0 + 1.1, t));
+    const b0 = T.burst + 0.35 * s.r2, b = EXPR(inv(b0, b0 + 1.4, t));
     const sx = wrapX(s.x + ox), sy = s.y + oy;
     if (b > 0) {
       const sw = Math.sin(Math.PI * b) * 70 * (s.r3 - 0.5);
       return [lerp(nx, sx, b) + sw, lerp(ny, sy, b) - sw * 0.4, b, 2];
     }
-    const hx = dot.x + (s.r2 - 0.5) * 300, hy = dot.y + 20 + s.r3 * 180;
+    const hx = dot.x - 40 - s.r2 * 260, hy = dot.y + 20 + s.r3 * 180;
     const jit = sstep(0.95, 1, a);
     return [lerp(hx, nx, a) + (vnoise(s.i * 0.13, t * 2.2) - 0.5) * 1.4 * jit, lerp(hy, ny, a) + (vnoise(s.i * 0.13 + 50, t * 2.2) - 0.5) * 1.4 * jit, a, 1];
   }
 
   function drawSky(t, P, c, dot) {
     const [ox, oy] = skyOff(c);
-    const occluded = (x, y) => { const s = clamp(Math.floor(x), 0, CW - 1); return y >= GROUND[s] - 1; };
+    const occluded = (x, y) => y >= groundAt(x) - 1;
     for (const s of SKY) {
       if (s.kind === "old") {
         if (t < s.t0) continue;
@@ -984,168 +1052,97 @@
         pS(Math.floor(x), Math.floor(y), P.tone("cell", s.b * tw * sstep(s.t0, s.t0 + 0.6, t)));
         continue;
       }
-      if (t < 90.9) continue;
+      if (t < T.numeral0 - 0.1) continue;
       const [x, y, p, phase] = accountPos(s, t, c, dot);
       if (phase === 1 && p <= 0) continue;
       if (phase === 2 && p >= 0.999) {
         if (occluded(x, y)) continue;
         const tw = 0.62 + 0.38 * Math.sin(t * (2.5 + 5 * s.r1) + s.r2 * TAU);
-        pS(Math.floor(x), Math.floor(y), P.tone("cell", s.b * tw));
+        const col = P.tone("cell", s.b * tw), X = Math.floor(x), Y = Math.floor(y);
+        pS(X, Y, col);
+        if (s.big) { pS(X + 1, Y, col); pS(X, Y + 1, col); pS(X + 1, Y + 1, col); }
         continue;
       }
       const [x2, y2] = accountPos(s, t - 1 / 60, c, dot);
       const bright = phase === 2 ? lerp(1, s.b, sstep(0.8, 1, p)) : 1;
       streakS(x, y, x - x2, y - y2, P.tone("cell", bright), 20);
     }
-    // the first thing he shipped stays up there
-    if (t >= 23.9) {
-      const x = wrapX(APP_STAR.x + ox), y = APP_STAR.y + oy;
-      if (!occluded(x, y)) {
-        const b = 0.8 + 0.2 * Math.sin(t * 3);
-        pS(Math.floor(x), Math.floor(y), P.tone("strong", b));
-        if (Math.sin(t * 1.1) > 0.6) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) pS(Math.floor(x) + dx, Math.floor(y) + dy, P.tone("cell", 0.4));
-      }
-    }
   }
 
   // ---------------------------------------------------------------- college
 
   function drawCollege(t, P, c, dot) {
-    const [ox, oy] = skyOff(c);
-    // friends walk with him, then peel off
-    for (let i = 0; i < 5; i++) {
-      const join = 10.6 + i * 0.3, leave = 25.6 + i * 0.35;
+    // friends walk behind him, then stop where they are
+    for (let i = 0; i < 4; i++) {
+      const join = 9.6 + i * 0.35, leave = 19.2 + i * 0.3;
       if (t < join || t > leave + 1.4) continue;
-      const off = [-7, -4, 3.5, 6, -10][i];
-      const x = walkX(t) + off;
-      const up = t > leave ? E.inQuad(inv(leave, leave + 1.4, t)) * (18 + 6 * i) : 0;
-      const side = t > leave ? E.inQuad(inv(leave, leave + 1.4, t)) * (i - 2) * 8 : 0;
-      const bob = speedAt(t) > 2 && Math.floor(walkX(t) / 1.2 + i) % 2 ? -1 : 0;
-      const sx = scrX(c, x + side), sy = scrY(c, pathY(x) - up) - 3 + bob;
-      const a = sstep(join, join + 0.3, t) * (1 - sstep(leave + 0.6, leave + 1.4, t));
-      fillS(Math.round(sx - 1), Math.round(sy - 1), Math.round(sx + 1), Math.round(sy + 1), P.cell, a * 1.02);
+      const off = [-15, -11.5, -8, -4.5][i];
+      const x = walkX(Math.min(t, leave)) + off;
+      const bob = t < leave && speedAt(t) > 2 && Math.floor(walkX(t) / 1.2 + i) % 2 ? -1 : 0;
+      const sx = scrX(c, x), sy = scrY(c, pathY(x)) - 6 + bob;
+      const a = sstep(join, join + 0.4, t) * (1 - sstep(leave + 0.3, leave + 1.4, t));
+      fillS(Math.round(sx - 2), Math.round(sy - 2), Math.round(sx + 3), Math.round(sy + 3), P.cell, a * 1.02);
     }
-    // the fest: a burst in the sky
-    const fa = sstep(13.9, 14.3, t) * (1 - sstep(17.2, 17.8, t));
-    if (fa > 0) {
-      const cx = 590 + ox * 2, cy = 150 + oy * 2, R = EXPR(inv(13.9, 14.7, t)) * 78;
-      for (let y = Math.floor(cy - R); y <= cy + R; y++)
-        for (let x = Math.floor(cx - R); x <= cx + R; x++) {
-          const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy);
-          if (r > R) continue;
-          const a = Math.atan2(dy, dx);
-          const rays = Math.pow(Math.max(0, Math.cos(a * 11 + t * 0.9)), 8) * (1 - r / (R + 1));
-          const core = Math.exp(-r / 16);
-          pS(x, y, P.cell, fa * Math.min(1, core + rays * 0.9));
-        }
-      txt("the college fest", (cx) * C, (cy + R + 18) * C, { screen: true, size: 22, color: P.css.dim, align: "center", alpha: fa });
+    // the app he shipped: a flag planted where he stands
+    const fx = walkX(T.flag), fp = EXPR(inv(T.flag, T.flag + 0.5, t));
+    if (fp > 0) {
+      const a = 1 - sstep(27.5, 28.5, t);
+      const bx = scrX(c, fx), by = scrY(c, pathY(fx));
+      const top = by - 34 * fp;
+      for (let y = Math.round(top); y < by - 1; y++) pS(Math.round(bx), y, P.cell, a);
+      if (fp > 0.9) for (let r = 0; r < 8; r++) hS(Math.round(bx + 1), Math.round(bx + 1 + 14 - r * 1.6), Math.round(top + r), P.cell, a);
+      txt("svit app · shipped", (bx - 8) * C, (top + 6) * C, { screen: true, size: 33, color: P.css.ink, align: "right", alpha: a * sstep(T.flag + 0.3, T.flag + 0.6, t) * (1 - sstep(18.4, 19.0, t)) });
     }
-    // the app, assembled in the sky, then shipped into it
-    if (t >= 18.2 && t < 24.4) {
-      const cx = APP_STAR.x + ox * 1.0, cy = APP_STAR.y + oy;
-      const s = 1 - E.inExpo(inv(23.2, 23.9, t));
-      const w = 44 * s, h = 84 * s;
-      const draw = inv(18.3, 18.9, t);
-      if (s > 0.02) {
-        const per = 2 * (w + h);
-        let left = draw * per;
-        const seg = (ax, ay, bx, by) => { const len = Math.hypot(bx - ax, by - ay); if (left <= 0) return; const f = Math.min(1, left / len); lineS(ax, ay, ax + (bx - ax) * f, ay + (by - ay) * f, P.cell); left -= len; };
-        seg(cx - w / 2, cy - h / 2, cx + w / 2, cy - h / 2); seg(cx + w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
-        seg(cx + w / 2, cy + h / 2, cx - w / 2, cy + h / 2); seg(cx - w / 2, cy + h / 2, cx - w / 2, cy - h / 2);
-        for (let r = 0; r < 6; r++)
-          for (let q = 0; q < 4; q++) {
-            const tf = 18.95 + (r * 4 + q) * 0.1;
-            if (t < tf) continue;
-            const x0 = cx - w / 2 + (5 + q * 9) * s, y0 = cy - h / 2 + (10 + r * 11) * s;
-            if (t - tf < 0.05) fillS(Math.round(x0), Math.round(y0), Math.round(x0 + 7 * s), Math.round(y0 + 9 * s), P.strong, 1);
-            else fillS(Math.round(x0), Math.round(y0), Math.round(x0 + 7 * s), Math.round(y0 + 9 * s), P.cell, 0.2 + 0.6 * hu(r * 7 + q));
-          }
-        txt("svit cms app · ios + android", cx * C, (cy + h / 2 + 16) * C, { screen: true, size: 22, color: P.css.dim, align: "center", alpha: sstep(19.1, 19.4, t) * (1 - sstep(23.0, 23.3, t)) });
-      }
-      if (t > 23.9) {
-        const r = (t - 23.9) * 90;
-        ringS(cx, cy, r, 1.5, P.strong, 1 - r / 45);
-      }
-    }
-  }
-
-  function streakS(x, y, vx, vy, c, len, d = 1) {
-    const sp = Math.hypot(vx, vy), n = Math.min(len, Math.ceil(sp));
-    pS(Math.floor(x), Math.floor(y), c, d);
-    for (let k = 1; k <= n; k++) pS(Math.floor(x - (vx / sp) * k), Math.floor(y - (vy / sp) * k), c, d * (1 - k / (n + 1)));
-  }
-  const quad = (a, c, b, e) => ({
-    x: (1 - e) * (1 - e) * a.x + 2 * (1 - e) * e * c.x + e * e * b.x,
-    y: (1 - e) * (1 - e) * a.y + 2 * (1 - e) * e * c.y + e * e * b.y
-  });
-  function lineS(x0, y0, x1, y1, c, d = 1) {
-    let a = Math.round(x0), b = Math.round(y0);
-    const e = Math.round(x1), f = Math.round(y1);
-    const dx = Math.abs(e - a), dy = -Math.abs(f - b), sx = a < e ? 1 : -1, sy = b < f ? 1 : -1;
-    let err = dx + dy;
-    for (;;) {
-      pS(a, b, c, d);
-      if (a === e && b === f) break;
-      const e2 = 2 * err;
-      if (e2 >= dy) { err += dy; a += sx; }
-      if (e2 <= dx) { err += dx; b += sy; }
-    }
-  }
-  function ringS(cx, cy, r, th, c, d) {
-    if (d <= 0) return;
-    for (let y = Math.floor(cy - r - th); y <= cy + r + th; y++)
-      for (let x = Math.floor(cx - r - th); x <= cx + r + th; x++)
-        if (Math.abs(Math.hypot(x + 0.5 - cx, y + 0.5 - cy) - r) <= th) pS(x, y, c, d);
   }
 
   // ---------------------------------------------------------------- gate
 
-  const HOOD = [["registers", 0.8], ["cache", 0.6], ["memory", 0.42], ["disk", 0.27], ["network", 0.15]];
+  const HOOD = [["registers", 0.35], ["cache", 0.27], ["memory", 0.2], ["disk", 0.14], ["network", 0.09]];
 
   function drawGate(t, P, c, dot) {
-    // a tick under every day he walked
-    for (let x = 214; x <= Math.min(walkX(t), 270); x += 1.5) {
-      const s = Math.round(scrX(c, x)), g = GROUND[clamp(s, 0, CW - 1)];
+    // a tick for every day walked; the cramming days break
+    for (let x = 214; x <= Math.min(walkX(t), 252); x += 1.2) {
+      const s = Math.round(scrX(c, x)), g = groundAt(s);
       if (s < 0 || s >= CW || g > 1e8) continue;
-      const rust = x > 236 && x < 250 && t > 40.2 && t < 44.5;
-      for (let k = 1; k <= 4; k++) pS(s, Math.round(g) + k, rust ? P.accent : P.cell, k < 4 ? 1 : 0.5);
+      const broken = x > 228 && x < 240 && t > T.crack && t < T.crack + 1.2;
+      if (broken && hu(Math.floor(x * 10) + Math.floor(t * 18)) > 0.5) continue;
+      for (let k = 2; k <= 6; k++) pS(s, Math.round(g) + k, broken ? P.strong : P.cell, k < 6 ? 1 : 0.5);
     }
-    // under the hood: how a machine actually works, printed as strata
-    const ha = sstep(44.2, 44.6, t) * (1 - sstep(47.4, 48.4, t));
+    const ha = sstep(T.hood0 + 0.8, T.hood0 + 1.2, t) * (1 - sstep(T.hood1 - 1.4, T.hood1 - 0.6, t));
     if (ha <= 0) return;
     const bandH = 8 * c.z;
     for (let s = 0; s < CW; s++) {
       const g = GROUND[s];
       if (g > 1e8) continue;
+      const edge = clamp((dot.x - s) / 30 + 0.1);
       for (let k = 0; k < HOOD.length; k++) {
-        const tk = 44.3 + k * 0.22;
+        const tk = T.hood0 + 0.9 + k * 0.2;
         if (t < tk) continue;
-        const y0 = Math.round(g + 30 + k * bandH), y1 = Math.round(g + 30 + (k + 1) * bandH - 4);
-        const reveal = (t - tk) / 0.4 * 400 - Math.abs(s - dot.x);
+        const y0 = Math.round(g + 24 + k * bandH), y1 = Math.round(g + 24 + (k + 1) * bandH - 4);
+        const reveal = ((t - tk) / 0.4) * 400 - (dot.x - s);
         if (reveal <= 0) continue;
-        for (let y = y0; y < y1; y++) pS(s, y, y === y0 ? P.cell : P.tone("cell", 0.7), (y === y0 ? 0.9 : HOOD[k][1]) * ha * Math.min(1, reveal / 40));
+        for (let y = y0; y < y1; y++) pS(s, y, y === y0 ? P.cell : P.tone("cell", 0.7), (y === y0 ? 0.8 : HOOD[k][1]) * ha * edge * Math.min(1, reveal / 40));
       }
     }
+    const gd = groundAt(dot.x - 2);
+    if (gd > 1e8) return;
     HOOD.forEach(([name], k) => {
-      const tk = 44.3 + k * 0.22;
-      const s = Math.round(dot.x + 70), g = GROUND[clamp(s, 0, CW - 1)];
-      if (g > 1e8) return;
-      chip(name, ix(s), iy(g + 30 + (k + 0.5) * bandH + 4), { size: 22, color: P.css.ink, bg: P.css.paper, alpha: ha * sstep(tk + 0.1, tk + 0.3, t) });
+      const tk = T.hood0 + 0.9 + k * 0.2;
+      txt(name, dot.x * C + 24, (gd + 24 + (k + 0.5) * bandH) * C + 11, { screen: true, size: 33, color: P.css.ink, alpha: ha * sstep(tk + 0.1, tk + 0.3, t) });
     });
   }
 
   // ---------------------------------------------------------------- oracle
 
   const PROPS = [
-    { x: 283, w: 12, d0: 6, d1: 12, name: "raspberry pi", sub: "", kind: "pi" },
-    { x: 301, w: 14, d0: 8, d1: 14, name: "oracle arm", sub: "4 ocpu · 24 gb · free", kind: "srv" },
-    { x: 318, w: 14, d0: 8, d1: 14, name: "oracle arm", sub: "caddy · tailscale · plex · mail", kind: "srv" }
+    { x: 283, w: 12, d0: 6, d1: 12, name: "raspberry pi", kind: "pi" },
+    { x: 306, w: 16, d0: 8, d1: 15, name: "2 × oracle arm", kind: "srv" }
   ];
   function drawOracle(t, P, c) {
     for (const p of PROPS) {
       const ta = passAt(p.x) - 0.9;
-      if (t < ta || t > 60) continue;
-      const a = sstep(ta, ta + 0.45, t) * (1 - sstep(58.5, 60, t));
+      if (t < ta || t > 49) continue;
+      const a = sstep(ta, ta + 0.45, t) * (1 - sstep(47.5, 49, t));
       const gy = pathY(p.x + p.w / 2);
       const x0 = scrX(c, p.x), x1 = scrX(c, p.x + p.w), y0 = scrY(c, gy + p.d0), y1 = scrY(c, gy + p.d1);
       dissolve(() => {
@@ -1156,21 +1153,17 @@
           for (let k = 0; k < 10; k++) pS(Math.round(x0 + 6 + k * 6), Math.round(y0 + 4), P.cell);
           fillS(Math.round(x0 + 18), Math.round(y0 + 12), Math.round(x0 + 38), Math.round(y0 + 30), P.cell, 0.5);
         } else {
-          for (let k = 0; k < 4; k++) { const bx = Math.round(x0 + 6 + k * 9); hS(bx, bx + 6, Math.round(y0 + 12), P.dim); hS(bx, bx + 6, Math.round(y1 - 8), P.dim); vS(bx, Math.round(y0 + 12), Math.round(y1 - 8), P.dim); vS(bx + 6, Math.round(y0 + 12), Math.round(y1 - 8), P.dim); }
-          for (let k = 0; k < 3; k++) if (Math.floor(t * 5 + k * 1.7 + p.x) % 3) fillS(Math.round(x1 - 12), Math.round(y0 + 8 + k * 8), Math.round(x1 - 8), Math.round(y0 + 12 + k * 8), P.strong, 1);
+          for (let k = 0; k < 5; k++) { const bx = Math.round(x0 + 6 + k * 10); hS(bx, bx + 7, Math.round(y0 + 12), P.dim); hS(bx, bx + 7, Math.round(y1 - 8), P.dim); vS(bx, Math.round(y0 + 12), Math.round(y1 - 8), P.dim); vS(bx + 7, Math.round(y0 + 12), Math.round(y1 - 8), P.dim); }
+          for (let k = 0; k < 3; k++) if (Math.floor(t * 5 + k * 1.7) % 3) fillS(Math.round(x1 - 12), Math.round(y0 + 8 + k * 8), Math.round(x1 - 8), Math.round(y0 + 12 + k * 8), P.strong, 1);
         }
-        // a wire up to the surface, and traffic on it
         const wx0 = Math.round((x0 + x1) / 2), gs = scrY(c, gy);
         for (let y = Math.round(gs) + 2; y < y0; y += 2) pS(wx0, y, P.dim);
         for (let q = 0; q < 2; q++) {
-          const ph = ((t * 1.3 + q * 0.5 + p.x * 0.01) % 1);
-          const yy = lerp(y0, gs, ph);
+          const yy = lerp(y0, gs, (t * 1.3 + q * 0.5 + p.x * 0.01) % 1);
           fillS(wx0 - 1, Math.round(yy) - 1, wx0 + 2, Math.round(yy) + 2, P.strong, 1);
         }
       }, a);
-      const lx = (x0 + x1) / 2 * C, ly = y1 * C + 26;
-      txt(p.name, lx, ly, { screen: true, size: 22, color: P.css.ink, align: "center", alpha: a });
-      if (p.sub) txt(p.sub, lx, ly + 22, { screen: true, size: 11, color: P.css.dim, align: "center", alpha: a });
+      txt(p.name, (x0 + x1) / 2 * C, y1 * C + 40, { screen: true, size: 33, color: P.css.ink, align: "center", alpha: a });
     }
   }
 
@@ -1179,78 +1172,74 @@
   const FOGW = 480, FOGH = 270;
   const FOG = new Float32Array(FOGW * FOGH);
   function drawFog(t, P, c, dot) {
-    const amt = sstep(59.5, 68.5, t);
-    if (amt <= 0 || t > 80.2) return;
-    const R = t >= 78 ? (t - 78) * 720 : -1;
+    const amt = sstep(T.fog0, 55, t) * (1 - sstep(T.yes, T.yes + 0.8, t));
+    if (amt <= 0) return;
     const ox = c.cx * c.z * 0.5;
-    for (let j = 0; j < FOGH; j++)
+    for (let j = 0; j < FOGH; j++) {
+      const sy = j * 2, dyv = Math.abs(sy - dot.y);
+      if (dyv > 95) { for (let i = 0; i < FOGW; i++) FOG[j * FOGW + i] = 0; continue; }
+      const prof = Math.pow(1 - dyv / 95, 1.5);
       for (let i = 0; i < FOGW; i++) {
-        const sx = i * 2, sy = j * 2;
-        const n = fbm((sx + ox) * 0.011 + t * 0.07, sy * 0.021 - t * 0.025, 3);
-        const prof = 0.4 + 0.6 * Math.exp(-Math.pow((sy - dot.y - 10) / 150, 2));
-        let d = amt * clamp((n - 0.36) * 2.1) * prof * 0.85;
-        if (R >= 0) d *= clamp((Math.hypot(sx - dot.x, sy - dot.y) - R) / 70);
-        FOG[j * FOGW + i] = d;
+        const sx = i * 2;
+        const n = fbm((sx + ox) * 0.009 + t * 0.06, sy * 0.03 - t * 0.02, 3);
+        const clear = clamp((Math.hypot(sx - dot.x, sy - dot.y) - 45) / 30);
+        FOG[j * FOGW + i] = amt * 0.5 * clamp((n - 0.3) * 2.2) * prof * clear;
       }
-    const col = P.tone("cell", 0.34);
+    }
+    const col = P.tone("cell", 0.22);
     for (let y = 0; y < CH; y++)
       for (let x = 0; x < CW; x++) {
-        const d = FOG[(y >> 1) * FOGW + (x >> 1)];
-        const i = y * CW + x;
+        const d = FOG[(y >> 1) * FOGW + (x >> 1)], i = y * CW + x;
         if (d > THR[i]) buf[i] = col;
       }
-    if (R >= 0 && R < 1300) ringS(dot.x, dot.y, R, 5, P.strong, 0.9 * (1 - R / 1300));
   }
 
   const SENDS = [];
-  for (let j = 0; j < 90; j++) SENDS.push({ t: 66.3 + 3.3 * Math.pow(j / 90, 0.8), dx: 25 + 60 * hu(j * 3 + 1), dy: -12 - 50 * hu(j * 3 + 2), bend: hu(j * 3 + 3) });
+  for (let j = 0; j < 24; j++) SENDS.push({ t: T.send0 + (T.send1 - T.send0) * Math.pow(j / 24, 0.85), dx: 30 + 55 * hu(j * 3 + 1), dy: -10 - 34 * hu(j * 3 + 2), bend: hu(j * 3 + 3) });
+  function envelope(x, y, P, d, col) {
+    const X = Math.round(x) - 6, Y = Math.round(y) - 4;
+    hS(X, X + 12, Y, col, d); hS(X, X + 12, Y + 8, col, d); vS(X, Y, Y + 8, col, d); vS(X + 12, Y, Y + 8, col, d);
+    for (let k = 1; k <= 5; k++) { pS(X + k, Y + k * 0.8 + 0.5 | 0, col, d); pS(X + 12 - k, Y + k * 0.8 + 0.5 | 0, col, d); }
+    pS(X + 6, Y + 5, col, d);
+  }
   function drawHunt(t, P, c, dot) {
     const X = walkX(t), Y = pathY(X);
     for (const s of SENDS) {
-      const u = inv(s.t, s.t + 0.95, t);
+      const u = inv(s.t, s.t + 1.3, t);
       if (u <= 0 || u >= 1) continue;
-      const from = { x: X, y: Y - 2 }, to = { x: X + s.dx, y: Y + s.dy }, mid = { x: X + s.dx * 0.5, y: Y + s.dy - 12 * s.bend };
-      const e = E.outQuad(u), e2 = E.outQuad(Math.max(0, u - 0.03));
-      const q = quad(from, mid, to, e), q2 = quad(from, mid, to, e2);
-      const a = 1 - u;
-      streak(q.x, q.y, (q.x - q2.x), (q.y - q2.y), P.cell, 10, a);
-      rect(q.x - 0.2, q.y - 0.2, q.x + 0.2, q.y + 0.2, P.cell, a);
+      const from = { x: X, y: Y - 3 }, to = { x: X + s.dx, y: Y + s.dy }, mid = { x: X + s.dx * 0.45, y: Y + s.dy - 10 * s.bend };
+      const q = quad(from, mid, to, E.outQuad(u));
+      envelope(scrX(c, q.x), scrY(c, q.y), P, (1 - u) * 1.02, P.cell);
     }
     // one comes back
-    const r = inv(73.6, 74.25, t);
+    const r = inv(T.reply, T.land, t);
     if (r > 0 && r < 1) {
-      const from = { x: X + 55, y: Y - 45 }, to = { x: X + 1.5, y: Y - 1 }, mid = { x: X + 30, y: Y - 40 };
-      const q = quad(from, mid, to, SWIFT(r)), q2 = quad(from, mid, to, SWIFT(inv(73.6, 74.25, t - 1 / 60)));
-      streak(q.x, q.y, q.x - q2.x, q.y - q2.y, P.strong, 30);
-      pt(q.x, q.y, P.strong);
+      const from = { x: X + 60, y: Y - 34 }, to = { x: X + 2, y: Y - 3 }, mid = { x: X + 32, y: Y - 34 };
+      const q = quad(from, mid, to, SWIFT(r));
+      envelope(scrX(c, q.x), scrY(c, q.y), P, 1, P.strong);
     }
-    if (t >= 74.25 && t < 74.9) ringS(dot.x, dot.y, (t - 74.25) * 60, 1.4, P.strong, 1 - (t - 74.25) / 0.65);
+    if (t >= T.land && t < T.yes) {
+      const ex = dot.x + 9, ey = dot.y - 3;
+      envelope(ex, ey, P, 1 - sstep(T.quote0 - 0.2, T.quote0 + 0.4, t) * 0.4, t - T.land < 0.08 ? P.strong : P.cell);
+    }
   }
 
   // ---------------------------------------------------------------- the climb
 
-  const STRATA = [
-    "sdk · cli · terraform · console",
-    "managed kubernetes",
-    "networking · dns",
-    "block storage",
-    "compute · firecracker · qemu/kvm",
-    "metal"
-  ];
-  const BAND = 9;
-  const CLIMB0 = 382;
+  const STRATA = ["sdk · cli · terraform · console", "managed kubernetes", "networking · dns", "block storage", "compute · firecracker · qemu/kvm", "metal"];
+  const BAND = 6;
   const CRASH_X = 525;
-  const scanX = (t) => lerp(498, 556, inv(89.5, 90.6, t));
-  const builtAt = (k, x) => passAt(x) + 0.12 + (STRATA.length - 1 - k) * 0.09;
+  const crashT = () => passAt(CRASH_X);
+  const scanX = (t) => lerp(CRASH_X - 26, CRASH_X + 30, inv(crashT() + 2.0, crashT() + 3.0, t));
+  const builtAt = (k, x) => Math.max(passAt(x), T.yes + 0.4) + 0.12 + (STRATA.length - 1 - k) * 0.09;
 
   function strataCell(k, u, v, t, x) {
     switch (k) {
       case 0: {
-        if (x > 812) { // ephemeral runners, now
+        if (x > 812) {
           const bx = Math.floor(u / 10), by = Math.floor(v / 8), a = u - bx * 10, b = v - by * 8;
           if (a > 7 || b > 5) return 0;
-          const live = h2(bx, by, Math.floor(t * 3 + h2(bx, by, 5) * 3)) > 0.55;
-          if (!live) return 0;
+          if (h2(bx, by, Math.floor(t * 3 + h2(bx, by, 5) * 3)) <= 0.55) return 0;
           return a === 0 || a === 7 || b === 0 || b === 5 ? 0.9 : 0.3;
         }
         if (v % 5 !== 2) return 0;
@@ -1259,33 +1248,30 @@
         return w < len && h2(seg, row, 4) > 0.28 ? (h2(seg, row, 5) > 0.93 ? 1 : 0.6) : 0;
       }
       case 1: {
-        const row = Math.floor(v / 15), off = row % 2 ? 9 : 0, col = Math.floor((u + off) / 18);
-        const a = (u + off) - col * 18, b = v - row * 15;
-        const d = Math.hypot(a - 9, (b - 7) * 1.15);
-        if (Math.abs(d - 4.2) < 0.75) return 0.85;
-        if (d < 1.6) return Math.floor(t * 2 + h2(col, row, 2) * 4) % 3 ? 0.9 : 0.25;
-        if (b === 7 && a > 13) return 0.35;
-        return 0;
+        const bx = Math.floor(u / 13), by = Math.floor(v / 9), a = u - bx * 13, b = v - by * 9;
+        if (a > 8 || b > 5) return a > 8 && b === 3 ? 0.35 : 0;
+        if (a === 0 || a === 8 || b === 0 || b === 5) return 0.8;
+        return (a === 3 || a === 5) && (b === 2 || b === 3) ? (Math.floor(t * 2 + h2(bx, by, 2) * 4) % 3 ? 0.95 : 0.2) : 0;
       }
       case 2: {
-        const lane = Math.floor(v / 9), lv = v - lane * 9;
-        if (lv !== 4) return u % 48 === 0 && Math.abs(lv - 4) <= 2 ? 0.9 : 0;
-        const p = ((u + t * 55 * (lane % 2 ? 1 : -1) + h2(lane, 0, 7) * 400) % 48 + 48) % 48;
-        return p < 4 ? 1 : 0.3;
+        const lane = Math.floor(v / 7), lv = v - lane * 7;
+        if (lv !== 3) return 0;
+        const p = ((u + t * 55 * (lane % 2 ? 1 : -1) + h2(lane, 0, 7) * 400) % 40 + 40) % 40;
+        return p < 3 ? 1 : (u & 1) ? 0.4 : 0;
       }
       case 3: {
-        const lane = Math.floor(v / 9), lv = v - lane * 9;
-        if (lv === 0 || lv > 7) return 0;
+        const lane = Math.floor(v / 8), lv = v - lane * 8;
+        if (lv === 0 || lv > 6) return 0;
         const uu = u + t * 16 * (lane % 2 ? 1 : -1), blk = Math.floor(uu / 11), bu = uu - blk * 11;
         if (bu >= 9) return 0;
-        if (bu < 1 || bu >= 8 || lv === 1 || lv === 7) return 0.8;
-        return h2(blk, lane, 8) * 0.55;
+        if (bu < 1 || bu >= 8 || lv === 1 || lv === 6) return 0.8;
+        return h2(blk, lane, 8) * 0.5;
       }
       case 4: {
         const bx = Math.floor(u / 11), by = Math.floor(v / 8), a = u - bx * 11, b = v - by * 8;
         if (a === 10 || b === 7) return 0;
         if (a === 0 || a === 9 || b === 0 || b === 6) return 0.75;
-        return h2(bx, by, Math.floor(t * 2 + h2(bx, by, 1) * 4)) * 0.5;
+        return h2(bx, by, Math.floor(t * 2 + h2(bx, by, 1) * 4)) * 0.45;
       }
       default: {
         if (v % 6 === 3 && h2(Math.floor(u / 13), Math.floor(v / 6), 9) > 0.25) return 0.75;
@@ -1297,19 +1283,20 @@
   }
 
   function drawGround(t, P, c, dotX) {
-    const fadeStrata = 1 - sstep(107.2, 109.6, t);
-    const fadeFill = 1 - sstep(107.0, 108.8, t);
+    const fadeStrata = 1 - sstep(T.pull0 + 0.5, T.print0 + 0.5, t);
+    const fadeFill = 1 - sstep(T.pull0 + 0.3, T.print0, t);
     const bandH = BAND * c.z;
     const u0 = Math.round(scrX(c, 0));
-    const rustCol = P.accent, lit = P.cell, dim = P.tone("cell", 0.62);
+    const lit = P.cell, dim = P.tone("cell", 0.62);
+    const ct = crashT();
+    const crashR = 22 * sstep(ct, ct + 1.0, t);
     for (let s = 0; s < CW; s++) {
       const g = GROUND[s];
       if (g > 1e8) continue;
-      const x = GROUNDX[s];
-      const gi = Math.ceil(g);
+      const x = GROUNDX[s], gi = Math.ceil(g);
       const edge = clamp((dotX - x) / 14 + 0.15);
-      const inClimb = x >= CLIMB0 && fadeStrata > 0;
-      const crash = x > CRASH_X - 22 * sstep(86.3, 87.6, t) && x < CRASH_X + 22 * sstep(86.3, 87.6, t) && t > 86.3 && x > (t > 89.5 ? scanX(t) : -1);
+      const inClimb = t >= T.yes + 0.4 && x >= 382 && fadeStrata > 0;
+      const crash = t > ct && Math.abs(x - CRASH_X) < crashR && x > (t > ct + 2.0 ? scanX(t) : -1);
       for (let y = Math.max(0, gi); y < CH; y++) {
         const i = y * CW + s, v = y - gi;
         if (inClimb) {
@@ -1318,119 +1305,127 @@
             const ta = builtAt(k, x);
             if (t >= ta) {
               const grow = clamp((t - ta) / 0.35);
-              if (grow < 0.3 && 0.45 * (1 - grow / 0.3) > THR[i]) { buf[i] = P.strong; continue; }
               const vb = v - Math.round(k * bandH);
               if (vb === 0) { if ((s & 1) && 0.6 * fadeStrata * grow > THR[i]) buf[i] = P.faint; continue; }
-              const d = strataCell(k, s - u0, vb, t, x) * fadeStrata * grow;
-              if (d > THR[i]) buf[i] = crash && k >= 2 && k <= 4 ? rustCol : d > 0.85 ? lit : dim;
+              let d = strataCell(k, s - u0, vb, t, x) * fadeStrata * grow;
+              if (crash && k >= 2 && k <= 4) {
+                // broken ink: the layer scrambles instead of turning a colour
+                const n = h2(s, y, Math.floor(t * 20));
+                d = n > 0.55 ? 0.95 : 0;
+                if (d > THR[i]) buf[i] = P.strong;
+                continue;
+              }
+              if (d > THR[i]) buf[i] = d > 0.85 ? lit : dim;
               continue;
             }
           }
         }
-        const depth = v / c.z;
-        const d = (0.03 + 0.1 * Math.exp(-depth / 3)) * fadeFill * edge;
+        const d = (0.04 + 0.12 * Math.exp(-(v / c.z) / 3)) * fadeFill * edge;
         if (d > THR[i]) buf[i] = P.dim;
       }
     }
-    if (t > 89.5 && t < 90.7) {
-      const sx = Math.round(scrX(c, scanX(t)));
-      const g = GROUND[clamp(sx, 0, CW - 1)];
-      if (g < 1e8) for (let y = Math.round(g + 2 * bandH); y < Math.round(g + 5 * bandH); y++) pS(sx, y, P.strong);
+    if (t > ct + 2.0 && t < ct + 3.05) {
+      const sx = Math.round(scrX(c, scanX(t))), g = groundAt(sx);
+      if (g < 1e8) for (let y = Math.round(g + 2 * bandH); y < Math.round(g + 5 * bandH); y++) { pS(sx, y, P.strong); pS(sx + 1, y, P.strong); }
     }
   }
 
-  function strataLabels(t, P, c) {
-    if (t < 79 || t > 107.5) return;
-    const s = 40, g = GROUND[s], x = GROUNDX[s];
-    if (g > 1e8 || x < CLIMB0) return;
+  function strataLabels(t, P, c, dot) {
+    if (t < T.yes1 || t > T.pull0 + 0.8) return;
+    const s = Math.round(dot.x - 130), x = GROUNDX[clamp(s, 0, CW - 1)];
+    const g = groundAt(s);
+    if (g > 1e8 || x < 384) return;
     const bandH = BAND * c.z;
-    const a = 1 - sstep(106.3, 107.2, t);
-    STRATA.forEach((name, k) => {
-      const al = sstep(builtAt(k, x), builtAt(k, x) + 0.4, t) * a;
+    const ct = crashT();
+    const a = (1 - sstep(T.pull0, T.pull0 + 0.8, t)) * (1 - pulse(T.numeral0 - 0.6, T.numeral0, T.burst + 0.6, T.burst + 1.2, t)) * (1 - pulse(ct, ct + 0.2, ct + 4.4, ct + 4.8, t));
+    if (a <= 0) return;
+    OC.font = `33px ${MONO}`; OC.letterSpacing = "0px";
+    STRATA.forEach((name0, k) => {
+      const name = k === 0 && walkX(t) > 812 ? "ci runners" : name0;
+      const al = sstep(builtAt(k, x) + 0.2, builtAt(k, x) + 0.6, t) * a;
       if (al <= 0) return;
-      const y = g + (k + 0.5) * bandH + 4;
-      if (y > CH - 6) return;
-      chip(k === 0 && walkX(t) > 812 && t > 100.6 ? "ci runners · warpbuild" : name, ix(s + 6), iy(y), { size: 22, color: P.css.ink, bg: P.css.paper, alpha: al });
+      const yc = g + (k + 0.5) * bandH;
+      const wpx = OC.measureText(name).width, x0 = s - wpx / C - 8;
+      if (yc * C + 8 > H - 10) return;
+      // never let a label ride up into the sky
+      for (let q = Math.max(0, Math.floor(x0)); q <= s; q += 6) if (yc - 12 < groundAt(q)) return;
+      chip(name, ix(s), iy(yc + 7), { size: 33, color: P.css.ink, bg: P.css.paper, align: "right", alpha: al });
     });
   }
 
-  function drawCrash(t, P, c, dot) {
-    const a = pulse(86.6, 86.9, 89.4, 89.6, t);
-    const b = pulse(90.6, 90.8, 91.6, 91.9, t);
-    const s = scrX(c, CRASH_X), g = GROUND[clamp(Math.round(s), 0, CW - 1)];
+  function drawCrash(t, P, c) {
+    const ct = crashT();
+    const a = pulse(ct + 0.2, ct + 0.4, ct + 2.1, ct + 2.3, t);
+    const b = pulse(ct + 3.0, ct + 3.2, ct + 4.4, ct + 4.6, t);
+    const s = scrX(c, CRASH_X), g = groundAt(s);
     if (g > 1e8) return;
-    const y = g + 2.5 * BAND * c.z;
-    if (a > 0) chip("crashed mid-provision", ix(s), iy(y), { size: 22, color: P.css.accent, bg: P.css.paper, align: "center", alpha: a });
-    if (b > 0) chip("reconciled", ix(s), iy(y), { size: 22, color: P.css.ink, bg: P.css.paper, align: "center", alpha: b });
+    const y = g + 3.5 * BAND * c.z;
+    if (a > 0) chip("crashed mid-provision", ix(s), iy(y), { size: 33, color: P.css.strong, bg: P.css.paper, align: "center", alpha: a });
+    if (b > 0) chip("reconciled", ix(s), iy(y), { size: 33, color: P.css.ink, bg: P.css.paper, align: "center", alpha: b });
   }
 
-  // the numbers, in the sky he is climbing into
   function drawNumbers(t, P) {
-    const a = sstep(91.8, 92.4, t) * (1 - sstep(93.8, 94.3, t));
+    const a = sstep(T.numeral0 + 1.2, T.numeral0 + 1.6, t) * (1 - sstep(T.burst - 0.3, T.burst + 0.1, t));
     if (a <= 0) return;
-    txt("when i left, aug 2026", 960, 86, { screen: true, size: 22, color: P.css.faint, align: "center", alpha: a });
-    txt("accounts", 960, 452, { screen: true, size: 22, color: P.css.dim, align: "center", alpha: a });
-    txt("380 vms · 140 postgres clusters · 20+ internal services", 960, 488, { screen: true, size: 22, color: P.css.dim, align: "center", alpha: sstep(92.6, 93.0, t) * a });
+    txt("accounts", 560, 404, { screen: true, size: 33, color: P.css.dim, align: "center", alpha: a });
   }
 
-  // side projects branch off the trail as he passes them
-  const SPURS = ["dbconsole", "cbmanager", "rig", "tachyon", "flickturn", "lolwierd.com"].map((name, k) => ({ name, t: 96.6 + k * 0.6 }));
+  const SPURS = ["dbconsole", "cbmanager", "rig", "tachyon", "flickturn", "lolwierd.com"].map((name, k) => ({ name, t: T.spur0 + k * 0.55 }));
   function drawSpurs(t, P, c) {
-    for (const sp of SPURS) {
-      if (t < sp.t) continue;
-      if (!sp.x) sp.x = walkX(sp.t);
-      const x = sp.x, y = pathY(x);
+    SPURS.forEach((sp, k) => {
+      if (t < sp.t) return;
+      const x = walkX(sp.t), y = pathY(x);
       const p = EXPR(inv(sp.t, sp.t + 0.45, t));
-      const a = 1 - sstep(106.2, 107, t);
-      const len = 15, ang = -0.95 - 0.12 * (SPURS.indexOf(sp) % 3);
+      const a = 1 - sstep(T.pull0, T.pull0 + 0.6, t);
+      const len = [16, 27, 38][k % 3], ang = -2.02 + 0.06 * (k % 2);
       const ex = x + Math.cos(ang) * len * p, ey = y + Math.sin(ang) * len * p;
       const n = Math.ceil(len * p * c.z / 3);
-      for (let k = 0; k < n; k++) { const f = k / Math.max(1, n); pt(lerp(x, ex, f), lerp(y, ey, f), P.cell, a); }
+      for (let q = 0; q < n; q++) { const f = q / Math.max(1, n); pt(lerp(x, ex, f), lerp(y, ey, f), P.cell, a); }
       if (p > 0.95) {
         const sx = scrX(c, ex), sy = scrY(c, ey);
-        for (let d = 0; d < 4; d++) hS(Math.round(sx - d), Math.round(sx + d), Math.round(sy - 4 + d), P.cell, a);
-        txt(sp.name, sx * C, (sy - 8) * C, { screen: true, size: 22, color: P.css.ink, align: "center", alpha: a * sstep(sp.t + 0.3, sp.t + 0.5, t) });
+        for (let d = 0; d < 5; d++) hS(Math.round(sx - d), Math.round(sx + d), Math.round(sy - 5 + d), P.cell, a);
+        txt(sp.name, sx * C, (sy - 10) * C, { screen: true, size: 33, color: P.css.ink, align: "center", alpha: a * sstep(sp.t + 0.3, sp.t + 0.5, t) });
       }
-    }
+    });
   }
 
   // ---------------------------------------------------------------- the reveal
 
-  const WAYPOINTS = [[0, "2018 · svit"], [214, "2022 · gate"], [382, "2023 · vaultci"], [952, "2026 · warpbuild"]];
+  const WAYPOINTS = [[0, "2018 · svit", "left"], [382, "2023 · vaultci", "center"], [952, "2026 · warpbuild", "right"]];
   function drawWaypoints(t, P, c) {
-    const a = sstep(107.2, 107.9, t) * (1 - sstep(110.0, 110.6, t));
+    const a = sstep(T.hold0 + 0.2, T.hold0 + 0.6, t) * (1 - sstep(T.flip0 - 0.4, T.flip0, t));
     if (a <= 0) return;
-    WAYPOINTS.forEach(([x, name], k) => {
-      const al = a * sstep(107.2 + k * 0.15, 107.6 + k * 0.15, t);
+    WAYPOINTS.forEach(([x, name, align], k) => {
+      const al = a * sstep(T.hold0 + 0.2 + k * 0.2, T.hold0 + 0.6 + k * 0.2, t);
       const sx = scrX(c, x), sy = scrY(c, pathY(x));
-      for (let d = 3; d < 12; d++) pS(Math.round(sx), Math.round(sy - d), P.strong, al);
-      txt(name, clamp(sx * C, 110, 1810), (sy - 16) * C, { screen: true, size: 22, color: P.css.ink, align: "center", alpha: al });
+      for (let d = 4; d < 16; d++) pS(Math.round(sx), Math.round(sy - d), P.strong, al);
+      const px = align === "left" ? 64 : align === "right" ? 1856 : sx * C;
+      chip(name, ix(px / C), iy(sy - 20), { size: 33, color: P.css.ink, bg: P.css.paper, align, alpha: al });
     });
   }
 
   function drawMirrorRange(t, P, c) {
-    const t0 = 107.9;
-    if (t < t0) return;
+    if (t < T.print0) return;
     const ramp = P.ramp;
     for (let s = 0; s < CW; s++) {
       const g = GROUND[s];
       if (g > 1e8) continue;
-      const age = t - t0 - 0.35 * hu(s * 3 + 1) * 0;
-      const front = age * 170 * c.z;
+      const front = (t - T.print0) * 230 * c.z;
       for (let y = Math.max(0, Math.ceil(g)); y < CH; y++) {
         const i = y * CW + s, v = (front - (y - g)) / (46 * c.z);
         if (v <= THR[i]) continue;
         const wxv = Math.floor(GROUNDX[s]), wyv = Math.floor(worldY(c, y + 0.5));
         if (wxv < 0 || wxv >= CW || wyv < 0 || wyv >= CH) continue;
         const tier = TIERS_M[wyv * CW + wxv];
-        if (tier >= 3) { if (v - THR[i] < 0.2) buf[i] = P.paper; continue; }
+        if (tier >= 3) { buf[i] = P.paper; continue; }
         buf[i] = v - THR[i] < 0.22 && front - (y - g) < 60 ? P.strong : ramp[tier];
       }
     }
   }
 
-  // ---------------------------------------------------------------- one frame of the night
+  // ---------------------------------------------------------------- one frame of the plate
 
+  let DOT = { x: 0, y: 0, size: 8 };
   function drawNight(t, P, fb, oc) {
     FB = fb; OC = oc; buf = fb;
     oc.clearRect(0, 0, W, H);
@@ -1448,46 +1443,46 @@
 
     drawSky(t, P, c, dot);
     drawGround(t, P, c, X);
-    if (t > 106) drawMirrorRange(t, P, c);
+    drawMirrorRange(t, P, c);
 
-    // the line he has walked
-    const lineFade = 1 - sstep(110.1, 110.9, t);
+    // the line he has walked: fresh for the last stretch, rust once it is done
+    const inked = sstep(T.hold0 - 0.4, T.hold0 + 0.4, t);
     let prev = null;
     for (let s = 0; s < CW; s++) {
       const g = GROUND[s];
       if (g > 1e8) { prev = null; continue; }
       const y = Math.round(g);
-      const near = dot.x - s < 40 && s <= dot.x;
-      const col = near ? P.strong : P.cell;
-      if (prev !== null) for (let yy = Math.min(prev, y); yy <= Math.max(prev, y); yy++) pS(s, yy, col, lineFade);
-      else pS(s, y, col, lineFade);
+      const fresh = s <= dot.x && dot.x - s < 60;
+      const col = inked > 0 ? P.accent : fresh ? P.strong : P.cell;
+      const d = inked > 0 ? inked : 1;
+      const y0 = prev === null ? y : Math.min(prev, y), y1 = prev === null ? y : Math.max(prev, y);
+      for (let yy = y0; yy <= y1; yy++) { pS(s, yy, col, d); if (fresh || inked > 0) pS(s, yy + 1, col, d); }
       prev = y;
     }
 
-    if (t > 9.8 && t < 28) drawCollege(t, P, c, dot);
-    if (t > 34 && t < 49) drawGate(t, P, c, dot);
-    if (t > 46 && t < 60.5) drawOracle(t, P, c);
-    if (t > 66 && t < 75) drawHunt(t, P, c, dot);
-    if (t > 85 && t < 92) drawCrash(t, P, c, dot);
-    if (t > 96 && t < 107.2) drawSpurs(t, P, c);
+    if (t > 9 && t < 29) drawCollege(t, P, c, dot);
+    if (t > 28.5 && t < 40.5) drawGate(t, P, c, dot);
+    if (t > 38 && t < 49.5) drawOracle(t, P, c);
+    if (t > T.send0 - 0.2 && t < T.yes) drawHunt(t, P, c, dot);
     drawFog(t, P, c, dot);
-    strataLabels(t, P, c);
+    if (t > crashT() && t < crashT() + 5) drawCrash(t, P, c);
+    if (t > T.spur0 && t < T.pull0 + 0.8) drawSpurs(t, P, c);
+    strataLabels(t, P, c, dot);
     drawNumbers(t, P);
     drawWaypoints(t, P, c);
 
-    // him
-    const size = clamp(Math.round((3 * c.z) / 6), 3, 22);
-    const blinkOpen = t < 1.5 ? (t % 0.5) < 0.27 : t >= 70.6 && t < 73.6 ? ((t - 70.6) % 0.5) < 0.27 : true;
+    // him: rust, knocked out of whatever is behind him, blinking when he waits
+    const lowPoint = inv(55, 61.5, t) * (1 - inv(T.yes1, 71.6, t));
+    const size = t < 4.5 ? Math.round(lerp(22, 8, EXPR(inv(1.5, 4.5, t)))) : lowPoint > 0.5 ? 10 : 8;
+    const waiting = (t < 1.5) || (t >= T.alone && t < T.reply);
+    const open = waiting ? ((t - (t < 1.5 ? 0 : T.alone)) % 0.5) < 0.27 : true;
     const bob = speedAt(t) > 2 && Math.floor(X / 1.2) % 2 ? -1 : 0;
-    const shake = t > 40.3 && t < 41.3 ? Math.round((hu(Math.floor(t * 30)) - 0.5) * 3) : 0;
-    const dotA = 1 - sstep(110.6, 111.0, t);
-    if (blinkOpen && dotA > 0) {
-      const h = Math.floor(size / 2);
-      const x0 = Math.round(dot.x) - h + shake, y0 = Math.round(dot.y) - size + bob - 1;
-      fillS(x0, y0, x0 + size, y0 + size, P.strong, dotA * 1.01);
-    }
-    const tg = tagAt(t), ta = sstep(2.2, 2.8, t) * (1 - sstep(110.2, 110.7, t));
-    if (tg && ta > 0) txt(tg, Math.round(dot.x * C + 18), Math.round((dot.y - size - 4) * C), { screen: true, size: 22, color: P.css.dim, alpha: ta });
+    const x0 = Math.round(dot.x - size / 2), y0 = Math.round(dot.y) - size + bob - 1;
+    fillS(x0 - 1, y0 - 1, x0 + size + 1, y0 + size + 1, P.paper, 1);
+    if (open) fillS(x0, y0, x0 + size, y0 + size, P.accent, 1);
+    DOT = { x: dot.x, y: dot.y, size };
+    const tg = tagAt(t), ta = sstep(2.2, 2.8, t) * (1 - sstep(T.hold0 - 0.5, T.hold0, t));
+    if (tg && ta > 0) txt(tg, Math.round(dot.x * C + size + 18), Math.round((dot.y - size - 6) * C), { screen: true, size: 33, color: P.css.dim, alpha: ta });
 
     words(t, P);
   }
@@ -1503,6 +1498,7 @@
   const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
   const ovN = mk(W, H), ovD = mk(W, H);
   const ovNx = ovN.getContext("2d"), ovDx = ovD.getContext("2d");
+  const turned = new Uint32Array(CW * CH);
 
   function blit(src) {
     cellU32.set(src);
@@ -1515,31 +1511,49 @@
     oc.clearRect(0, 0, W, H);
     fb.fill(DAY.paper);
     resetCam(); TALPHA = 1; OGHOST = 0;
-    sSummit(t - DAY_OFFSET, DAY);
+    const tau = t - DAY_OFFSET;
+    sSummit(tau, DAY);
     buf = layer;
   }
 
-  const PRESS0 = 111, PRESS1 = 113;
-  function render(t) {
-    t = clamp(t, 0, DUR);
-    if (t < PRESS0) { drawNight(t, NIGHT, frameN, ovNx); blit(frameN); ctx.drawImage(ovN, 0, 0); return; }
-    if (t >= PRESS1) { drawDay(t, frameD, ovDx); blit(frameD); ctx.drawImage(ovD, 0, 0); return; }
-    // the press: a roller crosses the plate and leaves the print behind it
-    drawNight(t, NIGHT, frameN, ovNx);
-    drawDay(t, frameD, ovDx);
-    const rx = E.inOutCubic(inv(PRESS0, PRESS1, t)) * (CW + 24) - 12;
-    const out = frameN;
+  // the plate turns over: column scale 1 -> -1, darkening as it goes edge on
+  function turnPlate(src, s) {
+    const cx = (CW - 1) / 2, shade = 1 - Math.abs(s);
     for (let y = 0; y < CH; y++)
       for (let x = 0; x < CW; x++) {
         const i = y * CW + x;
-        if (x < rx) {
-          const behind = rx - x;
-          out[i] = behind < 3 ? DAY.accent : behind < 14 && (1 - behind / 14) * 0.5 > THR[i] ? DAY.strong : frameD[i];
+        if (Math.abs(s) < 0.02) { turned[i] = NIGHT.paper; continue; }
+        const sxp = Math.round(cx + (x - cx) / s);
+        if (sxp < 0 || sxp >= CW) { turned[i] = NIGHT.paper; continue; }
+        turned[i] = shade * 0.8 > THR[i] ? NIGHT.paper : src[y * CW + sxp];
+      }
+    return turned;
+  }
+
+  function render(t) {
+    t = clamp(t, 0, DUR);
+    if (t < T.flip0) { drawNight(t, NIGHT, frameN, ovNx); blit(frameN); ctx.drawImage(ovN, 0, 0); return; }
+    if (t >= T.press1) { drawDay(t, frameD, ovDx); blit(frameD); ctx.drawImage(ovD, 0, 0); return; }
+    drawNight(T.flip0 - 0.001, NIGHT, frameN, ovNx);
+    if (t < T.flip1) { blit(turnPlate(frameN, Math.cos(Math.PI * E.inOutCubic(inv(T.flip0, T.flip1, t))))); return; }
+    // the roller: from his summit, left to right, leaving the print behind it
+    const plate = turnPlate(frameN, -1);
+    drawDay(t, frameD, ovDx);
+    const rx = E.inOutCubic(inv(T.flip1, T.press1, t)) * (CW + 60) - 10;
+    const out = frameN;
+    for (let y = 0; y < CH; y++)
+      for (let x = 0; x < CW; x++) {
+        const i = y * CW + x, behind = rx - x;
+        if (behind <= 0) { out[i] = plate[i]; continue; }
+        if (behind < 45) {
+          const shade = 0.2 + 0.7 * (1 - Math.sin((Math.PI * behind) / 45));
+          out[i] = shade > THR[i] ? DAY.strong : DAY.dim;
+          continue;
         }
+        out[i] = frameD[i];
       }
     blit(out);
-    ctx.save(); ctx.beginPath(); ctx.rect(Math.max(0, rx * C), 0, W, H); ctx.clip(); ctx.drawImage(ovN, 0, 0); ctx.restore();
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, Math.max(0, rx * C), H); ctx.clip(); ctx.drawImage(ovD, 0, 0); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, Math.max(0, (rx - 45) * C), H); ctx.clip(); ctx.drawImage(ovD, 0, 0); ctx.restore();
   }
 
   // ---------------------------------------------------------------- cues
@@ -1549,39 +1563,39 @@
     const c = (t, type, v = 0) => FILM_CUES.push({ t: +t.toFixed(4), type, v });
     c(0, "blink"); c(0.5, "blink"); c(1.0, "blink");
     c(2.0, "start");
-    // footsteps: one per step while he is actually walking
     let last = -1;
-    for (let t = 2; t < 105.7; t += 1 / 120) {
+    for (let t = 2; t < T.summit + 0.1; t += 1 / 120) {
       const st = Math.floor(walkX(t) / 1.2);
       if (st !== last && speedAt(t) > 2) { c(t, "step", walkX(t)); last = st; }
     }
     for (const w of WORDS) c(w.t0, "word", ["line", "small", "big", "title", "sub", "quote", "attrib", "yes"].indexOf(w.k || "line"));
-    for (let i = 0; i < 5; i++) { c(10.6 + i * 0.3, "join", i); c(25.6 + i * 0.35, "leave", i); }
-    c(13.9, "fest"); c(18.3, "phone");
-    for (let k = 0; k < 24; k++) c(18.95 + k * 0.1, "cell", k);
-    c(23.3, "shipped"); c(23.9, "star");
-    for (let x = 214; x <= 270; x += 1.5) c(passAt(x), "day", x);
-    c(40.3, "crack"); c(43.6, "under");
-    HOOD.forEach((_, k) => c(44.3 + k * 0.22, "hood", k));
-    c(47.4, "surface");
+    for (let i = 0; i < 4; i++) { c(9.6 + i * 0.35, "join", i); c(19.2 + i * 0.3, "leave", i); }
+    c(T.flag, "flag");
+    for (let x = 214; x <= 252; x += 1.2) c(passAt(x), "day", x);
+    c(T.crack, "crack"); c(T.hood0, "under");
+    HOOD.forEach((_, k) => c(T.hood0 + 0.9 + k * 0.2, "hood", k));
+    c(T.hood1 - 1.4, "surface");
     for (const p of PROPS) c(passAt(p.x) - 0.9, p.kind === "pi" ? "pi" : "server");
-    c(59.5, "fog");
+    c(T.fog0, "fog");
     for (const s of SENDS) c(s.t, "send");
-    c(70.6, "alone");
-    for (let b = 70.6; b < 73.6; b += 0.5) c(b, "blink");
-    c(73.6, "reply"); c(74.25, "land"); c(77.72, "silence"); c(78.0, "yes");
-    for (let x = CLIMB0; x <= 952; x += 24) for (let k = STRATA.length - 1; k >= 0; k--) c(builtAt(k, x), "layer", k);
-    c(86.3, "crash"); c(89.5, "reconcile"); c(90.6, "fixed");
-    c(91.0, "gather"); c(92.2, "numeral"); c(94.0, "burst");
-    for (const sp of SPURS) c(sp.t, "spur", SPURS.indexOf(sp));
-    c(100.6, "runners"); c(105.6, "summit");
-    c(PULL0, "pull"); WAYPOINTS.forEach((_, k) => c(107.2 + k * 0.15, "waypoint", k));
-    c(107.9, "print"); c(PRESS0, "press"); c(PRESS1, "pressed");
-    c(24.9 + DAY_OFFSET, "sunrise");
-    c(24.05 + DAY_OFFSET, "header");
+    c(T.alone, "alone");
+    for (let b = T.alone; b < T.reply; b += 0.5) c(b, "blink");
+    c(T.reply, "reply"); c(T.land, "land"); c(T.silence, "silence"); c(T.yes, "yes");
+    for (let x = 384; x <= 952; x += 24) for (let k = STRATA.length - 1; k >= 0; k--) c(builtAt(k, x), "layer", k);
+    const ct = crashT();
+    c(ct, "crash"); c(ct + 2.0, "reconcile"); c(ct + 3.0, "fixed");
+    c(T.numeral0, "gather"); c(T.numeral0 + 1.2, "numeral"); c(T.burst, "burst");
+    SPURS.forEach((sp, k) => c(sp.t, "spur", k));
+    c(98.8, "runners"); c(T.summit, "summit");
+    c(T.pull0, "pull"); c(T.print0, "print"); c(T.hold0, "hold");
+    WAYPOINTS.forEach((_, k) => c(T.hold0 + 0.2 + k * 0.2, "waypoint", k));
+    c(T.flip0, "flip"); c(T.flip1, "press"); c(T.press1, "pressed");
+    // the day is already printed under the roller: its marks sound as the roller uncovers them
+    const rolled = (x) => { let lo = T.flip1, hi = T.press1; for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (E.inOutCubic(inv(T.flip1, T.press1, m)) * (CW + 60) - 10 - 45 < x) lo = m; else hi = m; } return lo; };
+    c(rolled(32), "header");
+    c(rolled(SUN_X), "sunrise");
     for (let k = 0; k < 12; k++) c(27.05 + (k * 0.55) / 12 + DAY_OFFSET, "type", k);
     c(27.75 + DAY_OFFSET, "closing");
-    for (let b = 28.1 + DAY_OFFSET; b < 120; b += 0.5) c(b, "cursor");
     FILM_CUES.sort((a, b) => a.t - b.t);
   }
 
