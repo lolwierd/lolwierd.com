@@ -725,13 +725,45 @@ a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.6;
 }
 
-.stack span::after {
-  content: "·";
-  padding-left: 0.85rem;
-  color: var(--rule);
+/* A dot between items, never after the last one on a line. Each item carries its
+   separator in front, inside the gap, and the list clips its own left edge, so
+   whichever item starts a line has its dot cut off and none is left dangling at
+   the end of the line above. */
+.stack,
+.tags {
+  column-gap: var(--separation);
+  overflow: hidden;
 }
 
-.stack span:last-child::after { content: ""; padding: 0; }
+/* The same spacing the trailing dots used to make: gap, dot, gap. */
+.stack { --separation: calc(1.7rem + 1ch); }
+
+/* These were typed as "swift · appkit", so a space, the dot and a space. */
+.tags {
+  --separation: 3ch;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.stack span,
+.tags span {
+  position: relative;
+}
+
+.stack span::before,
+.tags span::before {
+  content: "·";
+  content: "·" / "";
+  position: absolute;
+  left: calc(-1 * var(--separation));
+  width: var(--separation);
+  color: var(--rule);
+  text-align: center;
+}
+
+.tags span::before {
+  color: inherit;
+}
 
 .footer-note {
   margin-top: 0.35rem !important;
