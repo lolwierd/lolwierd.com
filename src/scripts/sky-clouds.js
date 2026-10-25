@@ -13,12 +13,21 @@ import { smoothstep, lerp, bayerThreshold, hash2, motionMedia, effects, terrainE
 // not merely invisible, it is backwards. Cells are sorted into a sky plate and a
 // land plate as they are laid down, which is also what replaced the clip path
 // this used to build a thousand line segments for on every frame.
-let skyPlate, skyBrush, landPlate, landBrush;
+let skyPlate, skyBrush, landPlate, landBrush, landImage, landPixels, landDirty = null;
 let lastFrame = 0, lastBuild = -Infinity, elapsed = 0, signature = '';
 // Two CSS pixels, not three. The terrain dithers at one, and a cloud lying on
 // the ridge is read directly against that grain: at three the cloud was visibly
 // built of bigger bricks than the mountain it was sitting on.
 const CELL = 2;
+// Two was still too coarse on the land plate. Thinned to well under half, a
+// two-pixel lattice leaves isolated paper squares on dark rock, and a bank
+// across the slope came out as a strip of lit LEDs rather than as weather. So
+// the land plate prints at the terrain's own pitch: density is still worked out
+// once per cell, since it is smooth at that scale, and each cell is then
+// thresholded as four one-pixel dots. That is four comparisons per cell, not
+// four field evaluations, and the dots go into a pixel buffer rather than
+// through fillRect.
+const LAND_SPLIT = 2;
 
 // An ordered dither is a lattice, and a lattice at roughly half density is a
 // checkerboard. Daylight hides it -- pale cloud on a pale sky has nowhere near
@@ -62,11 +71,25 @@ export function paintClouds(ctx, state, now) {
   if (key !== signature || (!still && now-lastBuild >= 83)) {
     signature = key; lastBuild = now;
     if (skyPlate.width !== w || skyPlate.height !== h) {
-      skyPlate.width = landPlate.width = w;
-      skyPlate.height = landPlate.height = h;
+      skyPlate.width = w;
+      skyPlate.height = h;
+      landPlate.width = w * LAND_SPLIT;
+      landPlate.height = h * LAND_SPLIT;
+      landImage = landBrush.createImageData(landPlate.width, landPlate.height);
+      landPixels = new Uint32Array(landImage.data.buffer);
+      landDirty = null;
     }
     skyBrush.clearRect(0,0,w,h);
-    landBrush.clearRect(0,0,w,h);
+    // Only the last deck's footprint needs wiping, and most builds have no deck
+    // on the range at all, in which case the land plate is not touched.
+    const landStride = w * LAND_SPLIT;
+    const wasDirty = landDirty;
+    if (wasDirty) {
+      for (let sy=wasDirty.y0*LAND_SPLIT; sy<wasDirty.y1*LAND_SPLIT; sy++) {
+        landPixels.fill(0, sy*landStride + wasDirty.x0*LAND_SPLIT, sy*landStride + wasDirty.x1*LAND_SPLIT);
+      }
+    }
+    let lx0 = w, ly0 = h, lx1 = 0, ly1 = 0;
     // High midday puffs, low morning banks, long sunset ribbons, sparse night veils.
     const light = morning ? [244,237,216] : [230,173,144];
     const rgb = [0,1,2].map(i => Math.round([247,244,228][i]*high + light[i]*low + [48,60,72][i]*night));
@@ -75,7 +98,8 @@ export function paintClouds(ctx, state, now) {
     // prints its lit tier in, so a deck lying on the range belongs to the same
     // plate as the snow it is lying on.
     const landInk = [0,1,2].map(i => Math.round(lerp([238,233,223][i], [198,210,219][i], night)));
-    landBrush.fillStyle = `rgb(${landInk.join(',')})`;
+    // ImageData is RGBA in memory, so packed little-endian it reads ABGR.
+    const landDot = ((255 << 24) | (landInk[2] << 16) | (landInk[1] << 8) | landInk[0]) >>> 0;
     const portrait = state.portrait;
     for (const bank of field.clouds) {
       const centre = bank.x;
@@ -142,19 +166,42 @@ export function paintClouds(ctx, state, now) {
           const edge=smooth ? Math.min(1, fill*(1+smooth*0.45)) : fill;
           const folds = lerp(0.65 + 0.2*Math.sin(nx*13+ny*4+elapsed*0.07+bank.seed), 0.8, smooth);
           const density=edge*folds*strands*heft*(0.86-0.34*night)*weight*(onLand ? LAND_DENSITY : 1);
-          if (density > threshold(x,y)) (onLand ? landBrush : skyBrush).fillRect(x,y,1,1);
+          if (!onLand) {
+            if (density > threshold(x,y)) skyBrush.fillRect(x,y,1,1);
+            continue;
+          }
+          if (x < lx0) lx0 = x;
+          if (x >= lx1) lx1 = x + 1;
+          if (y < ly0) ly0 = y;
+          if (y >= ly1) ly1 = y + 1;
+          for (let sy=y*LAND_SPLIT, row=sy+LAND_SPLIT; sy<row; sy++) {
+            for (let sx=x*LAND_SPLIT, col=sx+LAND_SPLIT; sx<col; sx++) {
+              if (density > threshold(sx,sy)) landPixels[sy*landStride+sx] = landDot;
+            }
+          }
         }
       }
+    }
+    landDirty = lx1 > lx0 ? { x0: lx0, y0: ly0, x1: lx1, y1: ly1 } : null;
+    if (wasDirty || landDirty) {
+      // Upload what was wiped and what was drawn, and nothing else.
+      const a = wasDirty || landDirty, b = landDirty || wasDirty;
+      const ux0 = Math.min(a.x0, b.x0), uy0 = Math.min(a.y0, b.y0);
+      const ux1 = Math.max(a.x1, b.x1), uy1 = Math.max(a.y1, b.y1);
+      landBrush.putImageData(landImage, 0, 0,
+        ux0*LAND_SPLIT, uy0*LAND_SPLIT, (ux1-ux0)*LAND_SPLIT, (uy1-uy0)*LAND_SPLIT);
     }
   }
   ctx.save();
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(skyPlate,0,0,w*scale,h*scale);
-  // The deck is lit by whatever is lighting the range: full sun by day, and
-  // after dark the same moonlight curve the terrain and the valley fog use, so
-  // the three of them agree about how bright the night is.
-  ctx.globalAlpha = lerp(1, terrainExposure(state.celestial), night);
-  ctx.drawImage(landPlate,0,0,w*scale,h*scale);
+  if (landDirty) {
+    // The deck is lit by whatever is lighting the range: full sun by day, and
+    // after dark the same moonlight curve the terrain and the valley fog use, so
+    // the three of them agree about how bright the night is.
+    ctx.globalAlpha = lerp(1, terrainExposure(state.celestial), night);
+    ctx.drawImage(landPlate,0,0,w*scale,h*scale);
+  }
   ctx.restore();
 }
 

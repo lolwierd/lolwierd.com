@@ -293,3 +293,14 @@ be seen. The ground is its own token, `--knockout`, because through civil
 twilight the hero keeps dark inks over a lit sky while the page colour has
 already turned to night.
 
+## The deck prints at the terrain's pitch
+
+The land plate used to be laid down in the same two-pixel cells as the sky,
+thinned to well under half so the photograph reads through it. Thinned that far,
+an ordered dither is a lattice of isolated squares, and paper squares on dark
+rock came out as a strip of lit LEDs, by day and by night. The land plate now
+prints in one-pixel dots, the grain of the mountain under it. Density is still
+worked out once per two-pixel cell, because it is smooth at that scale, and only
+the threshold runs per dot, into a pixel buffer that is wiped and uploaded only
+where the deck was or now is. Most builds have no deck on the range at all, and
+those skip the land plate entirely.
