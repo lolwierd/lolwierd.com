@@ -20,6 +20,9 @@
   --rule: rgba(35, 35, 34, 0.16);
   --accent: #9d4429;
   --canvas-ink: #293039;
+  /* The ground the current inks were chosen against. Usually the page, but not
+     in the hero through civil twilight, where the inks stay dark over a lit sky. */
+  --knockout: var(--page);
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --mono: "Departure Mono", "SF Mono", "Cascadia Mono", ui-monospace, Menlo, monospace;
@@ -466,6 +469,7 @@ a { -webkit-tap-highlight-color: transparent; }
   --ink-strong: #181a1e;
   --ink-dim: #5a5954;
   --ink-faint: #6b6961;
+  --knockout: #eee9df;
 }
 
 /* The accent has to move with the sky too. Measured behind the masthead across
@@ -500,6 +504,31 @@ a { -webkit-tap-highlight-color: transparent; }
   font-size: clamp(0.94rem, 1.12vw, 1.05rem);
   line-height: 1.65;
   text-wrap: pretty;
+}
+
+/* Where the sun or the moon crosses the copy, hero-knockout.js marks the part it
+   touches and the type is knocked out of the disc with a hairline of ground, the
+   way the sun's own rim cuts its corona. On open sky the hairline is the sky. */
+.hero-copy [data-knockout] {
+  text-shadow:
+    1px 0 var(--knockout), -1px 0 var(--knockout),
+    0 1px var(--knockout), 0 -1px var(--knockout),
+    1px 1px var(--knockout), -1px -1px var(--knockout),
+    1px -1px var(--knockout), -1px 1px var(--knockout);
+}
+
+/* The headline is set at three times the size, and a one-pixel cut around its
+   strokes reads as a fringe rather than a gap. */
+.hero-copy h1[data-knockout] {
+  text-shadow:
+    2px 0 var(--knockout), -2px 0 var(--knockout),
+    0 2px var(--knockout), 0 -2px var(--knockout),
+    2px 1px var(--knockout), -2px -1px var(--knockout),
+    1px 2px var(--knockout), -1px -2px var(--knockout),
+    2px -1px var(--knockout), -2px 1px var(--knockout),
+    1px -2px var(--knockout), -1px 2px var(--knockout),
+    1px 1px var(--knockout), -1px -1px var(--knockout),
+    1px -1px var(--knockout), -1px 1px var(--knockout);
 }
 
 /* Keep the link transparent like the rest of the copy. hero-clearance.js

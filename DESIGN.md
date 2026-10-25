@@ -278,3 +278,18 @@ So each cloud is born with a heavy end and a slope. One side carries up to half
 again what the other does, and the long axis walks off level as it crosses,
 further for the fibrous forms than the solid ones. The shape was never the
 problem with a long cloud. The symmetry was.
+
+## Type knocked out of the discs
+
+The sky still runs behind the copy at full density, but the two solid things in
+it no longer erase it. The moon is a bone disc and the night ink is bone, so a
+moon rising through the paragraph took whole words with it, and the rust sun
+does the same to charcoal. Moving the bodies would make the sky lie, and clearing
+the sky around the copy was already tried and rejected. So where a disc touches
+part of the copy, that part gets a hairline of ground around its letters. In
+print that is a knockout, and it is the same move the sun's rim already makes to
+cut its own corona. On open sky the hairline is the colour of the sky and cannot
+be seen. The ground is its own token, `--knockout`, because through civil
+twilight the hero keeps dark inks over a lit sky while the page colour has
+already turned to night.
+
